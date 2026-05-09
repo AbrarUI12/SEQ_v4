@@ -1,0 +1,5 @@
+runs/final/**/*.safetensors filter=lfs diff=lfs merge=lfs -text
+runs/final/**/*.bin filter=lfs diff=lfs merge=lfs -text
+runs/final/**/*.pt filter=lfs diff=lfs merge=lfs -text
+runs/final/**/*.pth filter=lfs diff=lfs merge=lfs -text
+runs/final/**/*.json filter=lfs diff=lfs merge=lfs -text

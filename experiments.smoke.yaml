@@ -1,0 +1,97 @@
+version: 1
+model:
+  name: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+  device: cuda
+  dtype: float16
+seeds:
+  global: 1234
+  eval: 1234
+calibration:
+  seq_len: 128
+  bins: 256
+  bootstrap_iters: 20
+  clip: 6.0
+  eps: 1.0e-05
+  min_samples: 4096
+  max_nan_frac: 0.01
+thresholds:
+  weight_high_pct: 0.9
+  act_high_pct: 0.9
+sweeps:
+  sweep_1:
+    weight_high_pct: 0.85
+    act_high_pct: 0.85
+  sweep_2:
+    weight_high_pct: 0.9
+    act_high_pct: 0.9
+protections:
+  exclude_embeddings: true
+  lm_head_min_tier: fp16
+  protect_first_last_blocks: true
+  num_protected_blocks: 1
+  protect_attn_out_proj: true
+evaluation:
+  max_new_tokens: 32
+  temperature: 0.7
+  top_p: 0.95
+  latency_prompt: Explain quantization in one sentence.
+  warmup_runs: 1
+  measured_runs: 1
+  mmlu:
+    enabled: false
+  zero_shot:
+    enabled: false
+compare_methods:
+  rtn:
+    group_size: 64
+    quant_type: fp4
+    double_quant: false
+  zeroquant:
+    max_samples: 4
+    act_clip_scale: 1.0
+    bias_correction: true
+    int8_threshold: 6.0
+  omniquant:
+    max_samples: 4
+    alpha: 0.6
+    scale_clip: 16.0
+    group_size: 64
+    clip_search: [1.0, 0.95]
+    quant_type: fp4
+    double_quant: false
+    bias_correction: true
+  spinquant:
+    group_size: 64
+    rotation_mode: hadamard
+    hadamard_block_size: 64
+    quant_type: fp4
+    double_quant: false
+benchmarks:
+  run_ppl: true
+  run_size: true
+  ppl_mode: proxy
+  ppl_dataset: wikitext2
+  ppl_split: validation
+  ppl_seq_len: 128
+  ppl_max_examples: 8
+  ppl_stride: null
+  ppl_full_corpus: false
+  run_long_ppl: false
+  long_ppl_seq_len: 1024
+experiments:
+- name: main
+  policy: dual_entropy
+- name: random_policy
+  policy: random_policy
+- name: magnitude_baseline
+  policy: magnitude_baseline
+- name: weight_only
+  policy: weight_only
+- name: activation_only
+  policy: activation_only
+- name: sweep_1
+  policy: dual_entropy
+  thresholds: sweep_1
+- name: sweep_2
+  policy: dual_entropy
+  thresholds: sweep_2

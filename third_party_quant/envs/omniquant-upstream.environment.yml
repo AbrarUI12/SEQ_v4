@@ -1,0 +1,42 @@
+name: omniquant-upstream
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - git
+  - git-lfs
+  - pip:
+      # Install PyTorch according to your platform/CUDA if Conda resolution is not suitable.
+      # The upstream repo declares torch>=2.0.0 and transformers>=4.31.0.
+      - torch>=2.0.0
+      - torchvision
+      - transformers>=4.31.0
+      - accelerate
+      - sentencepiece
+      - tokenizers>=0.12.1
+      - datasets>=2.0.0
+      - einops
+      - jsonlines
+      - numexpr
+      - openai>=0.6.4
+      - omegaconf>=2.2
+      - peft>=0.2.0
+      - pybind11>=2.6.2
+      - pycountry
+      - pytablewriter
+      - rouge-score>=0.0.4
+      - sacrebleu==1.5.0
+      - scikit-learn>=0.24.1
+      - sqlitedict
+      - texttable
+      - toml
+      - attributedict
+      - protobuf
+      - tqdm-multiprocess
+      - zstandard
+      # Upstream README asks for the bug-fixed AutoGPTQ for real quantization.
+      - git+https://github.com/ChenMnZ/AutoGPTQ-bugfix.git
+

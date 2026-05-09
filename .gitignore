@@ -1,0 +1,80 @@
+# Python bytecode / caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions / shared libs
+*.so
+
+# Virtual environments
+.venv/
+.venv*/
+venv/
+env/
+ENV/
+.conda/
+.conda_env/
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+wheels/
+*.whl
+
+# Test / type check / lint caches
+.pytest_cache/
+.mypy_cache/
+.tox/
+.nox/
+.pyre/
+.ruff_cache/
+
+# Coverage reports
+.coverage
+coverage.xml
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs / temp
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Project outputs
+artifacts/
+runs/
+reports/
+reports.zip
+results/
+results_*/
+results_smoke/
+final_tables_*/
+final_figures_*/
+final_figures_fixlabels_*/
+
+# Sweep outputs / caches
+sweep_compare_matrix/runs/
+sweep_compare_matrix/cache/
+sweep_compare_matrix/sweep_summary.json
+sweep_compare_matrix/calibration_sets/
+sweep_compare_matrix/overall_comparison.csv
+sweep_compare_matrix/overall_comparison.md
+sweep_compare_matrix/overall_layer_metadata.csv
+sweep_compare_matrix/overall_layer_summary.csv
+sweep_compare_matrix/overall_layer_report.md
+
+third_party_quant/OmniQuant/
