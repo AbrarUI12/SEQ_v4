@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 
-from entropy_metrics import parse_block_index
+from .entropy_metrics import parse_block_index
 
 LOGGER = logging.getLogger(__name__)
 

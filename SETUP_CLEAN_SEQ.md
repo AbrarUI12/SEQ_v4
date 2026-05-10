@@ -2,11 +2,11 @@
 
 This file is for setting up a clean folder that runs the main SEQ pipeline only:
 
-- `pipeline.py`
-- `entropy_metrics.py`
-- `precision_policy.py`
-- `quantize_model.py`
-- required support files used by `pipeline.py`
+- `seq_core/pipeline.py`
+- `seq_core/entropy_metrics.py`
+- `seq_core/precision_policy.py`
+- `seq_core/quantize_model.py`
+- required support files used by `seq_core.pipeline`
 
 It does not cover the full comparison-matrix stack or research PTQ baselines.
 
@@ -15,16 +15,19 @@ It does not cover the full comparison-matrix stack or research PTQ baselines.
 Copy these implementation files:
 
 ```text
-pipeline.py
-entropy_metrics.py
-precision_policy.py
-quantize_model.py
-evaluation_suite.py
-benchmarks.py
-metrics_utils.py
-multiple_choice_eval.py
-plotting.py
-reporting.py
+seq_core/
+  __init__.py
+  pipeline.py
+  entropy_metrics.py
+  precision_policy.py
+  quantize_model.py
+  evaluation_suite.py
+  benchmarks.py
+  metrics_utils.py
+  multiple_choice_eval.py
+  plotting.py
+  reporting.py
+  ppl_eval.py
 ```
 
 Copy these config/input files:
@@ -138,13 +141,13 @@ If `torch.cuda.is_available()` prints `False`, fix CUDA/driver/PyTorch before ru
 Use the small smoke config first:
 
 ```powershell
-.\.venv-seq\Scripts\python.exe pipeline.py --experiment main --experiments_file experiments.smoke.yaml
+.\.venv-seq\Scripts\python.exe -m seq_core.pipeline --experiment main --experiments_file experiments.smoke.yaml
 ```
 
 Linux / WSL:
 
 ```bash
-python pipeline.py --experiment main --experiments_file experiments.smoke.yaml
+python -m seq_core.pipeline --experiment main --experiments_file experiments.smoke.yaml
 ```
 
 Expected output folders:
@@ -170,16 +173,48 @@ eval_quant/eval_summary.json
 ## 6. Run Main SEQ
 
 ```powershell
-.\.venv-seq\Scripts\python.exe pipeline.py --experiment main
+.\.venv-seq\Scripts\python.exe -m seq_core.pipeline --experiment main
 ```
 
 Linux / WSL:
 
 ```bash
-python pipeline.py --experiment main
+python -m seq_core.pipeline --experiment main
 ```
 
 ## 7. Optional Environment Variables
+
+## 7. Standalone PPL
+
+This runs only the perplexity calculation path, without compare-matrix methods:
+
+```powershell
+.\.venv-seq\Scripts\python.exe -m seq_core.ppl_eval `
+  --models "meta-llama/Llama-3.2-1B" `
+  --device auto `
+  --ppl_mode canonical `
+  --ppl_dataset wikitext2 `
+  --ppl_split test `
+  --ppl_full_corpus true `
+  --ppl_seq_len 2048
+```
+
+Linux / WSL:
+
+```bash
+python -m seq_core.ppl_eval \
+  --models "meta-llama/Llama-3.2-1B" \
+  --device auto \
+  --ppl_mode canonical \
+  --ppl_dataset wikitext2 \
+  --ppl_split test \
+  --ppl_full_corpus true \
+  --ppl_seq_len 2048
+```
+
+Results are written under `ppl_results/` by default.
+
+## 8. Optional Environment Variables
 
 For CUDA memory fragmentation:
 
@@ -205,9 +240,9 @@ Linux / WSL:
 export HF_TOKEN="your_token_here"
 ```
 
-## 8. Optional Packages Not Needed For Main SEQ
+## 9. Optional Packages Not Needed For Main SEQ
 
-These are useful for comparison/baseline scripts, but not required for the core `pipeline.py` SEQ run:
+These are useful for comparison/baseline scripts, but not required for the core `seq_core.pipeline` SEQ run:
 
 ```text
 gptqmodel
@@ -217,7 +252,7 @@ torchao
 triton
 ```
 
-## 9. Common Failures
+## 10. Common Failures
 
 `bitsandbytes is required for INT4/INT8 quantization`
 
@@ -230,4 +265,3 @@ Install `datasets==4.5.0`, or disable PPL/MMLU/zero-shot evaluation in `experime
 Out of memory
 
 Use `experiments.smoke.yaml`, reduce `calibration.seq_len`, reduce `evaluation.max_new_tokens`, reduce PPL examples, or use a smaller model.
-

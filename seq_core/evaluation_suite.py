@@ -11,9 +11,11 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import torch
 
-from benchmarks import compute_ppl
-from metrics_utils import dir_size_bytes, estimate_fp16_weight_bytes
-from multiple_choice_eval import run_mmlu_eval, run_zero_shot_suite
+from .benchmarks import compute_ppl
+from .eval_config import resolve_metric_plan
+from .metrics_utils import dir_size_bytes, estimate_fp16_weight_bytes
+from .multiple_choice_eval import run_mmlu_eval, run_zero_shot_suite
+from .seq_lm_eval import run_lm_eval_suite
 
 LOGGER = logging.getLogger(__name__)
 
@@ -592,11 +594,15 @@ def run_full_suite(
     _set_seed(seed)
     model.eval()
 
+    metric_plan = config.get("metric_plan")
+    if not isinstance(metric_plan, dict):
+        metric_plan = resolve_metric_plan(config)
+
     eval_prompts = config.get("eval_prompts", [])
     max_new_tokens = int(config.get("max_new_tokens", 128))
     temperature = float(config.get("temperature", 0.7))
     top_p = float(config.get("top_p", 0.95))
-    ppl_enabled = bool(config.get("ppl_enabled", True))
+    ppl_enabled = bool(config.get("ppl_enabled", True)) and bool(metric_plan.get("run_seq_ppl", True))
     ppl_dataset = config.get("ppl_dataset", "wikitext2")
     ppl_mode = str(config.get("ppl_mode", "proxy")).strip().lower()
     ppl_split = config.get("ppl_split", "test" if ppl_mode == "canonical" else "validation")
@@ -609,10 +615,17 @@ def run_full_suite(
     measured_runs = int(config.get("measured_runs", 20))
     temps = config.get("temperature_sweep_temps")
     long_lengths = config.get("long_context_lengths")
-    skip_long_context = bool(config.get("skip_long_context", False))
-    tail_risk_enabled = bool(config.get("tail_risk_enabled", True))
-    json_stress_enabled = bool(config.get("json_stress_enabled", True))
-    temperature_sweep_enabled = bool(config.get("temperature_sweep_enabled", True))
+    skip_long_context = bool(config.get("skip_long_context", False)) or not bool(metric_plan.get("run_long_context", True))
+    tail_risk_enabled = bool(config.get("tail_risk_enabled", True)) and bool(metric_plan.get("run_tail_risk", True))
+    json_stress_enabled = bool(config.get("json_stress_enabled", True)) and bool(metric_plan.get("run_json_stress", True))
+    temperature_sweep_enabled = bool(config.get("temperature_sweep_enabled", True)) and bool(
+        metric_plan.get("run_temperature_sweep", True)
+    )
+    latency_memory_enabled = bool(metric_plan.get("run_latency_memory", True)) and bool(
+        config.get("latency_memory_enabled", True)
+    )
+    size_enabled = bool(metric_plan.get("run_size", True)) and bool(config.get("size_enabled", True))
+    lm_eval_enabled = bool(metric_plan.get("run_lm_eval", False))
 
     warnings: List[str] = []
 
@@ -644,7 +657,9 @@ def run_full_suite(
             _safe_write_error(tail_path, tail_summary, exc)
     else:
         tail_summary["enabled"] = False
+        tail_summary["status"] = "skipped"
         tail_summary["reason"] = "disabled_by_config"
+        tail_summary["skip_reason"] = "disabled_by_config"
         _write_json(tail_path, tail_summary)
 
     json_summary = {"success_rate": None, "failures": {}, "num_samples": 0}
@@ -664,7 +679,9 @@ def run_full_suite(
             _safe_write_error(json_path, json_summary, exc)
     else:
         json_summary["enabled"] = False
+        json_summary["status"] = "skipped"
         json_summary["reason"] = "disabled_by_config"
+        json_summary["skip_reason"] = "disabled_by_config"
         _write_json(json_path, json_summary)
 
     temp_results = {"results": []}
@@ -684,7 +701,13 @@ def run_full_suite(
             warnings.append(f"temperature_sweep_error: {exc}")
             _safe_write_error(temp_path, {"results": []}, exc)
     else:
-        temp_results = {"results": [], "enabled": False, "reason": "disabled_by_config"}
+        temp_results = {
+            "results": [],
+            "enabled": False,
+            "status": "skipped",
+            "reason": "disabled_by_config",
+            "skip_reason": "disabled_by_config",
+        }
         _write_json(temp_path, temp_results)
 
     long_results = {"results": []}
@@ -693,7 +716,9 @@ def run_full_suite(
             "results": [],
             "warnings": [],
             "skipped": True,
+            "status": "skipped",
             "reason": "disabled_by_config",
+            "skip_reason": "disabled_by_config",
         }
         _write_json(long_path, long_results)
     else:
@@ -740,6 +765,7 @@ def run_full_suite(
         "tail_tokens_dropped": 0,
         "sample_indices": [],
         "method": "canonical_full_corpus_continuous_stream" if ppl_mode == "canonical" else "proxy_first_n_nonempty_rowwise",
+        "status": "pending",
         "error": None,
         "notes": "canonical_full_corpus" if ppl_mode == "canonical" else "fast_proxy_rowwise",
     }
@@ -786,6 +812,7 @@ def run_full_suite(
                 "tail_tokens_dropped": ppl_info.get("tail_tokens_dropped", 0),
                 "sample_indices": ppl_info.get("sample_indices", []),
                 "method": ppl_info.get("method"),
+                "status": "error" if ppl_info.get("error") else "ok",
                 "error": ppl_info.get("error"),
                 "notes": ppl_info.get("notes"),
             }
@@ -793,13 +820,16 @@ def run_full_suite(
                 warnings.append(f"perplexity_error: {ppl_info.get('error')}")
         else:
             perplexity_summary["error"] = "disabled"
+            perplexity_summary["status"] = "skipped"
+            perplexity_summary["skip_reason"] = "disabled_by_config"
     except Exception as exc:
         warnings.append(f"perplexity_error: {exc}")
         perplexity_summary["error"] = str(exc)
+        perplexity_summary["status"] = "error"
     _write_json(ppl_path, perplexity_summary)
 
     mmlu_cfg = config.get("mmlu") or {}
-    mmlu_enabled = bool(mmlu_cfg.get("enabled", True))
+    mmlu_enabled = bool(mmlu_cfg.get("enabled", True)) and bool(metric_plan.get("run_mmlu", True))
     mmlu_summary = {
         "enabled": mmlu_enabled,
         "accuracy": None,
@@ -808,6 +838,7 @@ def run_full_suite(
         "dataset_name": None,
         "split": mmlu_cfg.get("split", "test"),
         "error": None,
+        "status": "pending" if mmlu_enabled else "skipped",
     }
     if mmlu_enabled:
         try:
@@ -829,18 +860,22 @@ def run_full_suite(
                 "dataset_name": mmlu_payload.get("dataset_name"),
                 "split": mmlu_payload.get("split"),
                 "error": mmlu_payload.get("error"),
+                "status": "error" if mmlu_payload.get("error") else "ok",
             }
             if mmlu_payload.get("error"):
                 warnings.append(f"mmlu_error: {mmlu_payload.get('error')}")
         except Exception as exc:
             warnings.append(f"mmlu_error: {exc}")
             mmlu_summary["error"] = str(exc)
+            mmlu_summary["status"] = "error"
             _write_json(mmlu_path, {"error": str(exc), "accuracy": None, "num_examples": 0, "num_subjects": 0})
     else:
+        mmlu_summary["enabled"] = False
+        mmlu_summary["skip_reason"] = "disabled_by_config"
         _write_json(mmlu_path, {"enabled": False, "reason": "disabled_by_config"})
 
     zero_shot_cfg = config.get("zero_shot") or {}
-    zero_shot_enabled = bool(zero_shot_cfg.get("enabled", True))
+    zero_shot_enabled = bool(zero_shot_cfg.get("enabled", True)) and bool(metric_plan.get("run_zero_shot", True))
     default_zero_shot_tasks = [{"name": "arc_easy", "split": "validation", "max_examples": 64}]
     zero_shot_tasks = zero_shot_cfg.get("tasks") or default_zero_shot_tasks
     zero_shot_summary = {
@@ -851,6 +886,7 @@ def run_full_suite(
         "num_examples": 0,
         "tasks": [],
         "error": None,
+        "status": "pending" if zero_shot_enabled else "skipped",
     }
     if zero_shot_enabled:
         try:
@@ -880,6 +916,7 @@ def run_full_suite(
                     for task in zero_payload.get("tasks", [])
                 ],
                 "error": zero_payload.get("error"),
+                "status": "error" if zero_payload.get("error") else "ok",
             }
             if zero_payload.get("error"):
                 warnings.append(f"zero_shot_error: {zero_payload.get('error')}")
@@ -889,23 +926,32 @@ def run_full_suite(
         except Exception as exc:
             warnings.append(f"zero_shot_error: {exc}")
             zero_shot_summary["error"] = str(exc)
+            zero_shot_summary["status"] = "error"
             _write_json(zero_shot_path, {"error": str(exc), "tasks": []})
     else:
+        zero_shot_summary["enabled"] = False
+        zero_shot_summary["skip_reason"] = "disabled_by_config"
         _write_json(zero_shot_path, {"enabled": False, "reason": "disabled_by_config", "tasks": zero_shot_tasks})
 
     size_summary = {
         "quant_model_dir_bytes": None,
         "fp16_weight_est_bytes": None,
         "notes": "bitsandbytes runtime quant; disk != VRAM",
+        "status": "pending" if size_enabled else "skipped",
     }
-    try:
-        size_summary["fp16_weight_est_bytes"] = estimate_fp16_weight_bytes(model)
-        quant_dir = config.get("quant_model_dir")
-        if quant_dir:
-            size_summary["quant_model_dir_bytes"] = dir_size_bytes(str(quant_dir))
-    except Exception as exc:
-        warnings.append(f"size_error: {exc}")
-        size_summary["error"] = str(exc)
+    if size_enabled:
+        try:
+            size_summary["fp16_weight_est_bytes"] = estimate_fp16_weight_bytes(model)
+            quant_dir = config.get("quant_model_dir")
+            if quant_dir:
+                size_summary["quant_model_dir_bytes"] = dir_size_bytes(str(quant_dir))
+            size_summary["status"] = "ok"
+        except Exception as exc:
+            warnings.append(f"size_error: {exc}")
+            size_summary["error"] = str(exc)
+            size_summary["status"] = "error"
+    else:
+        size_summary["skip_reason"] = "disabled_by_config"
 
     latency_summary = {
         "prefill_sec": None,
@@ -919,51 +965,94 @@ def run_full_suite(
         "max_new_tokens": None,
         "warmup_runs": None,
         "measured_runs": None,
+        "status": "pending" if latency_memory_enabled else "skipped",
     }
-    try:
-        latency_summary = latency_memory_test(
-            model,
-            tokenizer,
-            device=device,
-            prompt=latency_prompt,
-            max_new_tokens=max_new_tokens,
-            warmup_runs=warmup_runs,
-            measured_runs=measured_runs,
-        )
-        _write_json(latency_path, latency_summary)
-        peak_bytes = latency_summary.get("peak_allocated_bytes")
-        resident_bytes = latency_summary.get("resident_allocated_bytes")
-        resident_reserved_bytes = latency_summary.get("resident_reserved_bytes")
-        extra_bytes = latency_summary.get("extra_peak_over_resident_bytes")
-        peak_gb = None
-        resident_gb = None
-        resident_reserved_gb = None
-        extra_gb = None
-        if peak_bytes is not None:
-            peak_gb = float(peak_bytes) / (1024 ** 3)
-        if resident_bytes is not None:
-            resident_gb = float(resident_bytes) / (1024 ** 3)
-        if resident_reserved_bytes is not None:
-            resident_reserved_gb = float(resident_reserved_bytes) / (1024 ** 3)
-        if extra_bytes is not None:
-            extra_gb = float(extra_bytes) / (1024 ** 3)
-        _write_json(
-            memory_path,
-            {
-                "peak_allocated_bytes": peak_bytes,
-                "peak_allocated_gb": peak_gb,
-                "resident_mem_after_load_bytes": resident_bytes,
-                "resident_mem_after_load_gb": resident_gb,
-                "resident_reserved_after_load_bytes": resident_reserved_bytes,
-                "resident_reserved_after_load_gb": resident_reserved_gb,
-                "extra_peak_over_resident_bytes": extra_bytes,
-                "extra_peak_over_resident_gb": extra_gb,
-                "device": device,
-                "cuda_available": torch.cuda.is_available(),
-            },
-        )
-    except Exception as exc:
-        warnings.append(f"latency_memory_error: {exc}")
+    if latency_memory_enabled:
+        try:
+            latency_summary = latency_memory_test(
+                model,
+                tokenizer,
+                device=device,
+                prompt=latency_prompt,
+                max_new_tokens=max_new_tokens,
+                warmup_runs=warmup_runs,
+                measured_runs=measured_runs,
+            )
+            latency_summary["status"] = "ok"
+            _write_json(latency_path, latency_summary)
+            peak_bytes = latency_summary.get("peak_allocated_bytes")
+            resident_bytes = latency_summary.get("resident_allocated_bytes")
+            resident_reserved_bytes = latency_summary.get("resident_reserved_bytes")
+            extra_bytes = latency_summary.get("extra_peak_over_resident_bytes")
+            peak_gb = None
+            resident_gb = None
+            resident_reserved_gb = None
+            extra_gb = None
+            if peak_bytes is not None:
+                peak_gb = float(peak_bytes) / (1024 ** 3)
+            if resident_bytes is not None:
+                resident_gb = float(resident_bytes) / (1024 ** 3)
+            if resident_reserved_bytes is not None:
+                resident_reserved_gb = float(resident_reserved_bytes) / (1024 ** 3)
+            if extra_bytes is not None:
+                extra_gb = float(extra_bytes) / (1024 ** 3)
+            _write_json(
+                memory_path,
+                {
+                    "peak_allocated_bytes": peak_bytes,
+                    "peak_allocated_gb": peak_gb,
+                    "resident_mem_after_load_bytes": resident_bytes,
+                    "resident_mem_after_load_gb": resident_gb,
+                    "resident_reserved_after_load_bytes": resident_reserved_bytes,
+                    "resident_reserved_after_load_gb": resident_reserved_gb,
+                    "extra_peak_over_resident_bytes": extra_bytes,
+                    "extra_peak_over_resident_gb": extra_gb,
+                    "device": device,
+                    "cuda_available": torch.cuda.is_available(),
+                    "status": "ok",
+                },
+            )
+        except Exception as exc:
+            warnings.append(f"latency_memory_error: {exc}")
+            latency_summary["status"] = "error"
+            latency_summary["error"] = str(exc)
+            _write_json(
+                latency_path,
+                {
+                    "prefill_sec": None,
+                    "decode_sec": None,
+                    "tokens_per_sec": None,
+                    "peak_allocated_bytes": None,
+                    "resident_allocated_bytes": None,
+                    "resident_reserved_bytes": None,
+                    "extra_peak_over_resident_bytes": None,
+                    "prompt_length": None,
+                    "max_new_tokens": None,
+                    "warmup_runs": warmup_runs,
+                    "measured_runs": measured_runs,
+                    "status": "error",
+                    "error": str(exc),
+                },
+            )
+            _write_json(
+                memory_path,
+                {
+                    "peak_allocated_bytes": None,
+                    "peak_allocated_gb": None,
+                    "resident_mem_after_load_bytes": None,
+                    "resident_mem_after_load_gb": None,
+                    "resident_reserved_after_load_bytes": None,
+                    "resident_reserved_after_load_gb": None,
+                    "extra_peak_over_resident_bytes": None,
+                    "extra_peak_over_resident_gb": None,
+                    "device": device,
+                    "cuda_available": torch.cuda.is_available(),
+                    "status": "error",
+                    "error": str(exc),
+                },
+            )
+    else:
+        latency_summary["skip_reason"] = "disabled_by_config"
         _write_json(
             latency_path,
             {
@@ -978,7 +1067,8 @@ def run_full_suite(
                 "max_new_tokens": None,
                 "warmup_runs": warmup_runs,
                 "measured_runs": measured_runs,
-                "error": str(exc),
+                "status": "skipped",
+                "skip_reason": "disabled_by_config",
             },
         )
         _write_json(
@@ -994,7 +1084,8 @@ def run_full_suite(
                 "extra_peak_over_resident_gb": None,
                 "device": device,
                 "cuda_available": torch.cuda.is_available(),
-                "error": str(exc),
+                "status": "skipped",
+                "skip_reason": "disabled_by_config",
             },
         )
 
@@ -1005,25 +1096,79 @@ def run_full_suite(
         except Exception as exc:
             warnings.append(f"bench_copy_error: {exc}")
 
+    lm_eval_summary = {
+        "status": "skipped",
+        "reason": "disabled_by_config",
+        "requested": False,
+        "results": {},
+        "flat": {"lm_eval__status": "skipped", "lm_eval__tasks": ""},
+    }
+    if lm_eval_enabled:
+        lm_eval_cfg = dict(config.get("lm_eval") or {})
+        lm_eval_cfg["enabled"] = True
+        if config.get("lm_eval_skip_reason"):
+            lm_eval_cfg["skip_reason"] = config.get("lm_eval_skip_reason")
+        lm_eval_summary = run_lm_eval_suite(
+            model_name_or_path=config.get("lm_eval_model_name_or_path"),
+            tokenizer_name_or_path=config.get("lm_eval_tokenizer_name_or_path"),
+            out_dir=out_dir,
+            config=lm_eval_cfg,
+            device=device,
+            dtype=config.get("lm_eval_dtype") or str(dtype).replace("torch.", ""),
+            model_args_extra=config.get("lm_eval_model_args_extra"),
+        )
+        if lm_eval_summary.get("status") == "error":
+            warnings.append(f"lm_eval_error: {lm_eval_summary.get('reason')}")
+        if (
+            lm_eval_summary.get("status") == "skipped"
+            and lm_eval_summary.get("requested")
+            and lm_eval_summary.get("fail_policy") != "skip"
+        ):
+            warnings.append(f"lm_eval_skipped: {lm_eval_summary.get('reason')}")
+
     summary = {
+        "metric_plan": metric_plan,
         "tail_risk": tail_summary,
+        "tail_risk_status": tail_summary.get("status", "ok" if tail_risk_enabled else "skipped"),
+        "tail_risk_skip_reason": tail_summary.get("skip_reason"),
         "json_stress": json_summary,
-        "temperature_sweep": {"num_temps": len(temp_results.get("results", []))},
+        "json_stress_status": json_summary.get("status", "ok" if json_stress_enabled else "skipped"),
+        "json_stress_skip_reason": json_summary.get("skip_reason"),
+        "temperature_sweep": {
+            "num_temps": len(temp_results.get("results", [])),
+            "status": temp_results.get("status", "ok" if temperature_sweep_enabled else "skipped"),
+        },
+        "temperature_sweep_status": temp_results.get("status", "ok" if temperature_sweep_enabled else "skipped"),
+        "temperature_sweep_skip_reason": temp_results.get("skip_reason"),
         "long_context": {
             "num_lengths": len(long_results.get("results", [])),
             "skipped": skip_long_context,
+            "status": long_results.get("status", "skipped" if skip_long_context else "ok"),
         },
+        "long_context_status": long_results.get("status", "skipped" if skip_long_context else "ok"),
+        "long_context_skip_reason": long_results.get("skip_reason"),
         "perplexity": perplexity_summary,
+        "perplexity_status": perplexity_summary.get("status"),
+        "perplexity_skip_reason": perplexity_summary.get("skip_reason"),
         "mmlu": mmlu_summary,
+        "mmlu_status": mmlu_summary.get("status"),
+        "mmlu_skip_reason": mmlu_summary.get("skip_reason"),
         "zero_shot": zero_shot_summary,
+        "zero_shot_status": zero_shot_summary.get("status"),
+        "zero_shot_skip_reason": zero_shot_summary.get("skip_reason"),
         "size": size_summary,
+        "size_status": size_summary.get("status"),
+        "size_skip_reason": size_summary.get("skip_reason"),
         "latency": {
             "prefill_sec": latency_summary.get("prefill_sec"),
             "decode_sec": latency_summary.get("decode_sec"),
             "tokens_per_sec": latency_summary.get("tokens_per_sec"),
             "prompt_length": latency_summary.get("prompt_length"),
             "max_new_tokens": latency_summary.get("max_new_tokens"),
+            "status": latency_summary.get("status"),
         },
+        "latency_status": latency_summary.get("status"),
+        "latency_skip_reason": latency_summary.get("skip_reason"),
         "memory": {
             "peak_allocated_bytes": latency_summary.get("peak_allocated_bytes"),
             "peak_memory_bytes": latency_summary.get("peak_allocated_bytes"),
@@ -1032,7 +1177,13 @@ def run_full_suite(
             "resident_reserved_bytes": latency_summary.get("resident_reserved_bytes"),
             "resident_reserved_after_load_bytes": latency_summary.get("resident_reserved_bytes"),
             "extra_peak_over_resident_bytes": latency_summary.get("extra_peak_over_resident_bytes"),
+            "status": latency_summary.get("status"),
         },
+        "memory_status": latency_summary.get("status"),
+        "memory_skip_reason": latency_summary.get("skip_reason"),
+        "lm_eval": lm_eval_summary,
+        "lm_eval_status": lm_eval_summary.get("status"),
+        "lm_eval_skip_reason": lm_eval_summary.get("reason") if lm_eval_summary.get("status") == "skipped" else None,
         "warnings": warnings,
     }
 

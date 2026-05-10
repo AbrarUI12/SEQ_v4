@@ -44,6 +44,7 @@ def _default_eval_summary() -> Dict[str, Any]:
         "size": {"quant_model_dir_bytes": None, "fp16_weight_est_bytes": None},
         "latency": {"latency_sec": None, "tokens_per_sec": None},
         "memory": {"peak_memory_bytes": None},
+        "lm_eval": {"status": "skipped", "requested": False, "results": {}, "flat": {}},
         "warnings": [],
     }
 
@@ -108,6 +109,45 @@ def _bytes_to_gb(value: Optional[float]) -> Optional[float]:
         return float(value) / (1024 ** 3)
     except Exception:
         return None
+
+
+def _lm_eval_requested_or_ran(summary: Dict[str, Any]) -> bool:
+    lm_eval = summary.get("lm_eval")
+    if not isinstance(lm_eval, dict):
+        return False
+    if lm_eval.get("requested"):
+        return True
+    return lm_eval.get("status") in {"ok", "error"}
+
+
+def _lm_eval_metric_rows(eval_baseline: Dict[str, Any], eval_quant: Dict[str, Any]) -> List[Dict[str, Any]]:
+    base_results = (eval_baseline.get("lm_eval") or {}).get("results") or {}
+    quant_results = (eval_quant.get("lm_eval") or {}).get("results") or {}
+    task_metric_pairs = set()
+    for results in (base_results, quant_results):
+        if not isinstance(results, dict):
+            continue
+        for task, metrics in results.items():
+            if not isinstance(metrics, dict):
+                continue
+            for metric in metrics:
+                task_metric_pairs.add((str(task), str(metric)))
+
+    rows: List[Dict[str, Any]] = []
+    for task, metric in sorted(task_metric_pairs):
+        baseline_value = base_results.get(task, {}).get(metric) if isinstance(base_results.get(task), dict) else None
+        quant_value = quant_results.get(task, {}).get(metric) if isinstance(quant_results.get(task), dict) else None
+        delta = _safe_delta(baseline_value, quant_value)
+        rows.append(
+            {
+                "task": task,
+                "metric": metric,
+                "baseline": baseline_value if baseline_value is not None else "NA",
+                "quant": quant_value if quant_value is not None else "NA",
+                "delta": delta if delta is not None else "NA",
+            }
+        )
+    return rows
 
 
 def build_report(
@@ -227,6 +267,25 @@ def build_report(
             row["delta"] = "NA"
     lines.append(_render_table(eval_rows, ["metric", "baseline", "quant", "delta"]))
     lines.append("")
+
+    if _lm_eval_requested_or_ran(eval_baseline) or _lm_eval_requested_or_ran(eval_quant):
+        lines.append("## lm-eval Harness")
+        lines.append("")
+        base_lm = eval_baseline.get("lm_eval") or {}
+        quant_lm = eval_quant.get("lm_eval") or {}
+        lines.append(f"- baseline_status: {base_lm.get('status')}")
+        if base_lm.get("reason"):
+            lines.append(f"- baseline_reason: {base_lm.get('reason')}")
+        lines.append(f"- quant_status: {quant_lm.get('status')}")
+        if quant_lm.get("reason"):
+            lines.append(f"- quant_reason: {quant_lm.get('reason')}")
+        rows = _lm_eval_metric_rows(eval_baseline, eval_quant)
+        lines.append("")
+        if rows:
+            lines.append(_render_table(rows, ["task", "metric", "baseline", "quant", "delta"]))
+        else:
+            lines.append("No lm-eval task metrics available.")
+        lines.append("")
 
     lines.append("## Standard Quantization Metrics")
     lines.append("")

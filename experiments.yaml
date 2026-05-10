@@ -31,6 +31,67 @@ protections:
   num_protected_blocks: 1
   protect_attn_out_proj: true
 evaluation:
+  enabled_metric_groups:
+    - seq_core
+    - latency_memory
+    - size
+    - quant_accounting
+  seq_metrics:
+    ppl:
+      enabled: true
+      dataset: wikitext2
+      split: test
+      seq_len: 2048
+      max_examples: null
+      stride: null
+      full_corpus: true
+    tail_risk:
+      enabled: true
+    json_stress:
+      enabled: true
+    temperature_sweep:
+      enabled: true
+    long_context:
+      enabled: true
+      needle_lengths: null
+    latency_memory:
+      enabled: true
+      warmup_runs: 5
+      measured_runs: 20
+    size:
+      enabled: true
+  lm_eval:
+    enabled: false
+    tasks:
+      - hellaswag
+      - arc_easy
+      - piqa
+    num_fewshot: 0
+    batch_size: 1
+    limit: null
+    device: cuda:0
+    apply_chat_template: false
+    log_samples: false
+    use_cache: null
+    model_backend: hf
+    extra_model_args: {}
+    output_subdir: lm_eval
+    fail_policy: warn
+    task_preset: smoke
+    quantized_reloadable: false
+  lm_eval_presets:
+    smoke:
+      tasks: [hellaswag]
+      limit: 10
+      num_fewshot: 0
+    standard:
+      tasks: [hellaswag, arc_easy, arc_challenge, piqa, winogrande]
+      limit: null
+      num_fewshot: 0
+    paper:
+      tasks: [hellaswag, arc_easy, arc_challenge, piqa, winogrande, lambada_openai]
+      limit: null
+      num_fewshot: 0
   max_new_tokens: 128
   temperature: 0.7
   top_p: 0.95
