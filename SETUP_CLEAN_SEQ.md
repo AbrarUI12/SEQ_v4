@@ -247,16 +247,12 @@ Linux / WSL:
 export HF_TOKEN="your_token_here"
 ```
 
-## 9. Optional Packages Not Needed For Main SEQ
+## 9. Optional lm-eval Package
 
-These are useful for comparison/baseline scripts, but not required for the core `seq_core.pipeline` SEQ run:
+The real-method comparison runner benchmarks with EleutherAI lm-evaluation-harness:
 
-```text
-gptqmodel
-optimum
-pandas
-torchao
-triton
+```powershell
+.\.venv-seq\Scripts\python.exe -m pip install -r requirements.lm_eval.txt
 ```
 
 ## 10. Common Failures

@@ -70,19 +70,6 @@ def resolve_compare_method_plan(config: Dict[str, Any], cli_args: Optional[Any] 
     }
 
 
-def _approx_effective_bits(method_name: str, method_cfg: Dict[str, Any]) -> Optional[float]:
-    if method_name != "omniquant":
-        return None
-    try:
-        wbits = int(method_cfg.get("wbits", 4))
-        abits = int(method_cfg.get("abits", 16))
-    except Exception:
-        return None
-    if abits == 16:
-        return float(wbits)
-    return None
-
-
 def run_omniquant_compare(
     *,
     root: Path,
@@ -104,7 +91,7 @@ def run_omniquant_compare(
     )
 
     method_name = "omniquant"
-    method_dir = run_dir / "compare_methods" / method_name
+    method_dir = run_dir if run_dir.name == method_name else run_dir / "compare_methods" / method_name
     adapter_dir = method_dir / "adapter_run"
     saved_model_dir = method_dir / "saved_model"
     eval_dir = method_dir / "eval"
@@ -272,17 +259,16 @@ def run_omniquant_compare(
         with memory_path.open("r") as handle:
             memory_info = json.load(handle)
 
-    approx_bits = _approx_effective_bits(method_name, method_cfg)
     bench_summary = build_bench_summary(
         size_info=size_info,
         ppl_info=ppl_info,
         latency_info=latency_info,
         memory_info=memory_info,
-        effective_bits_per_param=approx_bits,
+        effective_bits_per_param=None,
         notes=[
             "compare_method:omniquant",
             "disk_size_reflects_saved_upstream_artifact",
-            "effective_bits_is_weight_bits_proxy" if approx_bits is not None else "effective_bits_not_computed",
+            "effective_bits_not_computed_no_proxy_estimate",
         ],
     )
     _write_json(bench_dir / "size.json", size_info)
@@ -299,7 +285,7 @@ def run_omniquant_compare(
         "adapter_result_path": str(method_dir / "adapter_summary.json"),
         "eval_summary_path": str(eval_dir / "eval_summary.json"),
         "bench_summary_path": str(bench_dir / "bench_summary.json"),
-        "effective_bits_estimate": approx_bits,
+        "effective_bits": None,
         "perplexity": eval_summary.get("perplexity", {}).get("ppl"),
         "warnings": eval_summary.get("warnings", []),
     }

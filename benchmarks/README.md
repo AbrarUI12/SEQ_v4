@@ -28,3 +28,20 @@ the SEQ pipeline.
   --ppl_seq_len 2048
 ```
 
+## Compare Matrix
+
+Run from the repository root:
+
+```powershell
+.\.venv-seq\Scripts\python.exe run_compare_matrix.py `
+  --models "meta-llama/Llama-3.2-1B" `
+  --device auto `
+  --methods "seq,omniquant" `
+  --benchmarks "hellaswag,arc_easy,piqa" `
+  --lm_eval_batch_size 1 `
+  --degeneracy_mode old
+```
+
+`seq` is executed through `seq_core/`. `omniquant` is executed through the
+pinned upstream checkout in `third_party_quant/OmniQuant/`. Benchmark names are
+EleutherAI lm-evaluation-harness task names.

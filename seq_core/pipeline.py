@@ -662,6 +662,7 @@ def run_experiment(
     model_name = resolved["model"]["name"]
     device = resolve_device(resolved["model"].get("device", "auto"))
     dtype = resolve_dtype(resolved["model"].get("dtype", "float16"), device)
+    trust_remote_code = bool(resolved["model"].get("trust_remote_code", False))
 
     entropy_mod.MIN_SAMPLES = int(resolved["calibration"]["min_samples"])
     entropy_mod.MAX_NAN_FRAC = float(resolved["calibration"]["max_nan_frac"])
@@ -700,50 +701,76 @@ def run_experiment(
     warnings: List[str] = []
     eval_seed = int(resolved["seeds"]["eval"])
     global_seed = int(resolved["seeds"]["global"])
+    degeneracy_mode = str(resolved["calibration"].get("degeneracy_mode", "rms")).strip().lower() or "rms"
 
+    evaluation_cfg = resolved["evaluation"]
+    seq_metrics_cfg = evaluation_cfg.get("seq_metrics") or {}
+    ppl_metric_cfg = seq_metrics_cfg.get("ppl") or {}
+    long_metric_cfg = seq_metrics_cfg.get("long_context") or {}
+    latency_metric_cfg = seq_metrics_cfg.get("latency_memory") or {}
     eval_config = {
         "eval_prompts": eval_prompts,
-        "max_new_tokens": resolved["evaluation"]["max_new_tokens"],
-        "temperature": resolved["evaluation"]["temperature"],
-        "top_p": resolved["evaluation"]["top_p"],
-        "latency_prompt": resolved["evaluation"]["latency_prompt"],
-        "warmup_runs": resolved["evaluation"]["warmup_runs"],
-        "measured_runs": resolved["evaluation"]["measured_runs"],
+        "max_new_tokens": evaluation_cfg["max_new_tokens"],
+        "temperature": evaluation_cfg["temperature"],
+        "top_p": evaluation_cfg["top_p"],
+        "latency_prompt": evaluation_cfg["latency_prompt"],
+        "warmup_runs": int(latency_metric_cfg.get("warmup_runs", evaluation_cfg["warmup_runs"])),
+        "measured_runs": int(latency_metric_cfg.get("measured_runs", evaluation_cfg["measured_runs"])),
         "seed": eval_seed,
+        "long_context_lengths": long_metric_cfg.get("needle_lengths", evaluation_cfg.get("long_context_lengths")),
+        "skip_long_context": not bool(long_metric_cfg.get("enabled", True)),
+        "tail_risk_enabled": bool((seq_metrics_cfg.get("tail_risk") or {}).get("enabled", True)),
+        "json_stress_enabled": bool((seq_metrics_cfg.get("json_stress") or {}).get("enabled", True)),
+        "temperature_sweep_enabled": bool((seq_metrics_cfg.get("temperature_sweep") or {}).get("enabled", True)),
+        "latency_memory_enabled": bool(latency_metric_cfg.get("enabled", True)),
+        "mmlu": evaluation_cfg.get("mmlu") or {},
+        "zero_shot": evaluation_cfg.get("zero_shot") or {},
     }
     bench_config = resolved.get("benchmarks", {})
-    run_ppl = bool(bench_config.get("run_ppl", True))
+    run_ppl = bool(bench_config.get("run_ppl", True)) and bool(ppl_metric_cfg.get("enabled", True))
     run_size = bool(bench_config.get("run_size", True))
     eval_config.update(
         {
             "ppl_enabled": run_ppl,
-            "ppl_mode": bench_config.get("ppl_mode", "proxy"),
-            "ppl_dataset": bench_config.get("ppl_dataset", "wikitext2"),
-            "ppl_split": bench_config.get(
+            "ppl_mode": ppl_metric_cfg.get("mode", bench_config.get("ppl_mode", "proxy")),
+            "ppl_dataset": ppl_metric_cfg.get("dataset", bench_config.get("ppl_dataset", "wikitext2")),
+            "ppl_split": ppl_metric_cfg.get(
+                "split",
+                bench_config.get(
                 "ppl_split",
                 "test" if str(bench_config.get("ppl_mode", "proxy")).strip().lower() == "canonical" else "validation",
+                ),
             ),
             "ppl_seq_len": int(
-                bench_config.get(
+                ppl_metric_cfg.get(
+                    "seq_len",
+                    bench_config.get(
                     "ppl_seq_len",
                     2048 if str(bench_config.get("ppl_mode", "proxy")).strip().lower() == "canonical" else 256,
+                    ),
                 )
             ),
-            "ppl_max_examples": bench_config.get(
+            "ppl_max_examples": ppl_metric_cfg.get(
+                "max_examples",
+                bench_config.get(
                 "ppl_max_examples",
                 None if str(bench_config.get("ppl_mode", "proxy")).strip().lower() == "canonical" else 128,
+                ),
             ),
-            "ppl_stride": bench_config.get("ppl_stride"),
-            "ppl_full_corpus": bench_config.get(
+            "ppl_stride": ppl_metric_cfg.get("stride", bench_config.get("ppl_stride")),
+            "ppl_full_corpus": ppl_metric_cfg.get(
+                "full_corpus",
+                bench_config.get(
                 "ppl_full_corpus",
                 str(bench_config.get("ppl_mode", "proxy")).strip().lower() == "canonical",
+                ),
             ),
         }
     )
 
     # Phase 1: baseline evaluation
     set_seed(eval_seed)
-    model, tokenizer = load_model_and_tokenizer(model_name, device, dtype)
+    model, tokenizer = load_model_and_tokenizer(model_name, device, dtype, trust_remote_code=trust_remote_code)
     eval_baseline = run_full_suite(
         model,
         tokenizer,
@@ -788,7 +815,7 @@ def run_experiment(
 
     # Phase 2: quantization pipeline
     set_seed(global_seed)
-    model, tokenizer = load_model_and_tokenizer(model_name, device, dtype)
+    model, tokenizer = load_model_and_tokenizer(model_name, device, dtype, trust_remote_code=trust_remote_code)
 
     weight_path = paths["entropy"] / "weight_entropy.json"
     act_path = paths["entropy"] / "activation_entropy.json"
@@ -804,6 +831,7 @@ def run_experiment(
             eps=resolved["calibration"]["eps"],
             exclude_embeddings=True,
             include_linear=True,
+            degeneracy_mode=degeneracy_mode,
         )
         save_table_json(str(weight_path), weight_table)
         save_table_csv(
@@ -828,6 +856,7 @@ def run_experiment(
             clip=resolved["calibration"]["clip"],
             eps=resolved["calibration"]["eps"],
             summary_path=str(paths["entropy"] / "activation_entropy_summary.json"),
+            degeneracy_mode=degeneracy_mode,
         )
         save_table_json(str(act_path), act_table)
         save_table_csv(
