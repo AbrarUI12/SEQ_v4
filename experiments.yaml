@@ -143,23 +143,26 @@ compare_methods:
     bias_correction: true
     int8_threshold: 6.0
   omniquant:
+    enabled: false
+    wbits: 4
+    abits: 16
+    epochs: 20
     max_samples: 16
     alpha: 0.6
-    scale_clip: 32.0
     group_size: 128
-    clip_search: [1.0, 0.95, 0.9, 0.85]
-    quant_type: "fp4"
-    double_quant: false
-    bias_correction: true
-    calibration_mode: "prompt_list"
-    calibration_prompt_file: "calibration_prompts.json"
-    # Opt-in corpus calibration:
-    # calibration_mode: "corpus_chunks"
-    # calibration_corpus_file: "calibration_prompts_2.json"
-    # calibration_min_chars: 512
-    # seq_len: 2048
-    # preflight_ppl_enabled: true
-    # preflight_ppl_max_examples: 8
+    lwc: true
+    let: false
+    calib_dataset: "wikitext2"
+    upstream_eval_ppl: false
+    # Optional overrides:
+    # python_executable: "/path/to/omniquant-env/bin/python"
+    # upstream_dir: "third_party_quant/OmniQuant"
+    # cache_dir: "~/seq-cache/omniquant"
+    # resume: "/path/to/pretrained/omniquant/params"
+    # act_scales: "/path/to/act_scales.pt"
+    # act_shifts: "/path/to/act_shifts.pt"
+    # real_quant: true
+    # dry_run: true
   spinquant:
     group_size: 128
     rotation_mode: "hadamard"

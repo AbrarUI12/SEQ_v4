@@ -120,12 +120,31 @@ Remaining work:
 
 ## Phase 3: SEQ Harness Comparison
 
-Not yet wired in this clean folder because the comparison registry/harness is not present.
-
-When the comparison harness is restored, add a separate method name:
+The clean SEQ pipeline can now launch the pinned upstream adapter and evaluate the saved OmniQuant model under:
 
 ```text
-omniquant_upstream
+runs/<run_id>/compare_methods/omniquant/
 ```
 
-Do not silently reuse the old local `omniquant` label.
+Example from the repo root:
+
+```bash
+python -m seq_core.pipeline \
+  --experiment main \
+  --model_name meta-llama/Llama-3.2-1B \
+  --compare-methods omniquant
+```
+
+Prerequisites still apply:
+
+- `third_party_quant/OmniQuant/` must exist at the pinned commit
+- the OmniQuant environment/python must be available
+- if `let: true`, you must provide upstream `act_scales` and `act_shifts`
+
+You can point the SEQ pipeline at a separate OmniQuant environment with:
+
+```bash
+export OMNIQUANT_PYTHON=/path/to/omniquant-env/bin/python
+export OMNIQUANT_UPSTREAM_DIR=/path/to/OmniQuant
+export OMNIQUANT_CACHE_DIR=~/seq-cache/omniquant
+```

@@ -110,14 +110,17 @@ compare_methods:
     bias_correction: true
     int8_threshold: 6.0
   omniquant:
+    enabled: false
+    wbits: 4
+    abits: 16
+    epochs: 2
     max_samples: 4
     alpha: 0.6
-    scale_clip: 16.0
     group_size: 64
-    clip_search: [1.0, 0.95]
-    quant_type: fp4
-    double_quant: false
-    bias_correction: true
+    lwc: true
+    let: false
+    calib_dataset: wikitext2
+    upstream_eval_ppl: false
   spinquant:
     group_size: 64
     rotation_mode: hadamard

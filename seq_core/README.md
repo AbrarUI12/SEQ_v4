@@ -29,6 +29,7 @@ Smoke run:
 - `plotting.py`: run figures
 - `reporting.py`: markdown/JSON report assembly
 - `ppl_eval.py`: standalone PPL runner using the same canonical/proxy implementation
+- `compare_methods.py`: external compare-method orchestration such as pinned upstream OmniQuant
 
 Third-party methods belong outside this folder, under `third_party_quant/`.
 

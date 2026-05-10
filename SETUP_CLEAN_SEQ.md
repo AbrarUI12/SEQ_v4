@@ -1,6 +1,6 @@
 # Clean SEQ Setup
 
-This file is for setting up a clean folder that runs the main SEQ pipeline only:
+This file is for setting up a clean folder that runs the main SEQ pipeline and, optionally, the pinned upstream OmniQuant compare-method path:
 
 - `seq_core/pipeline.py`
 - `seq_core/entropy_metrics.py`
@@ -8,7 +8,7 @@ This file is for setting up a clean folder that runs the main SEQ pipeline only:
 - `seq_core/quantize_model.py`
 - required support files used by `seq_core.pipeline`
 
-It does not cover the full comparison-matrix stack or research PTQ baselines.
+It does not cover the full comparison-matrix stack or research PTQ baselines beyond the pinned OmniQuant adapter path.
 
 ## 1. Files To Copy
 
@@ -180,6 +180,31 @@ Linux / WSL:
 
 ```bash
 python -m seq_core.pipeline --experiment main
+```
+
+## 6b. Run Main SEQ + OmniQuant
+
+OmniQuant needs its own upstream checkout and Python environment. Once those are available, enable the method in `experiments.yaml` or request it from the CLI:
+
+```bash
+python -m seq_core.pipeline \
+  --experiment main \
+  --model_name meta-llama/Llama-3.2-1B \
+  --compare-methods omniquant
+```
+
+OmniQuant artifacts will be written under:
+
+```text
+runs/<run_id>/compare_methods/omniquant/
+```
+
+Optional environment variables for the separate OmniQuant env:
+
+```bash
+export OMNIQUANT_PYTHON=/path/to/omniquant-env/bin/python
+export OMNIQUANT_UPSTREAM_DIR=/path/to/OmniQuant
+export OMNIQUANT_CACHE_DIR=~/seq-cache/omniquant
 ```
 
 ## 7. Optional Environment Variables

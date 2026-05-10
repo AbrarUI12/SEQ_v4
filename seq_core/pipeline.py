@@ -52,6 +52,7 @@ from .quantize_model import (
 )
 from .evaluation_suite import run_full_suite
 from .plotting import plot_run_baseline_vs_quant
+from .compare_methods import resolve_compare_method_plan, run_omniquant_compare
 from .reporting import (
     build_ablation_rows,
     build_allreport,
@@ -88,6 +89,8 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="How to handle requested lm-eval failures",
     )
+    parser.add_argument("--compare-methods", type=str, default="", help="Comma-separated compare methods to run")
+    parser.add_argument("--skip-compare-methods", type=str, default="", help="Comma-separated compare methods to skip")
     parser.add_argument("--seq-only", action="store_true", help="Run SEQ built-in metrics only")
     parser.add_argument("--lm-eval-only", action="store_true", help="Run lm-eval metrics only where reloadable")
     return parser.parse_args()
@@ -689,6 +692,7 @@ def run_experiment(
         lm_eval_config["device"] = device
     resolved["metric_plan"] = metric_plan
     resolved["lm_eval"] = lm_eval_config
+    resolved["compare_method_plan"] = resolve_compare_method_plan(config, cli_args)
 
     entropy_mod.MIN_SAMPLES = int(resolved["calibration"]["min_samples"])
     entropy_mod.MAX_NAN_FRAC = float(resolved["calibration"]["max_nan_frac"])
@@ -727,6 +731,12 @@ def run_experiment(
     warnings: List[str] = []
     eval_seed = int(resolved["seeds"]["eval"])
     global_seed = int(resolved["seeds"]["global"])
+    compare_method_rows: List[Dict[str, Any]] = []
+    compare_plan = resolved.get("compare_method_plan") or {}
+    compare_cfg = config.get("compare_methods") or {}
+    unsupported_compare = compare_plan.get("unsupported", [])
+    if unsupported_compare:
+        warnings.append(f"Unsupported compare methods requested: {', '.join(unsupported_compare)}")
 
     evaluation_cfg = resolved["evaluation"]
     seq_metrics_cfg = evaluation_cfg.get("seq_metrics") or {}
@@ -1075,6 +1085,62 @@ def run_experiment(
 
     unload_model(model, tokenizer)
 
+    compare_method_results: List[Dict[str, Any]] = []
+    for method_name in compare_plan.get("supported", []):
+        method_cfg = compare_cfg.get(method_name) or {}
+        if method_name == "omniquant":
+            try:
+                compare_result = run_omniquant_compare(
+                    root=root,
+                    run_dir=run_dir,
+                    model_name=model_name,
+                    device=device,
+                    dtype=dtype,
+                    eval_config=eval_config,
+                    method_cfg=method_cfg,
+                    global_seed=global_seed,
+                    load_model_and_tokenizer=load_model_and_tokenizer,
+                    unload_model=unload_model,
+                )
+            except Exception as exc:
+                compare_result = {
+                    "method": method_name,
+                    "status": "error",
+                    "error": str(exc),
+                }
+                warnings.append(f"compare_method_{method_name}_error: {exc}")
+            compare_method_results.append(compare_result)
+
+    for result in compare_method_results:
+        bench_summary = None
+        bench_path = result.get("bench_summary_path")
+        if bench_path:
+            bench_summary = load_json_or_none(Path(str(bench_path)))
+        ppl_value = None
+        disk_size = None
+        tps_value = None
+        notes: List[str] = []
+        if isinstance(bench_summary, dict):
+            ppl_value = bench_summary.get("ppl", {}).get("ppl")
+            disk_size = bench_summary.get("disk_size_GB")
+            tps_value = bench_summary.get("latency", {}).get("decode_tokens_per_sec_mean")
+            notes = bench_summary.get("notes", []) or []
+        if result.get("error"):
+            notes = notes + [f"error: {result.get('error')}"]
+        compare_method_rows.append(
+            {
+                "method": result.get("method"),
+                "status": result.get("status"),
+                "ppl": ppl_value if ppl_value is not None else "NA",
+                "disk_size_GB": disk_size if disk_size is not None else "NA",
+                "tokens_per_sec": tps_value if tps_value is not None else "NA",
+                "notes": "; ".join(str(note) for note in notes) if notes else "",
+            }
+        )
+
+    if compare_method_results:
+        write_json(run_dir / "compare_methods_summary.json", {"results": compare_method_results})
+
     eval_baseline_summary, eval_baseline_warn = read_eval_summary(
         str(paths["eval_baseline"] / "eval_summary.json")
     )
@@ -1120,6 +1186,7 @@ def run_experiment(
         ablation_rows=ablation_rows,
         warnings=warnings,
         research_summary_lines=research_summary,
+        compare_method_rows=compare_method_rows,
     )
 
     report_path = paths["report"] / "report.md"

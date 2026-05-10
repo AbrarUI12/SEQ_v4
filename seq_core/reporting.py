@@ -165,6 +165,7 @@ def build_report(
     ablation_rows: List[Dict[str, Any]],
     warnings: List[str],
     research_summary_lines: List[str],
+    compare_method_rows: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
     lines = []
     lines.append("# Entropy-Guided Mixed-Precision Report")
@@ -338,6 +339,12 @@ def build_report(
     if bench_quant.get("size", {}).get("method") == "actual_dir_size":
         lines.append("- Note: quantized size reflects serialization overhead (bnb artifacts may not shrink).")
     lines.append("")
+
+    if compare_method_rows:
+        lines.append("## Compare Methods")
+        lines.append("")
+        lines.append(_render_table(compare_method_rows, ["method", "status", "ppl", "disk_size_GB", "tokens_per_sec", "notes"]))
+        lines.append("")
 
     lines.append("## Ablation Comparisons (Latest Runs)")
     lines.append("")
