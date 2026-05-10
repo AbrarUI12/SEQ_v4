@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import torch
 
-from .benchmarks import compute_ppl
+from .core import compute_ppl
 from .eval_config import resolve_metric_plan
 from .metrics_utils import dir_size_bytes, estimate_fp16_weight_bytes
 from .multiple_choice_eval import run_mmlu_eval, run_zero_shot_suite

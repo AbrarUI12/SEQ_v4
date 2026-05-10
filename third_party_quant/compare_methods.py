@@ -10,9 +10,9 @@ from typing import Any, Callable, Dict, List, Optional, Sequence
 
 import torch
 
-from .benchmarks import build_bench_summary, summarize_model_disk_footprint
-from .eval_config import split_csv
-from .evaluation_suite import run_full_suite
+from benchmarks.core import build_bench_summary, summarize_model_disk_footprint
+from benchmarks.eval_config import split_csv
+from benchmarks.evaluation_suite import run_full_suite
 
 LOGGER = logging.getLogger(__name__)
 

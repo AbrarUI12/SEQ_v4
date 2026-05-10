@@ -14,8 +14,8 @@ from typing import Any, Dict, List, Optional
 
 import torch
 
-from .benchmarks import compute_ppl
-from .pipeline import (
+from .core import compute_ppl
+from seq_core.pipeline import (
     load_model_and_tokenizer,
     now_timestamp,
     resolve_device,
@@ -185,4 +185,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

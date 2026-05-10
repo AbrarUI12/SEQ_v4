@@ -12,7 +12,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from .entropy_metrics import parse_block_index
+from seq_core.entropy_metrics import parse_block_index
 
 LOGGER = logging.getLogger(__name__)
 

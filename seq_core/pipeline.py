@@ -20,14 +20,17 @@ import torch
 import yaml
 from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForImageTextToText, AutoTokenizer, PretrainedConfig
 
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    __package__ = "seq_core"
+
 from . import entropy_metrics as entropy_mod
-from .benchmarks import (
+from benchmarks.core import (
     build_bench_summary,
     count_model_parameters,
     estimate_fp16_size,
     summarize_model_disk_footprint,
 )
-from .eval_config import resolve_lm_eval_config, resolve_metric_plan
 from .entropy_metrics import (
     compute_percentile_thresholds,
     compute_weight_entropy,
@@ -50,10 +53,9 @@ from .quantize_model import (
     save_quantized,
     verify_replacements,
 )
-from .evaluation_suite import run_full_suite
-from .plotting import plot_run_baseline_vs_quant
-from .compare_methods import resolve_compare_method_plan, run_omniquant_compare
-from .reporting import (
+from benchmarks.evaluation_suite import run_full_suite
+from benchmarks.plotting import plot_run_baseline_vs_quant
+from benchmarks.reporting import (
     build_ablation_rows,
     build_allreport,
     build_report,
@@ -72,27 +74,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--all", action="store_true", help="Run all experiments")
     parser.add_argument("--model_name", type=str, default="", help="Override model name")
     parser.add_argument("--experiments_file", type=str, default="experiments.yaml")
-    parser.add_argument("--metrics", type=str, default="", help="Comma-separated metric groups to run")
-    parser.add_argument("--skip-metrics", type=str, default="", help="Comma-separated metric groups to skip")
-    parser.add_argument("--lm-eval", action="store_true", help="Enable EleutherAI lm-evaluation-harness")
-    parser.add_argument("--no-lm-eval", action="store_true", help="Disable EleutherAI lm-evaluation-harness")
-    parser.add_argument("--lm-eval-tasks", type=str, default="", help="Comma-separated lm-eval task names")
-    parser.add_argument("--lm-eval-preset", type=str, default="", help="lm-eval task preset: smoke, standard, or paper")
-    parser.add_argument("--lm-eval-limit", type=int, default=None, help="Optional lm-eval per-task example limit")
-    parser.add_argument("--lm-eval-num-fewshot", type=int, default=None, help="lm-eval few-shot count")
-    parser.add_argument("--lm-eval-batch-size", type=str, default=None, help="lm-eval batch size")
-    parser.add_argument("--lm-eval-log-samples", action="store_true", help="Ask lm-eval to log samples")
-    parser.add_argument(
-        "--lm-eval-fail-policy",
-        type=str,
-        choices=["warn", "error", "skip"],
-        default="",
-        help="How to handle requested lm-eval failures",
-    )
-    parser.add_argument("--compare-methods", type=str, default="", help="Comma-separated compare methods to run")
-    parser.add_argument("--skip-compare-methods", type=str, default="", help="Comma-separated compare methods to skip")
-    parser.add_argument("--seq-only", action="store_true", help="Run SEQ built-in metrics only")
-    parser.add_argument("--lm-eval-only", action="store_true", help="Run lm-eval metrics only where reloadable")
     return parser.parse_args()
 
 
@@ -670,7 +651,6 @@ def run_experiment(
     report_root: Path,
     runs_root: Path,
     model_override: Optional[str] = None,
-    cli_args: Optional[argparse.Namespace] = None,
 ) -> None:
     resolved = resolve_experiment_config(config, exp)
     experiment_name = exp["name"]
@@ -682,17 +662,6 @@ def run_experiment(
     model_name = resolved["model"]["name"]
     device = resolve_device(resolved["model"].get("device", "auto"))
     dtype = resolve_dtype(resolved["model"].get("dtype", "float16"), device)
-    metric_plan = resolve_metric_plan(resolved, cli_args)
-    lm_eval_config = resolve_lm_eval_config(resolved, cli_args)
-    if metric_plan.get("run_lm_eval"):
-        lm_eval_config["enabled"] = True
-    else:
-        lm_eval_config["enabled"] = False
-    if not lm_eval_config.get("device"):
-        lm_eval_config["device"] = device
-    resolved["metric_plan"] = metric_plan
-    resolved["lm_eval"] = lm_eval_config
-    resolved["compare_method_plan"] = resolve_compare_method_plan(config, cli_args)
 
     entropy_mod.MIN_SAMPLES = int(resolved["calibration"]["min_samples"])
     entropy_mod.MAX_NAN_FRAC = float(resolved["calibration"]["max_nan_frac"])
@@ -731,85 +700,43 @@ def run_experiment(
     warnings: List[str] = []
     eval_seed = int(resolved["seeds"]["eval"])
     global_seed = int(resolved["seeds"]["global"])
-    compare_method_rows: List[Dict[str, Any]] = []
-    compare_plan = resolved.get("compare_method_plan") or {}
-    compare_cfg = config.get("compare_methods") or {}
-    unsupported_compare = compare_plan.get("unsupported", [])
-    if unsupported_compare:
-        warnings.append(f"Unsupported compare methods requested: {', '.join(unsupported_compare)}")
-
-    evaluation_cfg = resolved["evaluation"]
-    seq_metrics_cfg = evaluation_cfg.get("seq_metrics") or {}
-    ppl_metric_cfg = seq_metrics_cfg.get("ppl") or {}
-    long_metric_cfg = seq_metrics_cfg.get("long_context") or {}
-    latency_metric_cfg = seq_metrics_cfg.get("latency_memory") or {}
 
     eval_config = {
         "eval_prompts": eval_prompts,
-        "max_new_tokens": evaluation_cfg["max_new_tokens"],
-        "temperature": evaluation_cfg["temperature"],
-        "top_p": evaluation_cfg["top_p"],
-        "latency_prompt": evaluation_cfg["latency_prompt"],
-        "warmup_runs": int(latency_metric_cfg.get("warmup_runs", evaluation_cfg["warmup_runs"])),
-        "measured_runs": int(latency_metric_cfg.get("measured_runs", evaluation_cfg["measured_runs"])),
+        "max_new_tokens": resolved["evaluation"]["max_new_tokens"],
+        "temperature": resolved["evaluation"]["temperature"],
+        "top_p": resolved["evaluation"]["top_p"],
+        "latency_prompt": resolved["evaluation"]["latency_prompt"],
+        "warmup_runs": resolved["evaluation"]["warmup_runs"],
+        "measured_runs": resolved["evaluation"]["measured_runs"],
         "seed": eval_seed,
-        "metric_plan": metric_plan,
-        "lm_eval": lm_eval_config,
-        "lm_eval_dtype": str(dtype).replace("torch.", ""),
-        "long_context_lengths": long_metric_cfg.get("needle_lengths", evaluation_cfg.get("long_context_lengths")),
-        "tail_risk_enabled": bool((seq_metrics_cfg.get("tail_risk") or {}).get("enabled", True)),
-        "json_stress_enabled": bool((seq_metrics_cfg.get("json_stress") or {}).get("enabled", True)),
-        "temperature_sweep_enabled": bool((seq_metrics_cfg.get("temperature_sweep") or {}).get("enabled", True)),
-        "latency_memory_enabled": bool(latency_metric_cfg.get("enabled", True)),
-        "size_enabled": bool((seq_metrics_cfg.get("size") or {}).get("enabled", True)),
-        "skip_long_context": not bool(long_metric_cfg.get("enabled", True)),
-        "mmlu": evaluation_cfg.get("mmlu") or {},
-        "zero_shot": evaluation_cfg.get("zero_shot") or {},
     }
     bench_config = resolved.get("benchmarks", {})
-    run_ppl = bool(bench_config.get("run_ppl", True)) and bool(ppl_metric_cfg.get("enabled", True)) and bool(
-        metric_plan.get("run_seq_ppl", True)
-    )
-    run_size = (
-        bool(bench_config.get("run_size", True))
-        and bool(metric_plan.get("run_size", True))
-        and bool((seq_metrics_cfg.get("size") or {}).get("enabled", True))
-    )
+    run_ppl = bool(bench_config.get("run_ppl", True))
+    run_size = bool(bench_config.get("run_size", True))
     eval_config.update(
         {
             "ppl_enabled": run_ppl,
-            "ppl_mode": ppl_metric_cfg.get("mode", bench_config.get("ppl_mode", "proxy")),
-            "ppl_dataset": ppl_metric_cfg.get("dataset", bench_config.get("ppl_dataset", "wikitext2")),
-            "ppl_split": ppl_metric_cfg.get(
-                "split",
-                bench_config.get(
-                    "ppl_split",
-                    "test" if str(bench_config.get("ppl_mode", "proxy")).strip().lower() == "canonical" else "validation",
-                ),
+            "ppl_mode": bench_config.get("ppl_mode", "proxy"),
+            "ppl_dataset": bench_config.get("ppl_dataset", "wikitext2"),
+            "ppl_split": bench_config.get(
+                "ppl_split",
+                "test" if str(bench_config.get("ppl_mode", "proxy")).strip().lower() == "canonical" else "validation",
             ),
             "ppl_seq_len": int(
-                ppl_metric_cfg.get(
-                    "seq_len",
-                    bench_config.get(
-                        "ppl_seq_len",
-                        2048 if str(bench_config.get("ppl_mode", "proxy")).strip().lower() == "canonical" else 256,
-                    ),
+                bench_config.get(
+                    "ppl_seq_len",
+                    2048 if str(bench_config.get("ppl_mode", "proxy")).strip().lower() == "canonical" else 256,
                 )
             ),
-            "ppl_max_examples": ppl_metric_cfg.get(
-                "max_examples",
-                bench_config.get(
-                    "ppl_max_examples",
-                    None if str(bench_config.get("ppl_mode", "proxy")).strip().lower() == "canonical" else 128,
-                ),
+            "ppl_max_examples": bench_config.get(
+                "ppl_max_examples",
+                None if str(bench_config.get("ppl_mode", "proxy")).strip().lower() == "canonical" else 128,
             ),
-            "ppl_stride": ppl_metric_cfg.get("stride", bench_config.get("ppl_stride")),
-            "ppl_full_corpus": ppl_metric_cfg.get(
-                "full_corpus",
-                bench_config.get(
-                    "ppl_full_corpus",
-                    str(bench_config.get("ppl_mode", "proxy")).strip().lower() == "canonical",
-                ),
+            "ppl_stride": bench_config.get("ppl_stride"),
+            "ppl_full_corpus": bench_config.get(
+                "ppl_full_corpus",
+                str(bench_config.get("ppl_mode", "proxy")).strip().lower() == "canonical",
             ),
         }
     )
@@ -825,8 +752,6 @@ def run_experiment(
             **eval_config,
             "bench_dir": str(paths["bench_baseline"]),
             "quant_model_dir": None,
-            "lm_eval_model_name_or_path": model_name,
-            "lm_eval_tokenizer_name_or_path": model_name,
         },
         device=device,
         dtype=dtype,
@@ -1038,9 +963,6 @@ def run_experiment(
         reload_text if reload_text else reload_error or "reload_failed",
     )
 
-    quant_lm_eval_path = str(paths["model_quant"]) if bool(lm_eval_config.get("quantized_reloadable", False)) else None
-    quant_lm_eval_skip_reason = None if quant_lm_eval_path else "in_memory_quantized_model_not_reloadable"
-
     set_seed(eval_seed)
     eval_quant = run_full_suite(
         model,
@@ -1050,9 +972,6 @@ def run_experiment(
             **eval_config,
             "bench_dir": str(paths["bench_quant"]),
             "quant_model_dir": str(paths["model_quant"]),
-            "lm_eval_model_name_or_path": quant_lm_eval_path,
-            "lm_eval_tokenizer_name_or_path": quant_lm_eval_path,
-            "lm_eval_skip_reason": quant_lm_eval_skip_reason,
         },
         device=device,
         dtype=dtype,
@@ -1084,62 +1003,6 @@ def run_experiment(
     write_json(paths["bench_quant"] / "bench_summary.json", bench_summary_quant)
 
     unload_model(model, tokenizer)
-
-    compare_method_results: List[Dict[str, Any]] = []
-    for method_name in compare_plan.get("supported", []):
-        method_cfg = compare_cfg.get(method_name) or {}
-        if method_name == "omniquant":
-            try:
-                compare_result = run_omniquant_compare(
-                    root=root,
-                    run_dir=run_dir,
-                    model_name=model_name,
-                    device=device,
-                    dtype=dtype,
-                    eval_config=eval_config,
-                    method_cfg=method_cfg,
-                    global_seed=global_seed,
-                    load_model_and_tokenizer=load_model_and_tokenizer,
-                    unload_model=unload_model,
-                )
-            except Exception as exc:
-                compare_result = {
-                    "method": method_name,
-                    "status": "error",
-                    "error": str(exc),
-                }
-                warnings.append(f"compare_method_{method_name}_error: {exc}")
-            compare_method_results.append(compare_result)
-
-    for result in compare_method_results:
-        bench_summary = None
-        bench_path = result.get("bench_summary_path")
-        if bench_path:
-            bench_summary = load_json_or_none(Path(str(bench_path)))
-        ppl_value = None
-        disk_size = None
-        tps_value = None
-        notes: List[str] = []
-        if isinstance(bench_summary, dict):
-            ppl_value = bench_summary.get("ppl", {}).get("ppl")
-            disk_size = bench_summary.get("disk_size_GB")
-            tps_value = bench_summary.get("latency", {}).get("decode_tokens_per_sec_mean")
-            notes = bench_summary.get("notes", []) or []
-        if result.get("error"):
-            notes = notes + [f"error: {result.get('error')}"]
-        compare_method_rows.append(
-            {
-                "method": result.get("method"),
-                "status": result.get("status"),
-                "ppl": ppl_value if ppl_value is not None else "NA",
-                "disk_size_GB": disk_size if disk_size is not None else "NA",
-                "tokens_per_sec": tps_value if tps_value is not None else "NA",
-                "notes": "; ".join(str(note) for note in notes) if notes else "",
-            }
-        )
-
-    if compare_method_results:
-        write_json(run_dir / "compare_methods_summary.json", {"results": compare_method_results})
 
     eval_baseline_summary, eval_baseline_warn = read_eval_summary(
         str(paths["eval_baseline"] / "eval_summary.json")
@@ -1186,7 +1049,6 @@ def run_experiment(
         ablation_rows=ablation_rows,
         warnings=warnings,
         research_summary_lines=research_summary,
-        compare_method_rows=compare_method_rows,
     )
 
     report_path = paths["report"] / "report.md"
@@ -1298,7 +1160,6 @@ def main() -> int:
             report_root,
             runs_root,
             model_override=model_override,
-            cli_args=args,
         )
 
     return 0

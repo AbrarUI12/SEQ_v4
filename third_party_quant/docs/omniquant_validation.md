@@ -118,21 +118,19 @@ Remaining work:
 - compare logs, perplexity, saved artifacts, and provenance
 - record result here
 
-## Phase 3: SEQ Harness Comparison
+## Phase 3: Legacy Harness Comparison
 
-The clean SEQ pipeline can now launch the pinned upstream adapter and evaluate the saved OmniQuant model under:
+The clean SEQ pipeline is now SEQ-only and does not expose compare-method CLI
+flags. The legacy compare helper lives outside `seq_core` at:
+
+```text
+third_party_quant/compare_methods.py
+```
+
+Older harness runs wrote pinned upstream OmniQuant artifacts under:
 
 ```text
 runs/<run_id>/compare_methods/omniquant/
-```
-
-Example from the repo root:
-
-```bash
-python -m seq_core.pipeline \
-  --experiment main \
-  --model_name meta-llama/Llama-3.2-1B \
-  --compare-methods omniquant
 ```
 
 Prerequisites still apply:
@@ -141,7 +139,7 @@ Prerequisites still apply:
 - the OmniQuant environment/python must be available
 - if `let: true`, you must provide upstream `act_scales` and `act_shifts`
 
-You can point the SEQ pipeline at a separate OmniQuant environment with:
+You can point the legacy helper at a separate OmniQuant environment with:
 
 ```bash
 export OMNIQUANT_PYTHON=/path/to/omniquant-env/bin/python
