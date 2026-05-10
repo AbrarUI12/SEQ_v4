@@ -13,7 +13,8 @@ dependencies:
       # The upstream repo declares torch>=2.0.0 and transformers>=4.31.0.
       - torch>=2.0.0
       - torchvision
-      - transformers>=4.31.0
+      # AutoGPTQ 0.5.x imports Transformers 4.x APIs removed in Transformers 5.x.
+      - transformers>=4.31.0,<5
       - accelerate
       - sentencepiece
       - tokenizers>=0.12.1
@@ -39,4 +40,3 @@ dependencies:
       - zstandard
       # Upstream README asks for the bug-fixed AutoGPTQ for real quantization.
       - git+https://github.com/ChenMnZ/AutoGPTQ-bugfix.git
-
