@@ -11,6 +11,7 @@ import argparse
 import json
 import os
 import platform
+import shutil
 import subprocess
 import sys
 from dataclasses import asdict, dataclass, field
@@ -201,6 +202,79 @@ print(json.dumps(payload))
     return result
 
 
+def _probe_real_quant_requirements(python_executable: str) -> Dict[str, Any]:
+    code = """
+import json
+import os
+import shutil
+
+payload = {
+    "cuda_home": os.environ.get("CUDA_HOME"),
+    "nvcc": shutil.which("nvcc"),
+}
+try:
+    import auto_gptq  # noqa: F401
+    payload["auto_gptq_importable"] = True
+except Exception as exc:
+    payload["auto_gptq_importable"] = False
+    payload["auto_gptq_error"] = str(exc)
+try:
+    import gekko  # noqa: F401
+    payload["gekko_importable"] = True
+except Exception as exc:
+    payload["gekko_importable"] = False
+    payload["gekko_error"] = str(exc)
+try:
+    import torch
+    payload["torch_importable"] = True
+    payload["cuda_available"] = torch.cuda.is_available()
+    payload["torch_cuda"] = torch.version.cuda
+except Exception as exc:
+    payload["torch_importable"] = False
+    payload["torch_error"] = str(exc)
+print(json.dumps(payload))
+"""
+    result = _run_text([python_executable, "-c", code])
+    try:
+        return json.loads(result.get("stdout") or "{}")
+    except Exception:
+        return {"probe_error": result}
+
+
+def _require_real_quant_prereqs(request: OmniQuantRequest) -> None:
+    if not request.real_quant:
+        return
+
+    probe = _probe_real_quant_requirements(request.python_executable)
+    auto_gptq_ready = bool(probe.get("auto_gptq_importable"))
+    if auto_gptq_ready:
+        return
+
+    lines = [
+        "OmniQuant real quantization was requested, but auto_gptq is not importable "
+        f"in the configured environment ({request.python_executable}).",
+        "",
+        "real_quant prerequisites:",
+        "- Create/update the omniquant-upstream environment first.",
+        "- Install the bug-fixed AutoGPTQ fork separately after env creation.",
+        "- On WSL/Linux, install a real CUDA toolkit so `nvcc` exists and `CUDA_HOME` points to it.",
+        "",
+        "Recommended command from the repo root in WSL/Linux:",
+        "  bash third_party_quant/scripts/install_autogptq_real_quant.sh",
+        "",
+        f"Probe details: {json.dumps(probe, sort_keys=True)}",
+    ]
+    if platform.system() == "Windows" and shutil.which("cl") is None:
+        lines.extend(
+            [
+                "",
+                "Windows note: the AutoGPTQ build needs Microsoft C++ Build Tools "
+                "(MSVC v14+).",
+            ]
+        )
+    raise RuntimeError("\n".join(lines))
+
+
 def _git_commit(upstream_dir: Path) -> Optional[str]:
     result = _run_text(["git", "-C", str(upstream_dir), "rev-parse", "HEAD"])
     if result.get("returncode") == 0 and result.get("stdout"):
@@ -263,6 +337,9 @@ def run_omniquant(request: OmniQuantRequest, dry_run: bool = False) -> OmniQuant
     quant_dir = request.output_dir / "quant"
     logs_dir.mkdir(parents=True, exist_ok=True)
     quant_dir.mkdir(parents=True, exist_ok=True)
+
+    if not dry_run:
+        _require_real_quant_prereqs(request)
 
     command = build_command(request)
     provenance = build_provenance(request, command)

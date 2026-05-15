@@ -39,8 +39,16 @@ Recommended setup:
 ```bash
 conda env create -f third_party_quant/envs/omniquant-upstream.environment.yml
 conda activate omniquant-upstream
+bash third_party_quant/scripts/install_autogptq_real_quant.sh   # required for --real_quant on WSL/Linux
 cd third_party_quant/OmniQuant
 pip install -e .
+```
+
+On Windows, the equivalent AutoGPTQ step is:
+
+```powershell
+python -m pip install gekko
+python -m pip install --no-build-isolation --no-deps git+https://github.com/ChenMnZ/AutoGPTQ-bugfix.git
 ```
 
 For WSL/Linux, keep caches outside `/mnt/d`:
@@ -82,6 +90,7 @@ Required checks:
 - upstream OmniQuant imports in `omniquant-upstream`
 - `python third_party_quant/OmniQuant/main.py --help` works in that env
 - bug-fixed AutoGPTQ is installed if using `--real_quant`
+- WSL/Linux real-quant setups have a real CUDA toolkit (`nvcc`, `CUDA_HOME`)
 - adapter dry run succeeds
 
 ## Phase 2: Single-Model Upstream Parity

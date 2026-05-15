@@ -1,0 +1,40 @@
+base:
+  seed: &seed 42
+model:
+  type: Opt
+  path: facebook/opt-125m
+  tokenizer_mode: slow
+  torch_dtype: auto
+calib:
+  name: wikitext2
+  download: true
+  n_samples: 4
+  bs: 1
+  seq_len: 128
+  preproc: txt_general_preproc
+  seed: *seed
+eval:
+  eval_pos:
+    - fake_quant
+  name: wikitext2
+  download: true
+  bs: 1
+  seq_len: 128
+  inference_per_block: true
+quant:
+  method: Awq
+  weight:
+    bit: 4
+    symmetric: true
+    granularity: per_group
+    group_size: 128
+  special:
+    trans: true
+    trans_version: v2
+    weight_clip: true
+    clip_sym: true
+save:
+  save_trans: false
+  save_fake: false
+  save_vllm: false
+  save_path: /tmp/llmc_save_placeholder

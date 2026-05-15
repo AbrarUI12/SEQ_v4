@@ -1,0 +1,79 @@
+base:
+  seed: &seed 42
+
+model:
+  type: Opt
+  path: facebook/opt-125m
+  torch_dtype: auto
+  tokenizer_mode: slow
+
+calib:
+  name: wikitext2
+  download: true
+  n_samples: 4
+  bs: 1
+  seq_len: 128
+  preproc: wikitext2_gptq
+  seed: *seed
+  cache_dir: null
+
+eval:
+  eval_pos:
+    - fake_quant
+  name: wikitext2
+  download: true
+  bs: 1
+  inference_per_block: true
+  seq_len: 128
+
+quant:
+  method: SpinQuant
+  weight:
+    bit: 4
+    symmetric: false
+    granularity: per_channel
+    group_size: -1
+    qmax_to_tensor: true
+    calib_algo: mse
+    ste: true
+  act:
+    bit: 4
+    symmetric: false
+    granularity: per_token
+    qmax_to_tensor: true
+    ste: true
+  special:
+    rotate_mode: hadamard
+    fp32_had: true
+    online_rotate: true
+
+train:
+  data:
+    name: wikitext2
+    download: true
+    n_samples: 4
+    bs: 1
+    seq_len: 128
+    preproc: wikitext2_gptq
+    seed: *seed
+    cache_dir: null
+  train_args:
+    fp16: false
+    bf16: true
+    log_on_each_node: false
+    per_device_train_batch_size: 1
+    logging_steps: 1
+    learning_rate: 1.5
+    weight_decay: 0.0
+    lr_scheduler_type: cosine
+    gradient_checkpointing: true
+    max_steps: 1
+    output_dir: /mnt/e/SEQ_Clean/results/llmc_smoke/spinquant_opt125m_tiny_128_train_output
+    logging_dir: /mnt/e/SEQ_Clean/results/llmc_smoke/logs/spinquant_opt125m_tiny_128_train
+    logging_first_step: true
+
+save:
+  save_trans: false
+  save_fake: false
+  save_vllm: false
+  save_path: /mnt/e/SEQ_Clean/results/llmc_smoke/spinquant_opt125m_tiny_128

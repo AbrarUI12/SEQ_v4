@@ -38,5 +38,6 @@ dependencies:
       - protobuf
       - tqdm-multiprocess
       - zstandard
-      # Upstream README asks for the bug-fixed AutoGPTQ for real quantization.
-      - git+https://github.com/ChenMnZ/AutoGPTQ-bugfix.git
+      # Install the bug-fixed AutoGPTQ separately after env creation if you need
+      # OmniQuant --real_quant. On WSL/Linux this requires a real CUDA toolkit
+      # (nvcc/CUDA_HOME), so installing it inline here makes env creation brittle.

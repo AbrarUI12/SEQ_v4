@@ -14,6 +14,10 @@ env/
 ENV/
 .conda/
 .conda_env/
+.micromamba/
+
+# Local tooling
+.tools/
 
 # Build / packaging
 build/
@@ -62,6 +66,10 @@ reports.zip
 results/
 results_*/
 results_smoke/
+compare_real__*/
+llmc_save__*/
+llmc_save_step1_awq__*/
+llmc_save_step2_omniquant__*/
 final_tables_*/
 final_figures_*/
 final_figures_fixlabels_*/
