@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import copy
 import csv
 import datetime as dt
 import gc
@@ -725,6 +726,7 @@ def run_experiment(
         "latency_memory_enabled": bool(latency_metric_cfg.get("enabled", True)),
         "mmlu": evaluation_cfg.get("mmlu") or {},
         "zero_shot": evaluation_cfg.get("zero_shot") or {},
+        "lm_eval": copy.deepcopy(evaluation_cfg.get("lm_eval") or {}),
     }
     bench_config = resolved.get("benchmarks", {})
     run_ppl = bool(bench_config.get("run_ppl", True)) and bool(ppl_metric_cfg.get("enabled", True))
@@ -779,6 +781,9 @@ def run_experiment(
             **eval_config,
             "bench_dir": str(paths["bench_baseline"]),
             "quant_model_dir": None,
+            "lm_eval_model": model,
+            "lm_eval_tokenizer": tokenizer,
+            "lm_eval_source": "in_memory_hflm",
         },
         device=device,
         dtype=dtype,
@@ -1001,6 +1006,9 @@ def run_experiment(
             **eval_config,
             "bench_dir": str(paths["bench_quant"]),
             "quant_model_dir": str(paths["model_quant"]),
+            "lm_eval_model": model,
+            "lm_eval_tokenizer": tokenizer,
+            "lm_eval_source": "in_memory_hflm",
         },
         device=device,
         dtype=dtype,

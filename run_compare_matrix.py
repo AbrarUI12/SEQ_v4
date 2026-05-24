@@ -48,13 +48,16 @@ _LONG_OPTS_WITH_VALUE = (
     "--models",
     "--methods",
     "--benchmarks",
+    "--eval_tasks",
     "--device",
     "--dtype",
     "--experiments_file",
     "--output_dir",
     "--degeneracy_mode",
     "--lm_eval_limit",
+    "--eval_limit",
     "--lm_eval_num_fewshot",
+    "--num_fewshot",
     "--lm_eval_batch_size",
     "--lm_eval_model_backend",
     "--lm_eval_fail_policy",
@@ -209,6 +212,101 @@ def sanitize_name(text: str, max_len: int = 48) -> str:
     return safe[:max_len] if len(safe) > max_len else safe
 
 
+class TimestampedTee:
+    def __init__(self, stream: Any, log_handle: Any, stream_name: str) -> None:
+        self._stream = stream
+        self._log_handle = log_handle
+        self._stream_name = stream_name
+        self._buffer = ""
+        self.encoding = getattr(stream, "encoding", "utf-8")
+        self.errors = getattr(stream, "errors", "strict")
+
+    def write(self, text: str) -> int:
+        if not isinstance(text, str):
+            text = str(text)
+        if not text:
+            return 0
+        written = self._stream.write(text)
+        self._buffer += text
+        self._drain_buffer()
+        return written if isinstance(written, int) else len(text)
+
+    def flush(self) -> None:
+        self._stream.flush()
+        self._drain_buffer(final=True)
+        self._log_handle.flush()
+
+    def isatty(self) -> bool:
+        return bool(getattr(self._stream, "isatty", lambda: False)())
+
+    def fileno(self) -> int:
+        return int(self._stream.fileno())
+
+    def writable(self) -> bool:
+        return True
+
+    def _drain_buffer(self, final: bool = False) -> None:
+        while True:
+            newline_index = self._buffer.find("\n")
+            if newline_index < 0:
+                break
+            line = self._buffer[: newline_index + 1]
+            self._buffer = self._buffer[newline_index + 1 :]
+            self._write_log_line(line, force_newline=False)
+        if final and self._buffer:
+            line = self._buffer
+            self._buffer = ""
+            self._write_log_line(line, force_newline=True)
+
+    def _write_log_line(self, line: str, force_newline: bool) -> None:
+        timestamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+        text = line.rstrip("\n")
+        suffix = "\n" if force_newline or line.endswith("\n") else ""
+        self._log_handle.write(f"{timestamp} | {self._stream_name} | {text}{suffix}")
+
+
+def _install_terminal_log(log_dir: Path) -> Dict[str, Any]:
+    log_dir.mkdir(parents=True, exist_ok=True)
+    terminal_log_path = log_dir / "terminal.log"
+    log_handle = terminal_log_path.open("a", encoding="utf-8")
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+    stdout_tee = TimestampedTee(original_stdout, log_handle, "stdout")
+    stderr_tee = TimestampedTee(original_stderr, log_handle, "stderr")
+    sys.stdout = stdout_tee
+    sys.stderr = stderr_tee
+    return {
+        "terminal_log_path": terminal_log_path,
+        "log_handle": log_handle,
+        "original_stdout": original_stdout,
+        "original_stderr": original_stderr,
+    }
+
+
+def _restore_terminal_log(state: Optional[Dict[str, Any]]) -> None:
+    if not state:
+        return
+    current_stdout = sys.stdout
+    current_stderr = sys.stderr
+    if hasattr(current_stdout, "flush"):
+        current_stdout.flush()
+    if hasattr(current_stderr, "flush"):
+        current_stderr.flush()
+    sys.stdout = state["original_stdout"]
+    sys.stderr = state["original_stderr"]
+    state["log_handle"].close()
+
+
+def _compare_model_slug(model_name: str) -> str:
+    leaf = str(model_name).strip().split("/")[-1]
+    for suffix in ("-hf", "_hf"):
+        if leaf.lower().endswith(suffix):
+            trimmed = leaf[: -len(suffix)].strip("._-")
+            if trimmed:
+                return trimmed
+    return leaf
+
+
 def resolve_device(device_arg: str) -> str:
     if device_arg == "auto":
         return "cuda" if torch.cuda.is_available() else "cpu"
@@ -257,11 +355,167 @@ def _default_llmc_venv(llmc_repo: Optional[str]) -> Optional[str]:
 
 def _is_ppl_only_benchmark(tasks: List[str]) -> bool:
     normalized = [task.strip().lower() for task in tasks if task.strip()]
-    if normalized == ["ppl"]:
-        return True
-    if "ppl" in normalized:
-        raise SystemExit("--benchmarks ppl must be requested alone in this runner.")
-    return False
+    return normalized == ["ppl"]
+
+
+def _resolve_benchmark_tasks(tasks: List[str]) -> Dict[str, Any]:
+    ordered: List[str] = []
+    seen = set()
+    ppl_requested = False
+    lm_eval_tasks: List[str] = []
+    for raw_task in tasks:
+        task = str(raw_task).strip()
+        if not task:
+            continue
+        lowered = task.lower()
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        ordered.append(task)
+        if lowered == "ppl":
+            ppl_requested = True
+        else:
+            lm_eval_tasks.append(task)
+    return {
+        "all_tasks": ordered,
+        "ppl_requested": ppl_requested,
+        "lm_eval_tasks": lm_eval_tasks,
+        "ppl_only": ppl_requested and not lm_eval_tasks,
+        "lm_eval_only": bool(lm_eval_tasks) and not ppl_requested,
+        "mixed": ppl_requested and bool(lm_eval_tasks),
+    }
+
+
+def _merge_notes(*note_lists: Optional[List[str]]) -> List[str]:
+    merged: List[str] = []
+    for note_list in note_lists:
+        for note in note_list or []:
+            text = str(note)
+            if text not in merged:
+                merged.append(text)
+    return merged
+
+
+def _local_model_dir_is_reloadable(model_path: Optional[str]) -> bool:
+    if not model_path:
+        return False
+    path = Path(str(model_path))
+    if not path.exists() or not path.is_dir():
+        return False
+    tokenizer_markers = (
+        path / "tokenizer.json",
+        path / "tokenizer_config.json",
+        path / "vocab.json",
+        path / "merges.txt",
+    )
+    weight_markers = (
+        path / "model.safetensors",
+        path / "model.safetensors.index.json",
+        path / "pytorch_model.bin",
+        path / "pytorch_model.bin.index.json",
+    )
+    return (path / "config.json").exists() and any(marker.exists() for marker in tokenizer_markers) and any(
+        marker.exists() for marker in weight_markers
+    )
+
+
+def _lm_eval_skip_reason_for_payload(method_payload: Dict[str, Any], explicit_skip_reason: Optional[str] = None) -> Optional[str]:
+    if explicit_skip_reason:
+        return explicit_skip_reason
+    model_path = method_payload.get("model_path")
+    if not model_path:
+        return "method_did_not_produce_reloadable_model"
+    path = Path(str(model_path))
+    if path.exists() and not _local_model_dir_is_reloadable(str(path)):
+        return "method_did_not_produce_reloadable_model"
+    return None
+
+
+def _base_lm_eval_payload(model_name: str, method_dir: Path) -> Dict[str, Any]:
+    return {
+        "model": model_name,
+        "method": "base",
+        "status": "base_model",
+        "run_dir": str(method_dir),
+        "model_path": model_name,
+        "notes": ["lm-eval on original Hugging Face model"],
+    }
+
+
+def _merge_ppl_result(method_payload: Dict[str, Any], ppl_result: Dict[str, Any]) -> Dict[str, Any]:
+    merged = dict(method_payload)
+    for key in (
+        "benchmark",
+        "compare_status",
+        "reason",
+        "ppl",
+        "ppl_source",
+        "ppl_dataset",
+        "ppl_seq_len",
+        "duration_sec",
+    ):
+        if key in ppl_result:
+            merged[key] = ppl_result.get(key)
+    if "model" in ppl_result:
+        merged["model"] = ppl_result.get("model")
+    if "method" in ppl_result:
+        merged["method"] = ppl_result.get("method")
+    merged["run_dir"] = method_payload.get("run_dir") or ppl_result.get("run_dir")
+    merged["notes"] = _merge_notes(method_payload.get("notes"), ppl_result.get("notes"))
+    if "lm_eval" in method_payload:
+        merged["lm_eval"] = method_payload.get("lm_eval")
+    return merged
+
+
+def _finalize_method_result(
+    payload: Dict[str, Any],
+    *,
+    ppl_requested: bool,
+    lm_eval_tasks: List[str],
+) -> Dict[str, Any]:
+    lm_eval_requested = bool(lm_eval_tasks)
+    if ppl_requested and lm_eval_requested:
+        payload["benchmark"] = "mixed"
+    elif ppl_requested:
+        payload["benchmark"] = "ppl"
+    elif lm_eval_requested:
+        payload["benchmark"] = "lm_eval"
+
+    if lm_eval_requested:
+        lm_status = ((payload.get("lm_eval") or {}).get("status") or "").strip().lower()
+        base_status = str(payload.get("compare_status") or payload.get("status") or "").strip().lower()
+        if lm_status == "ok":
+            if ppl_requested and base_status and base_status not in {"success", "ok", "quantized", "base_model"}:
+                payload["compare_status"] = payload.get("compare_status") or payload.get("status")
+            else:
+                payload["compare_status"] = "success"
+        elif lm_status:
+            payload["compare_status"] = lm_status
+    elif ppl_requested and not payload.get("compare_status"):
+        payload["compare_status"] = payload.get("status")
+    return payload
+
+
+def _requested_tasks_label(result: Dict[str, Any]) -> str:
+    labels: List[str] = []
+    benchmark = str(result.get("benchmark") or "").strip().lower()
+    if benchmark in {"ppl", "mixed"}:
+        labels.append("ppl")
+    for task in (result.get("lm_eval") or {}).get("tasks") or []:
+        task_text = str(task)
+        if task_text and task_text not in labels:
+            labels.append(task_text)
+    return ",".join(labels)
+
+
+def _should_abort_for_lm_eval_failure(args: argparse.Namespace, result: Dict[str, Any], lm_eval_tasks: List[str]) -> bool:
+    if not lm_eval_tasks:
+        return False
+    fail_policy = str(getattr(args, "lm_eval_fail_policy", "warn")).strip().lower()
+    if fail_policy not in {"raise", "error"}:
+        return False
+    lm_status = str(((result.get("lm_eval") or {}).get("status") or "")).strip().lower()
+    return lm_status in {"error", "skipped"}
 
 
 def _resolve_ppl_config(base_config: Dict[str, Any]) -> Dict[str, Any]:
@@ -314,8 +568,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--methods", default="seq,omniquant", help="Comma-separated methods. Supported: base,seq,omniquant,gptq_llmc,smoothquant_llmc,awq_llmc,rtn_llmc,llm_int8_llmc,spinquant_llmc,omniquant_llmc.")
     parser.add_argument(
         "--benchmarks",
+        "--eval_tasks",
+        dest="benchmarks",
         default="hellaswag",
-        help="Comma-separated EleutherAI lm-eval task names, e.g. hellaswag,arc_easy,piqa.",
+        help="Comma-separated benchmark names. Use ppl for perplexity or lm-eval tasks such as hellaswag,arc_easy,piqa.",
     )
     parser.add_argument("--device", default="auto", help="auto|cuda|cpu or lm-eval-compatible device string.")
     parser.add_argument("--dtype", default="float16", help="float16|bfloat16|float32.")
@@ -324,11 +580,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--degeneracy_mode", choices=["old", "rms"], default="rms")
     parser.add_argument("--trust_remote_code", action="store_true")
 
-    parser.add_argument("--lm_eval_limit", type=int, default=None)
-    parser.add_argument("--lm_eval_num_fewshot", type=int, default=0)
+    parser.add_argument("--lm_eval_limit", "--eval_limit", dest="lm_eval_limit", type=int, default=None)
+    parser.add_argument("--lm_eval_num_fewshot", "--num_fewshot", dest="lm_eval_num_fewshot", type=int, default=0)
     parser.add_argument("--lm_eval_batch_size", default="1")
     parser.add_argument("--lm_eval_model_backend", default="hf")
-    parser.add_argument("--lm_eval_fail_policy", choices=["warn", "error", "skip"], default="warn")
+    parser.add_argument("--lm_eval_fail_policy", choices=["warn", "raise", "error", "skip"], default="warn")
     parser.add_argument("--lm_eval_apply_chat_template", action="store_true")
     parser.add_argument("--lm_eval_log_samples", action="store_true")
 
@@ -396,6 +652,53 @@ def _lm_eval_config(args: argparse.Namespace, tasks: List[str], device: str) -> 
     }
 
 
+def _seq_pipeline_lm_eval_summary(seq_run_dir: Path) -> Optional[Dict[str, Any]]:
+    eval_quant = _read_json(seq_run_dir / "eval_quant" / "eval_summary.json")
+    lm_eval = eval_quant.get("lm_eval")
+    return dict(lm_eval) if isinstance(lm_eval, dict) else None
+
+
+def _missing_in_memory_lm_eval_summary(tasks: List[str], args: argparse.Namespace) -> Dict[str, Any]:
+    return {
+        "status": "skipped",
+        "reason": "in_memory_lm_eval_summary_missing",
+        "backend": args.lm_eval_model_backend,
+        "lm_eval_source": "in_memory_hflm",
+        "tasks": list(tasks),
+        "num_fewshot": int(args.lm_eval_num_fewshot),
+        "limit": args.lm_eval_limit,
+        "requested": True,
+        "command": "",
+        "results": {},
+        "fail_policy": args.lm_eval_fail_policy,
+        "flat": {
+            "lm_eval__status": "skipped",
+            "lm_eval__reason": "in_memory_lm_eval_summary_missing",
+            "lm_eval__tasks": ",".join(tasks),
+        },
+    }
+
+
+def _seq_pipeline_ppl_result(seq_run_dir: Path) -> Optional[Dict[str, Any]]:
+    eval_quant = _read_json(seq_run_dir / "eval_quant" / "eval_summary.json")
+    perplexity = dict(eval_quant.get("perplexity") or {})
+    if not perplexity:
+        return None
+    ppl_status = perplexity.get("status")
+    return {
+        "benchmark": "ppl",
+        "status": "success" if perplexity.get("ppl") is not None and ppl_status != "error" else "failed",
+        "compare_status": "success" if perplexity.get("ppl") is not None and ppl_status != "error" else "failed",
+        "reason": perplexity.get("error"),
+        "ppl": perplexity.get("ppl"),
+        "ppl_source": "seq_ppl",
+        "ppl_dataset": perplexity.get("dataset_name"),
+        "ppl_seq_len": perplexity.get("seq_len"),
+        "duration_sec": None,
+        "notes": ["PPL from SEQ evaluator"],
+    }
+
+
 def _make_seq_config(
     base_config: Dict[str, Any],
     *,
@@ -405,6 +708,8 @@ def _make_seq_config(
     degeneracy_mode: str,
     trust_remote_code: bool,
     ppl_only: bool,
+    ppl_requested: bool = False,
+    lm_eval_config: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     config = copy.deepcopy(base_config)
     config.setdefault("model", {})
@@ -433,13 +738,16 @@ def _make_seq_config(
         config["evaluation"]["lm_eval"] = {**(config["evaluation"].get("lm_eval") or {}), "enabled": False}
     else:
         # The comparison benchmark is lm-eval only. SEQ still performs the real
-        # quantization pipeline, but local proxy benchmark tasks are disabled here.
-        config["benchmarks"]["run_ppl"] = False
+        # quantization pipeline. For mixed benchmarks, keep PPL enabled and let
+        # the SEQ pipeline evaluate the live quantized model in memory.
+        config["benchmarks"]["run_ppl"] = bool(ppl_requested)
         config["benchmarks"]["run_size"] = True
         for name in ("ppl", "tail_risk", "json_stress", "temperature_sweep", "long_context", "latency_memory"):
             block = dict(seq_metrics.get(name) or {})
-            block["enabled"] = False
+            block["enabled"] = name == "ppl" and bool(ppl_requested)
             seq_metrics[name] = block
+        if lm_eval_config:
+            config["evaluation"]["lm_eval"] = {**(config["evaluation"].get("lm_eval") or {}), **lm_eval_config, "enabled": True}
     config["evaluation"]["seq_metrics"] = seq_metrics
     config["evaluation"]["mmlu"] = {**(config["evaluation"].get("mmlu") or {}), "enabled": False}
     config["evaluation"]["zero_shot"] = {**(config["evaluation"].get("zero_shot") or {}), "enabled": False}
@@ -447,7 +755,7 @@ def _make_seq_config(
 
 
 def _find_new_run(before: set[Path], runs_root: Path) -> Path:
-    after = set(runs_root.glob("run_*"))
+    after = {p for p in runs_root.iterdir() if p.is_dir()}
     new_runs = sorted(after - before, key=lambda p: p.name)
     if new_runs:
         return new_runs[-1]
@@ -465,6 +773,8 @@ def _run_seq(
     args: argparse.Namespace,
     device: str,
     ppl_only: bool = False,
+    ppl_requested: bool = False,
+    lm_eval_tasks: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     from seq_core.pipeline import run_experiment
 
@@ -472,6 +782,7 @@ def _run_seq(
     reports_root = model_dir / "seq" / "seq_reports"
     runs_root.mkdir(parents=True, exist_ok=True)
     before = set(runs_root.glob("run_*"))
+    seq_lm_eval_cfg = _lm_eval_config(args, list(lm_eval_tasks or []), device) if lm_eval_tasks else None
     seq_config = _make_seq_config(
         base_config,
         model_name=model_name,
@@ -480,6 +791,8 @@ def _run_seq(
         degeneracy_mode=args.degeneracy_mode,
         trust_remote_code=bool(args.trust_remote_code),
         ppl_only=ppl_only,
+        ppl_requested=ppl_requested,
+        lm_eval_config=seq_lm_eval_cfg,
     )
     _write_json(model_dir / "seq" / "seq_compare_config.json", seq_config)
     run_experiment(
@@ -495,31 +808,25 @@ def _run_seq(
     quant_model_dir = seq_run / "model_quantized"
     payload = {
         "method": "seq",
-        "status": "quantized",
+        "status": "quantized" if _local_model_dir_is_reloadable(str(quant_model_dir)) else "no_reloadable_model",
         "run_dir": str(model_dir / "seq"),
         "seq_run_dir": str(seq_run),
-        "model_path": str(quant_model_dir) if (quant_model_dir / "config.json").exists() else None,
+        "model_path": str(quant_model_dir) if _local_model_dir_is_reloadable(str(quant_model_dir)) else None,
     }
     if not ppl_only:
+        if ppl_requested:
+            ppl_result = _seq_pipeline_ppl_result(seq_run)
+            if ppl_result:
+                payload = _merge_ppl_result(payload, ppl_result)
+        if lm_eval_tasks:
+            lm_eval_summary = _seq_pipeline_lm_eval_summary(seq_run)
+            if lm_eval_summary:
+                payload["lm_eval"] = lm_eval_summary
         return payload
 
-    eval_quant = _read_json(seq_run / "eval_quant" / "eval_summary.json")
-    perplexity = dict(eval_quant.get("perplexity") or {})
-    ppl_status = perplexity.get("status")
-    payload.update(
-        {
-            "benchmark": "ppl",
-            "status": "success" if perplexity.get("ppl") is not None and ppl_status != "error" else "failed",
-            "compare_status": "success" if perplexity.get("ppl") is not None and ppl_status != "error" else "failed",
-            "reason": perplexity.get("error"),
-            "ppl": perplexity.get("ppl"),
-            "ppl_source": "seq_ppl",
-            "ppl_dataset": perplexity.get("dataset_name"),
-            "ppl_seq_len": perplexity.get("seq_len"),
-            "duration_sec": None,
-            "notes": ["PPL from SEQ evaluator"],
-        }
-    )
+    ppl_result = _seq_pipeline_ppl_result(seq_run)
+    if ppl_result:
+        payload.update(ppl_result)
     _write_json(model_dir / "seq" / "summary.json", payload)
     return payload
 
@@ -535,14 +842,16 @@ def _run_ppl_eval(
     device: str,
     notes: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
-    from seq_core.pipeline import load_model_and_tokenizer, set_seed, unload_model
-
     method_dir.mkdir(parents=True, exist_ok=True)
     ppl_cfg = _resolve_ppl_config(base_config)
     start = time.perf_counter()
     model = None
     tokenizer = None
+    unload_model = None
     try:
+        from seq_core.pipeline import load_model_and_tokenizer, set_seed, unload_model as unload_model_fn
+
+        unload_model = unload_model_fn
         dtype = resolve_dtype(args.dtype, device)
         seed = int((base_config.get("seeds") or {}).get("eval", 1234))
         set_seed(seed)
@@ -602,7 +911,7 @@ def _run_ppl_eval(
             "notes": list(notes or ["PPL from SEQ evaluator"]),
         }
     finally:
-        if model is not None or tokenizer is not None:
+        if (model is not None or tokenizer is not None) and callable(unload_model):
             unload_model(model, tokenizer)
 
     _write_json(method_dir / "summary.json", payload)
@@ -704,9 +1013,9 @@ def _run_omniquant(
     )
     return {
         "method": "omniquant",
-        "status": "quantized" if (saved_model_dir / "config.json").exists() else "no_reloadable_model",
+        "status": "quantized" if _local_model_dir_is_reloadable(str(saved_model_dir)) else "no_reloadable_model",
         "run_dir": str(method_dir),
-        "model_path": str(saved_model_dir) if (saved_model_dir / "config.json").exists() else None,
+        "model_path": str(saved_model_dir) if _local_model_dir_is_reloadable(str(saved_model_dir)) else None,
     }
 
 
@@ -748,10 +1057,12 @@ def _run_lm_eval_for_method(
     tasks: List[str],
     args: argparse.Namespace,
     device: str,
+    skip_reason: Optional[str] = None,
 ) -> Dict[str, Any]:
     config = _lm_eval_config(args, tasks, device)
-    if not method_payload.get("model_path"):
-        config["skip_reason"] = "method_did_not_produce_reloadable_model"
+    resolved_skip_reason = _lm_eval_skip_reason_for_payload(method_payload, explicit_skip_reason=skip_reason)
+    if resolved_skip_reason:
+        config["skip_reason"] = resolved_skip_reason
     summary = run_lm_eval_suite(
         model_name_or_path=method_payload.get("model_path"),
         tokenizer_name_or_path=method_payload.get("model_path"),
@@ -768,14 +1079,15 @@ def _run_lm_eval_for_method(
 def _row_from_result(model_name: str, result: Dict[str, Any]) -> Dict[str, Any]:
     lm_eval = result.get("lm_eval") or {}
     reason = result.get("reason")
-    if not reason and lm_eval.get("status") == "error":
+    if not reason and lm_eval.get("status") in {"error", "skipped"}:
         reason = lm_eval.get("reason")
     row: Dict[str, Any] = {
         "model": model_name,
         "method": result.get("method"),
         "status": result.get("compare_status") or lm_eval.get("status") or result.get("status"),
         "reason": reason,
-        "tasks": "ppl" if result.get("benchmark") == "ppl" else ",".join(lm_eval.get("tasks") or []),
+        "tasks": _requested_tasks_label(result),
+        "lm_eval_source": lm_eval.get("lm_eval_source"),
         "model_path": result.get("model_path"),
         "run_dir": result.get("run_dir"),
     }
@@ -816,7 +1128,11 @@ def _print_table(title: str, rows: List[Dict[str, Any]]) -> None:
     if not rows:
         print("(no results)")
         return
-    metric_cols = [key for key in rows[0] if key.startswith("lm_eval__") and key not in {"lm_eval__tasks"}]
+    metric_cols: List[str] = []
+    for row in rows:
+        for key in row:
+            if key.startswith("lm_eval__") and key not in {"lm_eval__tasks"} and key not in metric_cols:
+                metric_cols.append(key)
     columns = ["model", "method", "status"] + metric_cols[:6] + ["run_dir"]
 
     def fmt(value: Any) -> str:
@@ -836,34 +1152,44 @@ def _print_table(title: str, rows: List[Dict[str, Any]]) -> None:
 
 def main() -> None:
     args = parse_args()
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 
     root = Path(".").resolve()
     models = _split_csv(args.models)
     methods = _validate_methods(_split_csv(args.methods))
-    tasks = _split_csv(args.benchmarks)
+    benchmark_request = _resolve_benchmark_tasks(_split_csv(args.benchmarks))
+    tasks = benchmark_request["all_tasks"]
     if not tasks:
         raise SystemExit("Provide at least one benchmark through --benchmarks")
-    ppl_only = _is_ppl_only_benchmark(tasks)
+    ppl_requested = bool(benchmark_request["ppl_requested"])
+    lm_eval_tasks = list(benchmark_request["lm_eval_tasks"])
+    ppl_only = bool(benchmark_request["ppl_only"])
+    benchmark_mode = "mixed" if benchmark_request["mixed"] else ("ppl" if ppl_only else "lm_eval")
 
     device = resolve_device(args.device)
     _ = resolve_dtype(args.dtype, device)
     base_config = _read_yaml(root / args.experiments_file)
 
-    model_slug = sanitize_name("-".join(m.split("/")[-1] for m in models), max_len=96) or "models"
+    model_slug = sanitize_name("-".join(_compare_model_slug(m) for m in models), max_len=96) or "models"
     method_slug = sanitize_name("-".join(methods), max_len=64) or "methods"
     task_slug = sanitize_name("-".join(tasks), max_len=96) or "tasks"
-    benchmark_slug = "ppl" if ppl_only else f"lm-eval-{task_slug}"
-    run_root = Path(args.output_dir) / f"compare_real__{model_slug}__{method_slug}__{benchmark_slug}__{now_timestamp()}"
+    benchmark_slug = "ppl" if ppl_only else (f"mixed-{task_slug}" if benchmark_request["mixed"] else f"lm-eval-{task_slug}")
+    run_timestamp = now_timestamp()
+    run_root = Path(args.output_dir) / f"compare_real__{model_slug}__{method_slug}__{benchmark_slug}__{run_timestamp}"
     run_root.mkdir(parents=True, exist_ok=True)
+    log_state = _install_terminal_log(run_root / "logs")
+    terminal_log_path = Path(log_state["terminal_log_path"])
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s", handlers=[logging.StreamHandler(sys.stdout)], force=True)
     _write_json(
         run_root / "metadata.json",
         {
+            "logs_dir": str(run_root / "logs"),
+            "terminal_log_path": str(terminal_log_path),
+            "run_timestamp": run_timestamp,
             "models": models,
             "methods": methods,
             "benchmarks": tasks,
-            "benchmark_mode": "ppl" if ppl_only else "lm_eval",
-            "lm_eval_tasks": [] if ppl_only else tasks,
+            "benchmark_mode": benchmark_mode,
+            "lm_eval_tasks": lm_eval_tasks,
             "device": device,
             "dtype": args.dtype,
             "llmc": {
@@ -888,106 +1214,189 @@ def main() -> None:
             },
         },
     )
-
-    rows: List[Dict[str, Any]] = []
-    for model_name in models:
-        model_dir = run_root / sanitize_name(model_name.replace("/", "_"), max_len=96)
-        model_dir.mkdir(parents=True, exist_ok=True)
-        for method in methods:
-            LOGGER.info("Running method=%s model=%s", method, model_name)
-            method_dir = model_dir / method
-            try:
-                if method == "base":
-                    if not ppl_only:
-                        raise RuntimeError("Method base currently supports only --benchmarks ppl.")
-                    result = _run_ppl_eval(
-                        model_name_or_path=model_name,
-                        summary_model_name=model_name,
-                        method="base",
-                        method_dir=method_dir,
-                        base_config=base_config,
-                        args=args,
-                        device=device,
-                        notes=["PPL from SEQ evaluator"],
-                    )
-                elif method == "seq":
-                    payload = _run_seq(
-                        root=root,
-                        model_name=model_name,
-                        model_dir=model_dir,
-                        base_config=base_config,
-                        args=args,
-                        device=device,
-                        ppl_only=ppl_only,
-                    )
-                    if ppl_only:
-                        result = payload
-                    else:
-                        result = _run_lm_eval_for_method(
-                            method_payload=payload,
-                            method_dir=method_dir,
-                            tasks=tasks,
-                            args=args,
-                            device=device,
-                        )
-                elif method == "omniquant":
-                    payload = _run_omniquant(
-                        root=root,
-                        model_name=model_name,
-                        model_dir=model_dir,
-                        base_config=base_config,
-                        args=args,
-                    )
-                    if ppl_only:
-                        if not payload.get("model_path"):
-                            raise RuntimeError("OmniQuant did not produce a reloadable model for PPL evaluation.")
-                        result = _run_ppl_eval(
-                            model_name_or_path=str(payload["model_path"]),
-                            summary_model_name=model_name,
-                            method="omniquant",
-                            method_dir=method_dir,
+    try:
+        LOGGER.info("Terminal log: %s", terminal_log_path)
+        rows: List[Dict[str, Any]] = []
+        for model_name in models:
+            model_dir = run_root / sanitize_name(model_name.replace("/", "_"), max_len=96)
+            model_dir.mkdir(parents=True, exist_ok=True)
+            for method in methods:
+                LOGGER.info("Running method=%s model=%s", method, model_name)
+                method_dir = model_dir / method
+                try:
+                    if method == "base":
+                        ppl_result = None
+                        if ppl_requested:
+                            ppl_result = _run_ppl_eval(
+                                model_name_or_path=model_name,
+                                summary_model_name=model_name,
+                                method="base",
+                                method_dir=method_dir,
+                                base_config=base_config,
+                                args=args,
+                                device=device,
+                                notes=["PPL from SEQ evaluator"],
+                            )
+                        if lm_eval_tasks:
+                            result = _run_lm_eval_for_method(
+                                method_payload=ppl_result or _base_lm_eval_payload(model_name, method_dir),
+                                method_dir=method_dir,
+                                tasks=lm_eval_tasks,
+                                args=args,
+                                device=device,
+                            )
+                            result = _finalize_method_result(result, ppl_requested=ppl_requested, lm_eval_tasks=lm_eval_tasks)
+                            _write_json(method_dir / "summary.json", result)
+                        else:
+                            result = ppl_result
+                    elif method == "seq":
+                        if ppl_only:
+                            result = _run_seq(
+                                root=root,
+                                model_name=model_name,
+                                model_dir=model_dir,
+                                base_config=base_config,
+                                args=args,
+                                device=device,
+                                ppl_only=True,
+                                ppl_requested=ppl_requested,
+                                lm_eval_tasks=lm_eval_tasks,
+                            )
+                        else:
+                            payload = _run_seq(
+                                root=root,
+                                model_name=model_name,
+                                model_dir=model_dir,
+                                base_config=base_config,
+                                args=args,
+                                device=device,
+                                ppl_only=False,
+                                ppl_requested=ppl_requested,
+                                lm_eval_tasks=lm_eval_tasks,
+                            )
+                            result = payload
+                            if ppl_requested:
+                                if result.get("ppl") is None and not result.get("reason"):
+                                    result["reason"] = "in_memory_seq_ppl_summary_missing"
+                                    result["status"] = "failed"
+                                    result["compare_status"] = "failed"
+                            if lm_eval_tasks:
+                                if not isinstance(result.get("lm_eval"), dict):
+                                    result["lm_eval"] = _missing_in_memory_lm_eval_summary(lm_eval_tasks, args)
+                                result = _finalize_method_result(result, ppl_requested=ppl_requested, lm_eval_tasks=lm_eval_tasks)
+                                _write_json(method_dir / "summary.json", result)
+                    elif method == "omniquant":
+                        payload = _run_omniquant(
+                            root=root,
+                            model_name=model_name,
+                            model_dir=model_dir,
                             base_config=base_config,
                             args=args,
-                            device=device,
-                            notes=["PPL from SEQ evaluator on OmniQuant saved model"],
                         )
-                    else:
-                        result = _run_lm_eval_for_method(
-                            method_payload=payload,
+                        if ppl_only:
+                            if not payload.get("model_path"):
+                                raise RuntimeError("OmniQuant did not produce a reloadable model for PPL evaluation.")
+                            result = _run_ppl_eval(
+                                model_name_or_path=str(payload["model_path"]),
+                                summary_model_name=model_name,
+                                method="omniquant",
+                                method_dir=method_dir,
+                                base_config=base_config,
+                                args=args,
+                                device=device,
+                                notes=["PPL from SEQ evaluator on OmniQuant saved model"],
+                            )
+                        else:
+                            result = payload
+                            if ppl_requested:
+                                if not payload.get("model_path"):
+                                    raise RuntimeError("OmniQuant did not produce a reloadable model for mixed PPL evaluation.")
+                                ppl_result = _run_ppl_eval(
+                                    model_name_or_path=str(payload["model_path"]),
+                                    summary_model_name=model_name,
+                                    method="omniquant",
+                                    method_dir=method_dir,
+                                    base_config=base_config,
+                                    args=args,
+                                    device=device,
+                                    notes=["PPL from SEQ evaluator on OmniQuant saved model"],
+                                )
+                                result = _merge_ppl_result(payload, ppl_result)
+                            if lm_eval_tasks:
+                                result = _run_lm_eval_for_method(
+                                    method_payload=result,
+                                    method_dir=method_dir,
+                                    tasks=lm_eval_tasks,
+                                    args=args,
+                                    device=device,
+                                )
+                                result = _finalize_method_result(result, ppl_requested=ppl_requested, lm_eval_tasks=lm_eval_tasks)
+                                _write_json(method_dir / "summary.json", result)
+                    elif method in {"gptq_llmc", "smoothquant_llmc", "awq_llmc", "rtn_llmc", "llm_int8_llmc", "spinquant_llmc", "omniquant_llmc"}:
+                        result = _run_llmc_method(
+                            model_name=model_name,
                             method_dir=method_dir,
-                            tasks=tasks,
+                            method=method,
                             args=args,
-                            device=device,
+                            tasks=lm_eval_tasks,
                         )
-                elif method in {"gptq_llmc", "smoothquant_llmc", "awq_llmc", "rtn_llmc", "llm_int8_llmc", "spinquant_llmc", "omniquant_llmc"}:
-                    result = _run_llmc_method(
-                        model_name=model_name,
-                        method_dir=method_dir,
-                        method=method,
-                        args=args,
-                        tasks=[] if ppl_only else tasks,
+                        if lm_eval_tasks:
+                            llmc_skip_reason = None
+                            if not result.get("model_path"):
+                                llmc_skip_reason = (
+                                    "llmc_save_mode_none_no_reloadable_artifact"
+                                    if str(args.llmc_save_mode).strip().lower() == "none"
+                                    else "method_did_not_produce_reloadable_model"
+                                )
+                            result = _run_lm_eval_for_method(
+                                method_payload=result,
+                                method_dir=method_dir,
+                                tasks=lm_eval_tasks,
+                                args=args,
+                                device=device,
+                                skip_reason=llmc_skip_reason,
+                            )
+                            result = _finalize_method_result(result, ppl_requested=ppl_requested, lm_eval_tasks=lm_eval_tasks)
+                            _write_json(method_dir / "summary.json", result)
+                        elif ppl_requested:
+                            result["benchmark"] = "ppl"
+                    else:
+                        raise RuntimeError(f"Unsupported method escaped validation: {method}")
+                except Exception as exc:
+                    LOGGER.exception("Method failed: %s / %s", model_name, method)
+                    result = {
+                        "model": model_name,
+                        "method": method,
+                        "status": "error",
+                        "reason": str(exc),
+                        "run_dir": str(method_dir),
+                        "lm_eval": {
+                            "status": "error",
+                            "reason": str(exc),
+                            "tasks": lm_eval_tasks,
+                            "flat": {
+                                "lm_eval__status": "error",
+                                "lm_eval__reason": str(exc),
+                                "lm_eval__tasks": ",".join(lm_eval_tasks),
+                            },
+                        },
+                    }
+                    _write_json(method_dir / "summary.json", result)
+                rows.append(_row_from_result(model_name, result))
+                if _should_abort_for_lm_eval_failure(args, result, lm_eval_tasks):
+                    _write_json(run_root / "global_summary.json", {"rows": rows})
+                    _write_csv(run_root / "global_summary.csv", rows)
+                    raise RuntimeError(
+                        f"lm_eval_fail_policy={args.lm_eval_fail_policy} aborted after {model_name}/{method}: "
+                        f"{(result.get('lm_eval') or {}).get('reason') or result.get('reason') or 'lm_eval failure'}"
                     )
-                    if ppl_only:
-                        result["benchmark"] = "ppl"
-                else:
-                    raise RuntimeError(f"Unsupported method escaped validation: {method}")
-            except Exception as exc:
-                LOGGER.exception("Method failed: %s / %s", model_name, method)
-                result = {
-                    "model": model_name,
-                    "method": method,
-                    "status": "error",
-                    "reason": str(exc),
-                    "run_dir": str(method_dir),
-                    "lm_eval": {"status": "error", "reason": str(exc), "tasks": tasks, "flat": {}},
-                }
-                _write_json(method_dir / "summary.json", result)
-            rows.append(_row_from_result(model_name, result))
 
-    _write_json(run_root / "global_summary.json", {"rows": rows})
-    _write_csv(run_root / "global_summary.csv", rows)
-    _print_table("PPL Results" if ppl_only else "lm-eval Results", rows)
-    LOGGER.info("Comparison complete: %s", run_root)
+        _write_json(run_root / "global_summary.json", {"rows": rows})
+        _write_csv(run_root / "global_summary.csv", rows)
+        _print_table("PPL Results" if ppl_only else ("Mixed Results" if benchmark_request["mixed"] else "lm-eval Results"), rows)
+        LOGGER.info("Comparison complete: %s", run_root)
+    finally:
+        _restore_terminal_log(log_state)
 
 
 if __name__ == "__main__":

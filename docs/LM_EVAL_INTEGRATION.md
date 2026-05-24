@@ -73,14 +73,17 @@ lm_eval__tasks
 
 ## Quantized Model Limitation
 
-SEQ quantization currently replaces modules in memory with bitsandbytes-backed modules. lm-eval's Hugging Face backend normally reloads a model from `pretrained=<name-or-path>`. SEQ therefore does not claim lm-eval ran on the quantized model unless a reloadable quantized path is explicitly enabled with `evaluation.lm_eval.quantized_reloadable: true`.
+SEQ quantization currently replaces modules in memory with bitsandbytes-backed modules. lm-eval's Hugging Face backend normally reloads a model from `pretrained=<name-or-path>`, and the saved SEQ quantized checkpoint is not a safe drop-in reload target for that path.
 
 By default:
 
 - baseline lm-eval uses the Hugging Face model name/path;
-- quantized lm-eval writes `status: skipped` with `reason: in_memory_quantized_model_not_reloadable`.
+- SEQ quantized lm-eval uses the already-instantiated in-memory quantized model through `lm_eval.models.huggingface.HFLM`;
+- `evaluation.lm_eval.quantized_reloadable` still means only: the saved artifact is safe to reload through the CLI/path-based Hugging Face route.
 
-This preserves the existing in-memory SEQ evaluation path and avoids false reporting.
+This preserves the working SEQ quantized runtime path and avoids relying on an unsafe checkpoint reload.
+
+`run_compare_matrix.py` uses the same policy for `seq`: `base` continues to use the CLI/path route, while `seq` consumes the in-memory lm-eval summary produced by the SEQ pipeline.
 
 ## Smoke Commands
 
@@ -108,4 +111,19 @@ Missing lm-eval behavior:
 .\.venv-seq\Scripts\python.exe -m seq_core.pipeline --experiment main --experiments_file experiments.smoke.yaml --lm-eval --lm-eval-fail-policy warn --lm-eval-tasks hellaswag --lm-eval-limit 5
 ```
 
-The older `run_compare_matrix.py` and `run_full_eval.py` entrypoints are not present in this clean modular repository. Their global-summary lm-eval columns should be added when those scripts are reintroduced.
+## Compare Runner Commands
+
+Compare-matrix baseline lm-eval:
+
+```powershell
+python run_compare_matrix.py --models "meta-llama/Llama-3.2-1B" --device auto --methods "base" --benchmarks "hellaswag" --lm_eval_limit 5 --lm_eval_num_fewshot 0 --lm_eval_batch_size 1 --experiments_file experiments.smoke.yaml --output_dir "results/${TS}"
+python run_compare_matrix.py --models "meta-llama/Llama-3.2-1B" --device auto --methods "base" --benchmarks "hellaswag,arc_easy,piqa" --lm_eval_num_fewshot 0 --lm_eval_batch_size 1 --experiments_file experiments.smoke.yaml --output_dir "results/${TS}"
+```
+
+Compare-matrix SEQ quantized lm-eval:
+
+```powershell
+python run_compare_matrix.py --models "meta-llama/Llama-3.2-1B" --device auto --methods "seq" --benchmarks "hellaswag" --lm_eval_limit 5 --lm_eval_num_fewshot 0 --lm_eval_batch_size 1 --experiments_file experiments.smoke.yaml --output_dir "results/${TS}"
+```
+
+For `seq`, the runner performs the real SEQ quantization pipeline and then evaluates the live quantized model in memory. Successful summaries report `lm_eval_source: in_memory_hflm`.

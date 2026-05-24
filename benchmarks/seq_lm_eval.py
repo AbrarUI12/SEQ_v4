@@ -18,9 +18,11 @@ def _write_json(path: Path, payload: Dict[str, Any]) -> None:
         json.dump(payload, f, indent=2)
 
 
-def _command_to_text(command: Optional[Sequence[str]]) -> str:
+def _command_to_text(command: Optional[Any]) -> str:
     if not command:
         return ""
+    if isinstance(command, str):
+        return command
     return " ".join(str(part) for part in command)
 
 
@@ -29,7 +31,7 @@ def _write_outputs(
     *,
     raw: Optional[Dict[str, Any]],
     summary: Dict[str, Any],
-    command: Optional[Sequence[str]],
+    command: Optional[Any],
 ) -> Dict[str, Any]:
     lm_eval_dir.mkdir(parents=True, exist_ok=True)
     raw_payload = raw if isinstance(raw, dict) else summary
@@ -116,6 +118,7 @@ def _extract_results(raw: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
 def flatten_lm_eval_summary(summary: Dict[str, Any]) -> Dict[str, Any]:
     flat: Dict[str, Any] = {
         "lm_eval__status": summary.get("status"),
+        "lm_eval__reason": summary.get("reason"),
         "lm_eval__tasks": ",".join(summary.get("tasks", []) or []),
     }
     results = summary.get("results") or {}
@@ -132,11 +135,12 @@ def flatten_lm_eval_summary(summary: Dict[str, Any]) -> Dict[str, Any]:
     return flat
 
 
-def normalize_lm_eval_result(raw: Dict[str, Any], cfg: Dict[str, Any], command: Sequence[str]) -> Dict[str, Any]:
+def normalize_lm_eval_result(raw: Dict[str, Any], cfg: Dict[str, Any], command: Any) -> Dict[str, Any]:
     results = _extract_results(raw)
     summary: Dict[str, Any] = {
         "status": "ok",
         "backend": cfg.get("model_backend", "hf"),
+        "lm_eval_source": cfg.get("lm_eval_source"),
         "tasks": list(cfg.get("tasks") or sorted(results.keys())),
         "num_fewshot": cfg.get("num_fewshot"),
         "limit": cfg.get("limit"),
@@ -154,13 +158,14 @@ def _status_payload(
     reason: str,
     cfg: Dict[str, Any],
     *,
-    command: Optional[Sequence[str]] = None,
+    command: Optional[Any] = None,
     extra: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     payload: Dict[str, Any] = {
         "status": status,
         "reason": reason,
         "backend": cfg.get("model_backend", "hf"),
+        "lm_eval_source": cfg.get("lm_eval_source"),
         "tasks": list(cfg.get("tasks") or []),
         "num_fewshot": cfg.get("num_fewshot"),
         "limit": cfg.get("limit"),
@@ -180,12 +185,12 @@ def _handle_failure(
     cfg: Dict[str, Any],
     reason: str,
     *,
-    command: Optional[Sequence[str]] = None,
+    command: Optional[Any] = None,
     raw: Optional[Dict[str, Any]] = None,
     exc: Optional[BaseException] = None,
 ) -> Dict[str, Any]:
     fail_policy = str(cfg.get("fail_policy", "warn")).strip().lower()
-    if fail_policy == "error":
+    if fail_policy in {"error", "raise"}:
         if exc is not None:
             raise exc
         raise RuntimeError(reason)
@@ -195,6 +200,31 @@ def _handle_failure(
         extra["traceback"] = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
     summary = _status_payload(status, reason, cfg, command=command, extra=extra)
     return _write_outputs(lm_eval_dir, raw=raw, summary=summary, command=command)
+
+
+def _handle_skip(
+    lm_eval_dir: Path,
+    cfg: Dict[str, Any],
+    reason: str,
+    *,
+    command: Optional[Any] = None,
+    raw: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    fail_policy = str(cfg.get("fail_policy", "warn")).strip().lower()
+    if fail_policy in {"error", "raise"}:
+        raise RuntimeError(reason)
+    summary = _status_payload("skipped", reason, cfg, command=command)
+    return _write_outputs(lm_eval_dir, raw=raw, summary=summary, command=command)
+
+
+def _has_numeric_metrics(results: Dict[str, Dict[str, Any]]) -> bool:
+    for metrics in results.values():
+        if not isinstance(metrics, dict):
+            continue
+        for value in metrics.values():
+            if _is_number(value):
+                return True
+    return False
 
 
 def _model_args_string(
@@ -222,7 +252,18 @@ def _model_args_string(
 
 def _find_json_outputs(path: Path) -> List[Path]:
     if path.is_file():
-        return [path]
+        siblings = sorted(path.parent.glob(f"{path.stem}*.json"))
+        ordered: List[Path] = []
+        for candidate in siblings:
+            if candidate not in ordered:
+                ordered.append(candidate)
+        if path not in ordered:
+            ordered.append(path)
+        return ordered
+    if path.suffix.lower() == ".json":
+        siblings = sorted(path.parent.glob(f"{path.stem}*.json"))
+        if siblings:
+            return siblings
     if not path.exists():
         return []
     return sorted(p for p in path.rglob("*.json") if p.is_file())
@@ -248,6 +289,84 @@ def _load_best_raw_json(output_path: Path) -> Dict[str, Any]:
     return {}
 
 
+def _json_safe(value: Any) -> Any:
+    try:
+        return json.loads(json.dumps(value, default=str))
+    except Exception:
+        if isinstance(value, dict):
+            return {str(key): _json_safe(val) for key, val in value.items()}
+        if isinstance(value, (list, tuple, set)):
+            return [_json_safe(item) for item in value]
+        if hasattr(value, "item") and callable(getattr(value, "item")):
+            try:
+                return value.item()
+            except Exception:
+                return str(value)
+        return str(value)
+
+
+def _run_lm_eval_in_memory(
+    *,
+    model,
+    tokenizer,
+    lm_eval_dir: Path,
+    cfg: Dict[str, Any],
+    device: str,
+    dtype: Optional[str],
+    model_args_extra: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    command = "in_memory_hflm"
+    try:
+        from lm_eval import evaluator
+        from lm_eval.models.huggingface import HFLM
+    except Exception:
+        return _handle_failure(lm_eval_dir, cfg, "lm_eval_not_installed", command=command)
+
+    task_list = split_csv(cfg.get("tasks")) or ["hellaswag"]
+    effective_device = cfg.get("device") or device
+    extra_model_args = dict(cfg.get("extra_model_args") or {})
+    extra_model_args.update(model_args_extra or {})
+
+    hflm_kwargs: Dict[str, Any] = {
+        "pretrained": model,
+        "tokenizer": tokenizer,
+        "batch_size": cfg.get("batch_size", 1),
+        "device": effective_device,
+        "dtype": dtype,
+    }
+    for key, value in extra_model_args.items():
+        if value is not None:
+            hflm_kwargs[key] = value
+
+    try:
+        lm = HFLM(**hflm_kwargs)
+        raw = evaluator.simple_evaluate(
+            model=lm,
+            tasks=task_list,
+            num_fewshot=int(cfg.get("num_fewshot", 0)),
+            limit=cfg.get("limit"),
+            batch_size=cfg.get("batch_size", 1),
+            device=effective_device,
+            use_cache=cfg.get("use_cache"),
+            log_samples=bool(cfg.get("log_samples", False)),
+            apply_chat_template=cfg.get("apply_chat_template", False),
+        )
+        raw_payload = _json_safe(raw or {})
+        extracted_results = _extract_results(raw_payload)
+        if not _has_numeric_metrics(extracted_results):
+            return _handle_failure(
+                lm_eval_dir,
+                cfg,
+                "lm_eval_no_numeric_metrics",
+                command=command,
+                raw=raw_payload,
+            )
+        summary = normalize_lm_eval_result(raw_payload, {**cfg, "tasks": task_list}, command)
+        return _write_outputs(lm_eval_dir, raw=raw_payload, summary=summary, command=command)
+    except Exception as exc:
+        return _handle_failure(lm_eval_dir, cfg, str(exc), command=command, exc=exc)
+
+
 def run_lm_eval_suite(
     model_name_or_path: Optional[str],
     tokenizer_name_or_path: Optional[str],
@@ -256,6 +375,9 @@ def run_lm_eval_suite(
     device: str,
     dtype: Optional[str] = None,
     model_args_extra: Optional[Dict[str, Any]] = None,
+    model=None,
+    tokenizer=None,
+    lm_eval_source: Optional[str] = None,
 ) -> Dict[str, Any]:
     cfg = resolve_lm_eval_config({"evaluation": {"lm_eval": config or {}}})
     output_subdir = str(cfg.get("output_subdir", "lm_eval"))
@@ -267,14 +389,30 @@ def run_lm_eval_suite(
         summary["requested"] = False
         return _write_outputs(lm_eval_dir, raw=summary, summary=summary, command=None)
 
+    if (model is None) != (tokenizer is None):
+        raise ValueError("run_lm_eval_suite requires both model and tokenizer for in-memory evaluation")
+
+    if model is not None and tokenizer is not None:
+        cfg["lm_eval_source"] = lm_eval_source or "in_memory_hflm"
+        skip_reason = cfg.get("skip_reason")
+        if skip_reason:
+            return _handle_skip(lm_eval_dir, cfg, str(skip_reason))
+        return _run_lm_eval_in_memory(
+            model=model,
+            tokenizer=tokenizer,
+            lm_eval_dir=lm_eval_dir,
+            cfg=cfg,
+            device=device,
+            dtype=dtype,
+            model_args_extra=model_args_extra,
+        )
+
+    cfg["lm_eval_source"] = lm_eval_source or "cli_pretrained_path"
     skip_reason = cfg.get("skip_reason")
     if skip_reason:
-        summary = _status_payload("skipped", str(skip_reason), cfg)
-        return _write_outputs(lm_eval_dir, raw=summary, summary=summary, command=None)
-
+        return _handle_skip(lm_eval_dir, cfg, str(skip_reason))
     if not model_name_or_path:
-        summary = _status_payload("skipped", "in_memory_quantized_model_not_reloadable", cfg)
-        return _write_outputs(lm_eval_dir, raw=summary, summary=summary, command=None)
+        return _handle_skip(lm_eval_dir, cfg, "in_memory_quantized_model_not_reloadable")
 
     cli = detect_lm_eval_cli()
     if cli is None:
@@ -337,6 +475,16 @@ def run_lm_eval_suite(
         if result.returncode != 0:
             reason = (result.stderr or result.stdout or f"lm_eval exited with {result.returncode}").strip()
             return _handle_failure(lm_eval_dir, cfg, reason, command=command, raw=raw)
+
+        extracted_results = _extract_results(raw)
+        if not _has_numeric_metrics(extracted_results):
+            return _handle_failure(
+                lm_eval_dir,
+                cfg,
+                "lm_eval_no_numeric_metrics",
+                command=command,
+                raw=raw,
+            )
 
         summary = normalize_lm_eval_result(raw, {**cfg, "tasks": task_list}, command)
         return _write_outputs(lm_eval_dir, raw=raw, summary=summary, command=command)

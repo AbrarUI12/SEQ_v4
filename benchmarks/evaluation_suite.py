@@ -1116,6 +1116,9 @@ def run_full_suite(
             device=device,
             dtype=config.get("lm_eval_dtype") or str(dtype).replace("torch.", ""),
             model_args_extra=config.get("lm_eval_model_args_extra"),
+            model=config.get("lm_eval_model"),
+            tokenizer=config.get("lm_eval_tokenizer"),
+            lm_eval_source=config.get("lm_eval_source"),
         )
         if lm_eval_summary.get("status") == "error":
             warnings.append(f"lm_eval_error: {lm_eval_summary.get('reason')}")
