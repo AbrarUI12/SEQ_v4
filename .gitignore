@@ -19,6 +19,13 @@ ENV/
 # Local tooling
 .tools/
 
+# External/local research assets
+fast-hadamard-transform/
+models/
+seq_benchmarking_public_candidate/
+seq_benchmarking_public_candidate*.zip
+SEQ_PAPER_COMPREHENSIVE.txt
+
 # Build / packaging
 build/
 dist/

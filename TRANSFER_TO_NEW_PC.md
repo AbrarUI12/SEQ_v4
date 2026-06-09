@@ -612,3 +612,158 @@ python -c "import importlib.metadata as m; print('lm-eval', m.version('lm-eval')
 ```
 
 Then run the compare-matrix base smoke from Section 6D.
+
+## 13. Qwen3-4B WSL benchmark transfer kit
+
+This section is for recreating the environment needed by the full Qwen command:
+
+```bash
+python run_compare_matrix.py \
+  --models "Qwen/Qwen3-4B-Base" \
+  --device auto \
+  --methods "base,seq,gptq_llmc,smoothquant_llmc,awq_llmc,rtn_llmc,omniquant_llmc" \
+  --benchmarks "ppl,hellaswag,arc_easy,arc_challenge,piqa,winogrande,lambada_openai" \
+  --experiments_file experiments.yaml \
+  --output_dir "results/${TS}" \
+  --lm_eval_num_fewshot 0 \
+  --lm_eval_batch_size 1 \
+  --lm_eval_fail_policy warn \
+  --llmc_repo /mnt/e/LightCompress \
+  --llmc_venv /mnt/e/LightCompress/.venv-llmc \
+  --llmc_model_type Qwen2 \
+  --llmc_save_mode fake \
+  --llmc_calib_dataset wikitext2 \
+  --llmc_eval_dataset wikitext2 \
+  --llmc_calib_samples 32 \
+  --llmc_calib_seq_len 512 \
+  --llmc_eval_seq_len 2048
+```
+
+The helper script uses `--llmc_model_type Qwen2` by default because the current SEQ LLMC adapter infers Qwen-family model names as `Qwen2`. If you intentionally want to reproduce an older command that forced `Llama`, run:
+
+```bash
+LLMC_MODEL_TYPE=Llama bash scripts/run_qwen3_4b_wsl_compare.sh
+```
+
+### A. What git will not transfer
+
+Git transfers the source tree, but not the whole working research machine.
+
+Non-git items to recreate or copy separately:
+
+- `/mnt/e/LightCompress`: side-by-side LLMC repo and its `.venv-llmc`.
+- `third_party_quant/OmniQuant/`: ignored direct OmniQuant checkout, only needed for direct `omniquant`, not LLMC methods.
+- `models/`: local model snapshots are untracked and should be copied only if you need them.
+- `~/.cache/huggingface/hub` and `~/.cache/huggingface/datasets`: optional cache copy to avoid re-downloading models/datasets.
+- Hugging Face auth: run `huggingface-cli login` on the new PC instead of committing or copying tokens into the repo.
+- `results/`, `runs/`, `reports/`, and `artifacts/`: generated outputs are ignored; zip/copy only the runs you want to preserve.
+
+Before relying on git transfer, check:
+
+```bash
+git status --short
+```
+
+If an experiment feature is only in an uncommitted local change, commit it or move it as a patch before switching machines.
+
+### B. One-command WSL environment setup
+
+From the cloned SEQ repo on the new PC:
+
+```bash
+cd /mnt/e/SEQ_Clean
+bash scripts/setup_wsl_benchmark_env.sh
+```
+
+Defaults:
+
+- SEQ repo: `/mnt/e/SEQ_Clean`
+- LightCompress repo: `/mnt/e/LightCompress`
+- LightCompress ref: `f68af66a4880291271c4803186a8bea12b96a5ef`
+- LLMC venv: `/mnt/e/LightCompress/.venv-llmc`
+
+Useful overrides:
+
+```bash
+SEQ_ROOT=/mnt/d/SEQ_Clean \
+LLMC_REPO=/mnt/d/LightCompress \
+PYTHON_BIN=python3.11 \
+bash scripts/setup_wsl_benchmark_env.sh
+```
+
+The script installs LightCompress from its own requirements, installs `requirements.lm_eval.txt`, then installs `requirements.wsl_compare_extras.txt`. It intentionally does not pin over LightCompress-owned `torch`, `transformers`, `datasets`, `accelerate`, or `huggingface-hub`.
+
+If you also want a dedicated pinned SEQ-only venv:
+
+```bash
+CREATE_SEQ_VENV=1 bash scripts/setup_wsl_benchmark_env.sh
+```
+
+### C. New-PC smoke sequence
+
+Run these before launching the Qwen job:
+
+```bash
+cd /mnt/e/SEQ_Clean
+source /mnt/e/LightCompress/.venv-llmc/bin/activate
+huggingface-cli login
+python -c "import torch; print(torch.__version__); print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'no cuda')"
+python -m lm_eval --help
+python third_party_quant/validate_llmc_smoke_configs.py
+```
+
+Then run small public-model checks:
+
+```bash
+bash third_party_quant/run_llmc_smoke.sh /mnt/e/LightCompress gptq,smoothquant,awq,rtn
+python run_compare_matrix.py \
+  --models "facebook/opt-125m" \
+  --device cpu \
+  --methods "base" \
+  --benchmarks "hellaswag" \
+  --lm_eval_limit 5 \
+  --lm_eval_num_fewshot 0 \
+  --lm_eval_batch_size 1 \
+  --lm_eval_fail_policy warn \
+  --experiments_file experiments.smoke.yaml \
+  --output_dir results/new_pc_smoke
+```
+
+### D. Run the Qwen command
+
+Use the tracked launcher:
+
+```bash
+cd /mnt/e/SEQ_Clean
+bash scripts/run_qwen3_4b_wsl_compare.sh
+```
+
+Useful variants:
+
+```bash
+LM_EVAL_LIMIT=5 bash scripts/run_qwen3_4b_wsl_compare.sh
+METHODS="base,seq,gptq_llmc,smoothquant_llmc,awq_llmc,rtn_llmc" bash scripts/run_qwen3_4b_wsl_compare.sh
+OUTPUT_DIR=results/qwen3_4b_trial bash scripts/run_qwen3_4b_wsl_compare.sh
+```
+
+`omniquant_llmc` warning:
+
+- The validation docs still mark `omniquant_llmc` as not recommended / previously disabled.
+- If your local branch contains new OmniQuant LLMC changes, commit and transfer those changes before expecting the method to run on the new PC.
+- If the method fails while the other LLMC methods run, treat that as an OmniQuant/LLMC method issue first, not a base environment failure.
+
+### E. WSL memory reminder
+
+The prior LLMC smoke setup needed more WSL memory and swap to avoid Linux OOM kills. On the new Windows PC, consider a user-level `%UserProfile%\.wslconfig` like:
+
+```ini
+[wsl2]
+memory=60GB
+swap=64GB
+```
+
+After editing `.wslconfig`, restart WSL from PowerShell:
+
+```powershell
+wsl --shutdown
+```

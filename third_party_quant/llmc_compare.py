@@ -100,6 +100,22 @@ def _save_flags(save_mode: str) -> Dict[str, Any]:
     raise ValueError(f"Unsupported LLMC save mode: {save_mode}")
 
 
+def _effective_save_mode(
+    *,
+    method: str,
+    requested_save_mode: str,
+    lm_eval_tasks: Optional[List[str]],
+) -> tuple[str, List[str]]:
+    if method == "omniquant_llmc" and requested_save_mode == "none" and lm_eval_tasks:
+        return (
+            "fake",
+            [
+                "Promoted llmc_save_mode from none to fake so OmniQuant's final step can be reloaded for lm-eval.",
+            ],
+        )
+    return requested_save_mode, []
+
+
 def _lm_eval_skipped(tasks: List[str]) -> Dict[str, Any]:
     return {
         "status": "skipped",
@@ -393,19 +409,6 @@ def run_llmc_baseline(
     if method not in SUPPORTED_LLMC_METHODS:
         raise ValueError(f"Unsupported LLMC method: {method}")
 
-    if method == "omniquant_llmc":
-        requested_model_type = model_type or _infer_model_type(model)
-        return _omniquant_not_implemented_summary(
-            method_dir=method_dir,
-            model=model,
-            method=method,
-            eval_seq_len=eval_seq_len,
-            llmc_repo=llmc_repo,
-            llmc_venv=llmc_venv,
-            dry_run=dry_run,
-            lm_eval_tasks=lm_eval_tasks,
-            requested_model_type=requested_model_type,
-        )
     if method == "spinquant_llmc":
         return _spinquant_not_implemented_summary(
             method_dir=method_dir,
@@ -452,7 +455,12 @@ def run_llmc_baseline(
 
     method_cfg = _method_spec(method)
     method_mode = method_cfg.get("mode", "single_step")
-    save_cfg = _save_flags(save_mode)
+    effective_save_mode, save_mode_notes = _effective_save_mode(
+        method=method,
+        requested_save_mode=save_mode,
+        lm_eval_tasks=lm_eval_tasks,
+    )
+    save_cfg = _save_flags(effective_save_mode)
     task_id = f"{_safe_name(method)}__{_safe_name(model.replace('/', '_'))}"
     rendered_config_path = method_dir / "rendered_config.yml"
     save_path_host = method_dir / f"llmc_save_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
@@ -503,6 +511,7 @@ def run_llmc_baseline(
         step_summaries: Dict[str, Any] = {"step1_awq": step1_summary}
         notes = list(step1_summary.get("notes") or [])
         notes.extend(method_cfg.get("notes") or [])
+        notes.extend(save_mode_notes)
         notes.append("PPL from LLMC log; runtime metrics not comparable in phase 1")
 
         if step1_summary.get("status") == "failed":
@@ -540,6 +549,8 @@ def run_llmc_baseline(
                     "llmc_venv": step1_summary.get("llmc_venv"),
                     "dry_run": step1_summary.get("dry_run"),
                     "step_summaries": step_summaries,
+                    "llmc_requested_save_mode": save_mode,
+                    "llmc_effective_save_mode": effective_save_mode,
                 },
             )
 
@@ -623,6 +634,8 @@ def run_llmc_baseline(
                 "step_summaries": step_summaries,
                 "intermediate_model_path": step2_model_path,
                 "intermediate_save_path": step1_summary.get("save_path"),
+                "llmc_requested_save_mode": save_mode,
+                "llmc_effective_save_mode": effective_save_mode,
             },
         )
 
@@ -662,6 +675,7 @@ def run_llmc_baseline(
 
     notes = list(adapter_summary.get("notes") or [])
     notes.extend(method_cfg.get("notes") or [])
+    notes.extend(save_mode_notes)
     notes.append("PPL from LLMC log; runtime metrics not comparable in phase 1")
     if adapter_summary.get("dry_run"):
         notes.append("dry_run_no_llmc_execution")
