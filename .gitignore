@@ -17,9 +17,6 @@ ENV/
 .micromamba/
 .venv-seq
 .venv-seq/
-.venv/
-venv/
-env/
 
 # Local tooling
 .tools/
@@ -98,3 +95,14 @@ sweep_compare_matrix/overall_layer_summary.csv
 sweep_compare_matrix/overall_layer_report.md
 
 third_party_quant/OmniQuant/
+
+# Local transfer archives / shared exports
+share.zip
+share/
+*.zip
+
+# Model checkpoints / weights
+*.pt
+*.pth
+*.bin
+*.safetensors
