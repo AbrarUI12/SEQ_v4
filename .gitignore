@@ -98,7 +98,6 @@ third_party_quant/OmniQuant/
 
 # Local transfer archives / shared exports
 share.zip
-share/
 *.zip
 
 # Model checkpoints / weights
