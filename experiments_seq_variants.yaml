@@ -1,0 +1,199 @@
+version: 1
+model:
+  name: "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+  device: "cuda"
+  dtype: "float16"
+seeds:
+  global: 1234
+  eval: 1234
+calibration:
+  seq_len: 2048
+  bins: 256
+  bootstrap_iters: 20
+  clip: 6.0
+  eps: 1.0e-5
+  min_samples: 4096
+  max_nan_frac: 0.01
+thresholds:
+  weight_high_pct: 0.90
+  act_high_pct: 0.90
+sweeps:
+  sweep_1:
+    weight_high_pct: 0.85
+    act_high_pct: 0.85
+  sweep_2:
+    weight_high_pct: 0.90
+    act_high_pct: 0.90
+protections:
+  exclude_embeddings: true
+  lm_head_min_tier: "fp16"
+  protect_first_last_blocks: true
+  num_protected_blocks: 1
+  protect_attn_out_proj: true
+  protect_unreliable: true
+evaluation:
+  enabled_metric_groups:
+    - seq_core
+    - latency_memory
+    - size
+    - quant_accounting
+  seq_metrics:
+    ppl:
+      enabled: true
+      dataset: wikitext2
+      split: test
+      seq_len: 2048
+      max_examples: null
+      stride: null
+      full_corpus: true
+    tail_risk:
+      enabled: true
+    json_stress:
+      enabled: true
+    temperature_sweep:
+      enabled: true
+    long_context:
+      enabled: true
+      needle_lengths: null
+    latency_memory:
+      enabled: true
+      warmup_runs: 5
+      measured_runs: 20
+    size:
+      enabled: true
+  lm_eval:
+    enabled: false
+    tasks:
+      - hellaswag
+      - arc_easy
+      - piqa
+    num_fewshot: 0
+    batch_size: 1
+    limit: null
+    device: cuda:0
+    apply_chat_template: false
+    log_samples: false
+    use_cache: null
+    model_backend: hf
+    extra_model_args: {}
+    output_subdir: lm_eval
+    fail_policy: warn
+    task_preset: smoke
+    quantized_reloadable: false
+  lm_eval_presets:
+    smoke:
+      tasks: [hellaswag]
+      limit: 10
+      num_fewshot: 0
+    standard:
+      tasks: [hellaswag, arc_easy, arc_challenge, piqa, winogrande]
+      limit: null
+      num_fewshot: 0
+    paper:
+      tasks: [hellaswag, arc_easy, arc_challenge, piqa, winogrande, lambada_openai]
+      limit: null
+      num_fewshot: 0
+  max_new_tokens: 128
+  temperature: 0.7
+  top_p: 0.95
+  latency_prompt: "Explain quantization in one sentence."
+  warmup_runs: 5
+  measured_runs: 20
+  mmlu:
+    enabled: true
+    split: "test"
+    max_subjects: 8
+    max_examples_per_subject: 4
+    dataset_candidates:
+      - "cais/mmlu"
+      - "hendrycks_test"
+  zero_shot:
+    enabled: true
+    default_split: "validation"
+    max_examples_per_task: 64
+    tasks:
+      - name: "arc_easy"
+        split: "validation"
+        max_examples: 64
+compare_methods:
+  seq:
+    variant_config: "seq_variants/SEQ-v0/variant_config.yaml"
+  seq_v0:
+    variant_config: "seq_variants/SEQ-v0/variant_config.yaml"
+  seq_v1:
+    variant_config: "seq_variants/SEQ-v1/variant_config.yaml"
+  seq_v2:
+    variant_config: "seq_variants/SEQ-v2/variant_config.yaml"
+  seq_v3:
+    variant_config: "seq_variants/SEQ-v3/variant_config.yaml"
+  seq_v4:
+    variant_config: "seq_variants/SEQ-v4/variant_config.yaml"
+  seq_v5:
+    variant_config: "seq_variants/SEQ-v5/variant_config.yaml"
+  ptq_w8a8:
+    max_samples: 32
+  smoothquant_w8a8:
+    max_samples: 32
+    alpha: 0.5
+    clip: 100.0
+  gptq_w4a16:
+    max_samples: 32
+    calib_dataset_name: "wikitext2"
+    calibration_mode: "prompt_list"
+    calibration_prompt_file: "calibration_prompts.json"
+  rtn:
+    group_size: 128
+    quant_type: "fp4"
+    double_quant: false
+  zeroquant:
+    max_samples: 32
+    act_clip_scale: 1.0
+    bias_correction: true
+    int8_threshold: 6.0
+  omniquant:
+    enabled: false
+    wbits: 4
+    abits: 16
+    epochs: 20
+    max_samples: 16
+    alpha: 0.6
+    group_size: 128
+    lwc: true
+    let: false
+    calib_dataset: "wikitext2"
+    upstream_eval_ppl: false
+  spinquant:
+    group_size: 128
+    rotation_mode: "hadamard"
+    hadamard_block_size: 128
+    quant_type: "fp4"
+    double_quant: false
+benchmarks:
+  run_ppl: true
+  run_size: true
+  ppl_mode: "canonical"
+  ppl_dataset: "wikitext2"
+  ppl_split: "test"
+  ppl_seq_len: 2048
+  ppl_max_examples: null
+  ppl_stride: null
+  ppl_full_corpus: true
+  run_long_ppl: false
+  long_ppl_seq_len: 1024
+experiments:
+  - name: main
+    policy: dual_entropy
+  - name: random_policy
+    policy: random_policy
+  - name: magnitude_baseline
+    policy: magnitude_baseline
+  - name: weight_only
+    policy: weight_only
+  - name: activation_only
+    policy: activation_only
+  - name: sweep_1
+    policy: dual_entropy
+    thresholds: sweep_1
+  - name: sweep_2
+    policy: dual_entropy
+    thresholds: sweep_2

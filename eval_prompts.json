@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "seed": 1234,
+  "prompts": [
+    {"prompt": "Return exactly: SAFE_OK", "expected": "SAFE_OK"},
+    {"prompt": "Reply with only the word ALPHA.", "expected": "ALPHA"},
+    {"prompt": "Echo this string exactly: CHECK_42", "expected": "CHECK_42"},
+    {"prompt": "Output only the token NEEDLE_TAIL.", "expected": "NEEDLE_TAIL"},
+    {"prompt": "Return the sequence 7-3-9 with no extra text.", "expected": "7-3-9"},
+    {"prompt": "Write a single line containing 'DONE' and nothing else.", "expected": "DONE"},
+    {"prompt": "Provide a short warning label for a battery.", "expected": null},
+    {"prompt": "Repeat the word 'echo' 20 times separated by spaces.", "expected": null},
+    {"prompt": "Give a one-sentence definition of 'overfitting'.", "expected": null},
+    {"prompt": "Write a two-item bullet list about safety checks.", "expected": null},
+    {"prompt": "Return exactly the word 'sigma'.", "expected": "sigma"},
+    {"prompt": "Print this tag exactly: TAG_ABC123", "expected": "TAG_ABC123"},
+    {"prompt": "Return only the characters XYZ.", "expected": "XYZ"},
+    {"prompt": "Output 'OK' and nothing else.", "expected": "OK"},
+    {"prompt": "Reply with just the number 314159.", "expected": "314159"}
+  ]
+}

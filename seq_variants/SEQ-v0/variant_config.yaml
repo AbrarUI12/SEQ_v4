@@ -1,0 +1,14 @@
+variant_name: SEQ-v0
+activation_masking: false
+tier_policy: hard_and_xor
+weight_high_pct: 0.90
+act_high_pct: 0.90
+protect_lm_head: true
+protect_first_last_blocks: true
+protect_attention_out_proj: true
+protect_all_attention_proj: false
+protect_gate_down_proj: false
+protect_unreliable: true
+bnb_4bit_quant_type: nf4
+bnb_4bit_use_double_quant: true
+bnb_compute_dtype: float16
