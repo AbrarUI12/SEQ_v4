@@ -14,7 +14,7 @@
     6.0,
     7.0
   ],
-  "baseline_fp16_ppl": NaN,
+  "baseline_fp16_ppl": 9.757198217989133,
   "ppl_mode": "canonical",
   "min_lm_head_bits": 0,
   "results": [
@@ -22,8 +22,8 @@
       "signal": "hessian_diag",
       "target_bits": 3.0,
       "effective_bits": 3.0,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 32.423761873430834,
+      "delta_ppl_vs_fp16": 22.6665636554417,
       "params_by_bits": {
         "3": 1235746816
       },
@@ -34,8 +34,8 @@
       "signal": "hessian_diag",
       "target_bits": 3.5,
       "effective_bits": 4.062791684344505,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 30.486686512330387,
+      "delta_ppl_vs_fp16": 20.72948829434125,
       "params_by_bits": {
         "3": 973078528,
         "8": 262668288
@@ -47,8 +47,8 @@
       "signal": "hessian_diag",
       "target_bits": 4.0,
       "effective_bits": 4.062791684344505,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 30.486686512330387,
+      "delta_ppl_vs_fp16": 20.72948829434125,
       "params_by_bits": {
         "3": 973078528,
         "8": 262668288
@@ -60,8 +60,8 @@
       "signal": "hessian_diag",
       "target_bits": 5.0,
       "effective_bits": 5.031820110309716,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 18.120771724776763,
+      "delta_ppl_vs_fp16": 8.36357350678763,
       "params_by_bits": {
         "8": 415760384,
         "3": 387973120,
@@ -74,8 +74,8 @@
       "signal": "hessian_diag",
       "target_bits": 6.0,
       "effective_bits": 6.030547305897327,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 16.4740996736475,
+      "delta_ppl_vs_fp16": 6.716901455658368,
       "params_by_bits": {
         "8": 707264512,
         "3": 319815680,
@@ -88,8 +88,8 @@
       "signal": "hessian_diag",
       "target_bits": 7.0,
       "effective_bits": 7.012303775986424,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 10.562502765683275,
+      "delta_ppl_vs_fp16": 0.8053045476941421,
       "params_by_bits": {
         "8": 967311360,
         "3": 146800640,
@@ -102,8 +102,8 @@
       "signal": "salience",
       "target_bits": 3.0,
       "effective_bits": 3.0,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 32.423761873430834,
+      "delta_ppl_vs_fp16": 22.6665636554417,
       "params_by_bits": {
         "3": 1235746816
       },
@@ -114,8 +114,8 @@
       "signal": "salience",
       "target_bits": 3.5,
       "effective_bits": 3.5070004242681376,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 20.92456728838763,
+      "delta_ppl_vs_fp16": 11.167369070398498,
       "params_by_bits": {
         "4": 526909440,
         "8": 19922944,
@@ -128,8 +128,8 @@
       "signal": "salience",
       "target_bits": 4.0,
       "effective_bits": 4.006788290199406,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 17.334364993038232,
+      "delta_ppl_vs_fp16": 7.577166775049099,
       "params_by_bits": {
         "4": 772276224,
         "8": 94371840,
@@ -142,8 +142,8 @@
       "signal": "salience",
       "target_bits": 5.0,
       "effective_bits": 5.03691132795927,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 16.416484094965565,
+      "delta_ppl_vs_fp16": 6.659285876976432,
       "params_by_bits": {
         "8": 395837440,
         "4": 537919488,
@@ -156,8 +156,8 @@
       "signal": "salience",
       "target_bits": 6.0,
       "effective_bits": 6.000848536274925,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 15.800827171151086,
+      "delta_ppl_vs_fp16": 6.043628953161953,
       "params_by_bits": {
         "8": 681050112,
         "4": 303038464,
@@ -170,8 +170,8 @@
       "signal": "salience",
       "target_bits": 7.0,
       "effective_bits": 7.032668646584641,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 10.714070072185269,
+      "delta_ppl_vs_fp16": 0.9568718541961356,
       "params_by_bits": {
         "8": 950534144,
         "3": 54525952,
@@ -184,8 +184,8 @@
       "signal": "magnitude",
       "target_bits": 3.0,
       "effective_bits": 3.0,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 32.423761873430834,
+      "delta_ppl_vs_fp16": 22.6665636554417,
       "params_by_bits": {
         "3": 1235746816
       },
@@ -196,8 +196,8 @@
       "signal": "magnitude",
       "target_bits": 3.5,
       "effective_bits": 3.5023334747560457,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 19.028659103530444,
+      "delta_ppl_vs_fp16": 9.27146088554131,
       "params_by_bits": {
         "8": 100663296,
         "4": 117440512,
@@ -210,8 +210,8 @@
       "signal": "magnitude",
       "target_bits": 4.0,
       "effective_bits": 4.0046669495120915,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 12.077501177483933,
+      "delta_ppl_vs_fp16": 2.3203029594948,
       "params_by_bits": {
         "8": 113246208,
         "4": 675282944,
@@ -224,8 +224,8 @@
       "signal": "magnitude",
       "target_bits": 5.0,
       "effective_bits": 5.036487059821807,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 11.167463215555598,
+      "delta_ppl_vs_fp16": 1.4102649975664647,
       "params_by_bits": {
         "8": 385875968,
         "4": 587202560,
@@ -238,8 +238,8 @@
       "signal": "magnitude",
       "target_bits": 6.0,
       "effective_bits": 6.014000848536275,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 10.473874807763437,
+      "delta_ppl_vs_fp16": 0.7166765897743037,
       "params_by_bits": {
         "8": 687865856,
         "4": 285212672,
@@ -252,8 +252,8 @@
       "signal": "magnitude",
       "target_bits": 7.0,
       "effective_bits": 7.149766652524395,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 9.862812884771188,
+      "delta_ppl_vs_fp16": 0.10561466678205456,
       "params_by_bits": {
         "8": 973078528,
         "4": 262668288
@@ -265,8 +265,8 @@
       "signal": "entropy",
       "target_bits": 3.0,
       "effective_bits": 3.0,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 32.423761873430834,
+      "delta_ppl_vs_fp16": 22.6665636554417,
       "params_by_bits": {
         "3": 1235746816
       },
@@ -277,8 +277,8 @@
       "signal": "entropy",
       "target_bits": 3.5,
       "effective_bits": 3.5023334747560457,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 13.195699697294883,
+      "delta_ppl_vs_fp16": 3.4385014793057493,
       "params_by_bits": {
         "4": 452984832,
         "8": 33554432,
@@ -291,8 +291,8 @@
       "signal": "entropy",
       "target_bits": 4.0,
       "effective_bits": 4.0046669495120915,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 11.505213894049705,
+      "delta_ppl_vs_fp16": 1.7480156760605716,
       "params_by_bits": {
         "4": 801112064,
         "8": 88080384,
@@ -305,8 +305,8 @@
       "signal": "entropy",
       "target_bits": 5.0,
       "effective_bits": 5.036487059821807,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 11.058480574412492,
+      "delta_ppl_vs_fp16": 1.3012823564233589,
       "params_by_bits": {
         "8": 385875968,
         "4": 587202560,
@@ -319,8 +319,8 @@
       "signal": "entropy",
       "target_bits": 6.0,
       "effective_bits": 6.014000848536275,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 10.376336785009197,
+      "delta_ppl_vs_fp16": 0.6191385670200642,
       "params_by_bits": {
         "8": 687865856,
         "4": 285212672,
@@ -333,8 +333,8 @@
       "signal": "entropy",
       "target_bits": 7.0,
       "effective_bits": 7.149766652524395,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 9.862812884771188,
+      "delta_ppl_vs_fp16": 0.10561466678205456,
       "params_by_bits": {
         "8": 973078528,
         "4": 262668288
@@ -346,8 +346,8 @@
       "signal": "random",
       "target_bits": 3.0,
       "effective_bits": 3.0,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 32.423761873430834,
+      "delta_ppl_vs_fp16": 22.6665636554417,
       "params_by_bits": {
         "3": 1235746816
       },
@@ -358,8 +358,8 @@
       "signal": "random",
       "target_bits": 3.5,
       "effective_bits": 3.5065761561306745,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 13.720706567169097,
+      "delta_ppl_vs_fp16": 3.963508349179964,
       "params_by_bits": {
         "8": 55574528,
         "3": 832045056,
@@ -372,8 +372,8 @@
       "signal": "random",
       "target_bits": 4.0,
       "effective_bits": 4.034365719134493,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 12.018846168199548,
+      "delta_ppl_vs_fp16": 2.261647950210415,
       "params_by_bits": {
         "8": 131072000,
         "3": 481820672,
@@ -386,8 +386,8 @@
       "signal": "random",
       "target_bits": 5.0,
       "effective_bits": 5.049215103945694,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 10.97694411468376,
+      "delta_ppl_vs_fp16": 1.2197458966946275,
       "params_by_bits": {
         "8": 425721856,
         "3": 406323200,
@@ -400,8 +400,8 @@
       "signal": "random",
       "target_bits": 6.0,
       "effective_bits": 6.007212558336869,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 10.543515979026132,
+      "delta_ppl_vs_fp16": 0.7863177610369991,
       "params_by_bits": {
         "8": 699400192,
         "4": 219152384,
@@ -414,8 +414,8 @@
       "signal": "random",
       "target_bits": 7.0,
       "effective_bits": 7.027577428935087,
-      "ppl": NaN,
-      "delta_ppl_vs_fp16": null,
+      "ppl": 9.887022587449863,
+      "delta_ppl_vs_fp16": 0.12982436946072973,
       "params_by_bits": {
         "8": 935329792,
         "4": 300417024
