@@ -136,18 +136,24 @@ def main() -> int:
     # precompute per-signal per-layer channel scores
     signal_scores: Dict[str, Dict[str, List[float]]] = {}
     for s in signal_names:
-        if s == "random":
+        # 'neg_<sig>' protects the LOWEST-scored channels (e.g. outlier channels
+        # are LOW activation-entropy, so neg_act_entropy protects them).
+        base = s[4:] if s.startswith("neg_") else s
+        invert = s.startswith("neg_")
+        if base == "random":
             rng = random.Random(args.seed)
-            signal_scores[s] = {n: [rng.random() for _ in range(f)] for n, f in in_features.items()}
-        elif s == "act_entropy":
+            sc = {n: [rng.random() for _ in range(f)] for n, f in in_features.items()}
+        elif base == "act_entropy":
             if not channel_entropy:
                 LOGGER.warning("act_entropy requested but not computed; skipping")
-            signal_scores[s] = channel_entropy
+            sc = channel_entropy
         else:
-            sc = _in_channel_scores(signals, s)
+            sc = _in_channel_scores(signals, base)
             if not sc:
-                LOGGER.warning("signal '%s' has no per-channel arrays; skipping", s)
-            signal_scores[s] = sc
+                LOGGER.warning("signal '%s' has no per-channel arrays; skipping", base)
+        if invert:
+            sc = {n: [-v for v in arr] for n, arr in sc.items()}
+        signal_scores[s] = sc
 
     # ---- pass 2: per (signal, k) protect -> quantize -> PPL --------------- #
     results: List[Dict[str, Any]] = []
