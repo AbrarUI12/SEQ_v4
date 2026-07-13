@@ -51,7 +51,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--base_bits", type=int, default=4)
     p.add_argument("--protect_bits", type=int, default=16, help="16=FP16 columns, or 8 for int8 columns")
     p.add_argument("--protect_fracs", default="0,0.02,0.05,0.1,0.2")
-    p.add_argument("--signals", default="act_scale,hessian_diag,salience,magnitude,random")
+    p.add_argument("--signals", default="act_scale,act_max,act_kurt,hessian_diag,magnitude,random")
+    p.add_argument("--channel_entropy", action="store_true",
+                   help="also compute per-channel activation entropy as signal 'act_entropy' (memory-heavy; try 1B/3B first)")
+    p.add_argument("--entropy_bins", type=int, default=32)
     p.add_argument("--skip_lm_head", action="store_true")
     p.add_argument("--seed", type=int, default=1234)
 
@@ -80,7 +83,7 @@ def main() -> int:
     import torch  # noqa: F401
 
     from seq_core.pipeline import load_model_and_tokenizer, resolve_device, resolve_dtype, unload_model
-    from seq_core.signals import extract_all_signals
+    from seq_core.signals import collect_channel_activation_entropy, extract_all_signals
     from seq_core.channel_protect import apply_channel_protection
     from seq_core.quantizers import get_backend
     from seq_core.sensitivity import make_ppl_fn
@@ -113,6 +116,17 @@ def main() -> int:
         return_channels=True,
     )
     in_features = {n: m.in_features for n, m in model.named_modules() if isinstance(m, torch.nn.Linear)}
+
+    channel_entropy: Dict[str, List[float]] = {}
+    if args.channel_entropy or "act_entropy" in signal_names:
+        LOGGER.info("computing per-channel activation entropy ...")
+        channel_entropy = collect_channel_activation_entropy(
+            model, tokenizer, prompts, seq_len=args.calib_seq_len, device=device,
+            max_prompts=args.max_calib_prompts, bins=args.entropy_bins,
+        )
+        if "act_entropy" not in signal_names:
+            signal_names.append("act_entropy")
+
     baseline_ppl = ppl_fn(model, tokenizer)
     LOGGER.info("FP16 baseline ppl = %.4f", baseline_ppl)
     unload_model(model, tokenizer)
@@ -125,6 +139,10 @@ def main() -> int:
         if s == "random":
             rng = random.Random(args.seed)
             signal_scores[s] = {n: [rng.random() for _ in range(f)] for n, f in in_features.items()}
+        elif s == "act_entropy":
+            if not channel_entropy:
+                LOGGER.warning("act_entropy requested but not computed; skipping")
+            signal_scores[s] = channel_entropy
         else:
             sc = _in_channel_scores(signals, s)
             if not sc:

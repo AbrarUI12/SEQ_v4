@@ -214,6 +214,20 @@ per-channel (within-layer) allocation, per-parameter-normalized signals
 (`hessian_diag_pp`) with a low-bit floor, and a compounding-aware objective.
 Salvage run (cheap): `--signals hessian_diag_pp,salience_pp,entropy,uniform,random --levels 4,8`.
 
+## 14. Run 4 result — per-channel protection WORKS (`docs/FINDINGS_run4.md`)
+
+Activation-aware channel selection beats a random-channel control at every k,
+all 3 models (1B gap −0.54 at k=2%, 4.24 eff bits; 3B/8B −0.17/−0.18). Weight
+`magnitude` ≈ random → the signal that matters is **activation**, not weights.
+The positive result module-level could not produce.
+
+**Novelty caveat:** `act_scale` (best current signal) = AWQ's metric; FP16
+protection of outlier channels = LLM.int8. Reproducing these is not A*-novel.
+Novelty must come from (a) a channel signal that **beats activation magnitude**
+(new: `act_max`, `act_rms`, `act_kurt`, `act_entropy`), (b) a per-channel
+true-sensitivity audit, and/or (c) the falsification-methodology spine. Run 5
+(below) is decisive. New per-channel signals + `--channel_entropy` are built.
+
 ## 13. Pivot: per-channel protection (the positive-result bet)
 
 Run 3 killed module-level allocation. Within a layer, uniform is **not** the

@@ -37,7 +37,10 @@ WEIGHT_SIGNALS = ("entropy", "magnitude", "kurtosis", "outlier_frac")
 # Extensive (sum over the matrix) vs. per-parameter (``_pp``, intensive) forms.
 # Extensive predicts *whole-module* ΔLoss; ``_pp`` is comparable across module
 # sizes (see docs/FINDINGS_run1.md — the extensive forms rank by size / flag lm_head).
-ACT_SIGNALS = ("act_scale", "hessian_diag", "hessian_diag_pp", "salience", "salience_pp")
+ACT_SIGNALS = (
+    "act_scale", "hessian_diag", "hessian_diag_pp", "salience", "salience_pp",
+    "act_max", "act_rms", "act_kurt",
+)
 ALL_SIGNALS = WEIGHT_SIGNALS + ACT_SIGNALS
 
 
@@ -170,11 +173,16 @@ class _InputAccumulator:
     device: torch.device
     sum_abs: torch.Tensor = field(default=None)  # type: ignore[assignment]
     sum_sq: torch.Tensor = field(default=None)  # type: ignore[assignment]
+    sum_x4: torch.Tensor = field(default=None)  # type: ignore[assignment]
+    max_abs: torch.Tensor = field(default=None)  # type: ignore[assignment]
     count: int = 0
 
     def __post_init__(self) -> None:
-        self.sum_abs = torch.zeros(self.in_features, dtype=torch.float64, device=self.device)
-        self.sum_sq = torch.zeros(self.in_features, dtype=torch.float64, device=self.device)
+        z = lambda: torch.zeros(self.in_features, dtype=torch.float64, device=self.device)
+        self.sum_abs = z()
+        self.sum_sq = z()
+        self.sum_x4 = z()
+        self.max_abs = z()
 
     def update(self, x: torch.Tensor) -> None:
         flat = x.detach().reshape(-1, self.in_features).to(dtype=torch.float64)
@@ -182,17 +190,36 @@ class _InputAccumulator:
         flat = flat[mask]
         if flat.numel() == 0:
             return
+        x2 = flat * flat
         self.sum_abs += flat.abs().sum(dim=0)
-        self.sum_sq += (flat * flat).sum(dim=0)
+        self.sum_sq += x2.sum(dim=0)
+        self.sum_x4 += (x2 * x2).sum(dim=0)
+        self.max_abs = torch.maximum(self.max_abs, flat.abs().amax(dim=0))
         self.count += int(flat.shape[0])
 
-    def act_scale(self) -> torch.Tensor:  # E|x| per input channel  (AWQ)
+    def act_scale(self) -> torch.Tensor:  # E|x| per input channel  (AWQ / LLM.int8)
         c = max(1, self.count)
         return (self.sum_abs / c).to(dtype=torch.float32)
 
     def act_sq(self) -> torch.Tensor:  # E[x^2] per input channel  (Hessian diag)
         c = max(1, self.count)
         return (self.sum_sq / c).to(dtype=torch.float32)
+
+    def act_rms(self) -> torch.Tensor:  # sqrt(E[x^2]) per input channel
+        c = max(1, self.count)
+        return torch.sqrt(self.sum_sq / c).to(dtype=torch.float32)
+
+    def act_max(self) -> torch.Tensor:  # max|x| per input channel  (true outlier magnitude)
+        return self.max_abs.to(dtype=torch.float32)
+
+    def act_kurt(self, eps: float = 1e-12) -> torch.Tensor:
+        # raw (uncentered) kurtosis E[x^4]/E[x^2]^2 per input channel: high == heavy
+        # tailed / spiky activations (candidate "true outlier feature" signal,
+        # orthogonal to the E|x| magnitude used by AWQ/LLM.int8).
+        c = max(1, self.count)
+        m2 = self.sum_sq / c
+        m4 = self.sum_x4 / c
+        return (m4 / (m2 * m2 + eps)).to(dtype=torch.float32)
 
 
 def collect_input_stats(
@@ -246,6 +273,77 @@ def collect_input_stats(
     return accs
 
 
+def collect_channel_activation_entropy(
+    model: torch.nn.Module,
+    tokenizer,
+    prompts: Sequence[str],
+    *,
+    seq_len: int,
+    device: str,
+    max_prompts: Optional[int] = None,
+    bins: int = 32,
+    clip: float = 6.0,
+    eps: float = 1e-5,
+    row_cap: int = 256,
+) -> Dict[str, List[float]]:
+    """Per-input-channel *activation entropy* H(x_j) over calibration data.
+
+    Two passes: pass 1 gets each channel's RMS (``collect_input_stats``); pass 2
+    standardizes each channel by its RMS, histograms, and takes Shannon entropy.
+    This measures information content, orthogonal to the E|x| magnitude AWQ uses —
+    the novelty question: does entropy pick better channels to protect than scale?
+
+    Memory-bounded via ``row_cap`` (tokens/call) and small ``bins``; for 8B use
+    a modest ``max_prompts``. Returns ``{layer: [entropy per input channel]}``.
+    """
+    accs = collect_input_stats(model, tokenizer, prompts, seq_len=seq_len, device=device, max_prompts=max_prompts)
+    rms = {name: acc.act_rms().to(torch.device(device)) for name, acc in accs.items()}
+
+    edges = torch.linspace(-clip, clip, bins + 1, device=device, dtype=torch.float32)
+    hist: Dict[str, torch.Tensor] = {}
+    handles = []
+
+    def make_hook(name: str):
+        def pre_hook(_module, inputs):
+            if not inputs or not isinstance(inputs[0], torch.Tensor):
+                return
+            r = rms.get(name)
+            flat = inputs[0].detach().reshape(-1, inputs[0].shape[-1]).to(dtype=torch.float32)
+            if r is None or r.numel() != flat.shape[1]:
+                return
+            if row_cap and flat.shape[0] > row_cap:
+                flat = flat[:row_cap]
+            z = torch.clamp(flat / (r.unsqueeze(0) + eps), -clip, clip)
+            idx = torch.clamp(torch.bucketize(z, edges, right=False) - 1, 0, bins - 1)  # [N, in]
+            if name not in hist:
+                hist[name] = torch.zeros(flat.shape[1], bins, dtype=torch.float64, device=flat.device)
+            idx_t = idx.t().to(torch.int64)  # [in, N]
+            hist[name].scatter_add_(1, idx_t, torch.ones_like(idx_t, dtype=torch.float64))
+        return pre_hook
+
+    for name, module in model.named_modules():
+        if isinstance(module, torch.nn.Linear):
+            handles.append(module.register_forward_pre_hook(make_hook(name)))
+
+    used = list(prompts) if max_prompts is None else list(prompts)[: int(max_prompts)]
+    with torch.no_grad():
+        for prompt in used:
+            if not isinstance(prompt, str) or not prompt.strip():
+                continue
+            enc = tokenizer(prompt, return_tensors="pt", truncation=True, padding="max_length", max_length=seq_len)
+            enc = {k: v.to(next(model.parameters()).device) for k, v in enc.items()}
+            model(**enc)
+    for h in handles:
+        h.remove()
+
+    result: Dict[str, List[float]] = {}
+    for name, h in hist.items():
+        probs = h / h.sum(dim=1, keepdim=True).clamp_min(1.0)
+        ent = -(probs * torch.log2(probs.clamp_min(1e-12))).sum(dim=1)  # [in]
+        result[name] = [float(v) for v in ent.detach().cpu().tolist()]
+    return result
+
+
 def activation_signals_for_module(
     weight: torch.Tensor,
     acc: _InputAccumulator,
@@ -266,6 +364,11 @@ def activation_signals_for_module(
         act_sq = acc.act_sq()
         act_scale = acc.act_scale()
 
+    dev = w.device
+    act_max = acc.act_max().to(dev)
+    act_rms = acc.act_rms().to(dev)
+    act_kurt = acc.act_kurt().to(dev)
+
     w2 = w * w                                  # [out, in]
     col_w2 = w2.sum(dim=0)                       # [in]  ‖w_:,j‖²
     hess = w2 * act_sq.unsqueeze(0)              # [out, in]
@@ -279,12 +382,20 @@ def activation_signals_for_module(
         # per-parameter (intensive): comparable across module sizes
         "hessian_diag_pp": {"module": float(hess.mean().item())},
         "salience_pp": {"module": float(sal_in.mean().item())},
+        # pure per-input-channel activation statistics (novelty candidates: do any
+        # of these pick better protected channels than the E|x| magnitude of AWQ?)
+        "act_max": {"module": float(act_max.mean().item())},
+        "act_rms": {"module": float(act_rms.mean().item())},
+        "act_kurt": {"module": float(act_kurt.mean().item())},
     }
     if return_channels:
         out["act_scale"]["in_channel"] = _vec(act_scale)
         out["hessian_diag"]["in_channel"] = _vec(act_sq * col_w2)
         out["hessian_diag"]["out_channel"] = _vec(hess.sum(dim=1))
         out["salience"]["in_channel"] = _vec(sal_in)
+        out["act_max"]["in_channel"] = _vec(act_max)
+        out["act_rms"]["in_channel"] = _vec(act_rms)
+        out["act_kurt"]["in_channel"] = _vec(act_kurt)
     return out
 
 
