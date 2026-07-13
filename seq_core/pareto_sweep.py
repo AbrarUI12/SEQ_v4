@@ -59,7 +59,7 @@ def parse_args() -> argparse.Namespace:
 
     p.add_argument("--backend", default="hqq")
     p.add_argument("--group_size", type=int, default=64)
-    p.add_argument("--signals", default="hessian_diag,salience,magnitude,entropy,random")
+    p.add_argument("--signals", default="hessian_diag,salience,magnitude,entropy,random,uniform")
     p.add_argument("--budgets", default="4,5,6,7", help="target effective-bit budgets")
     p.add_argument("--levels", default="3,4,8", help="discrete bit levels available")
     p.add_argument("--min_lm_head_bits", type=int, default=0, help="0 = pure signal (no floor)")
@@ -76,6 +76,31 @@ def parse_args() -> argparse.Namespace:
 def _random_scores(names: List[str], seed: int) -> Dict[str, float]:
     rng = random.Random(seed)
     return {n: rng.random() for n in names}
+
+
+def _uniform_bit_map(names: List[str], param_counts: Dict[str, int], levels: List[int], budget: float) -> Dict[str, int]:
+    """Deterministic size-agnostic ~uniform allocation (the honest bar to beat).
+
+    Uses only the two levels bracketing ``budget`` and assigns the higher level
+    to a param-share fraction f = (budget-lo)/(hi-lo), by sorted name, so it does
+    not depend on any signal or on layer size.
+    """
+    lv = sorted(set(int(x) for x in levels))
+    lo = max([l for l in lv if l <= budget], default=lv[0])
+    hi = min([l for l in lv if l >= budget], default=lv[-1])
+    if lo == hi:
+        return {n: lo for n in names}
+    total = sum(param_counts.get(n, 0) for n in names) or 1
+    target_hi = (budget - lo) / (hi - lo) * total
+    bit_map: Dict[str, int] = {}
+    acc = 0
+    for n in sorted(names):
+        if acc < target_hi:
+            bit_map[n] = hi
+            acc += param_counts.get(n, 0)
+        else:
+            bit_map[n] = lo
+    return bit_map
 
 
 def main() -> int:
@@ -151,7 +176,10 @@ def main() -> int:
     # ---- pass 2: per (signal, budget) allocate -> quantize -> PPL ---------- #
     results: List[Dict[str, Any]] = []
     for signal_name in signal_names:
-        if signal_name == "random":
+        scores = None
+        if signal_name == "uniform":
+            pass  # handled per-budget below (deterministic even split)
+        elif signal_name == "random":
             scores = _random_scores(linear_names, args.seed)
         elif signal_name in scalar:
             scores = {n: v for n, v in scalar[signal_name].items() if n in param_counts}
@@ -159,7 +187,10 @@ def main() -> int:
             LOGGER.warning("signal '%s' not found; skipping", signal_name)
             continue
         for budget in budgets:
-            bit_map = greedy_bit_allocation(scores, param_counts, levels=levels, target_bits=budget, protected=protected or None)
+            if signal_name == "uniform":
+                bit_map = _uniform_bit_map(linear_names, param_counts, levels, budget)
+            else:
+                bit_map = greedy_bit_allocation(scores, param_counts, levels=levels, target_bits=budget, protected=protected or None)
             eff = effective_bits_from_map(bit_map, param_counts)
             model, tokenizer = load_model_and_tokenizer(args.model, device, dtype, trust_remote_code=bool(args.trust_remote_code))
             info = apply_bit_map(model, bit_map, backend, device=device, fp16_dtype=dtype, compute_dtype=dtype, group_size=args.group_size)

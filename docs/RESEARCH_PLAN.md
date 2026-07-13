@@ -194,7 +194,27 @@ removes the noise (0% negative, 96% usable):
   and ‖ΔW‖²≈c‖W‖² at fixed bits (CV≈0.19), so ρ≈1 confirms the `w²` proxy is
   faithful — it is not yet proof of the best end-to-end model.
 
-### Run 3 (decisive, non-circular): downstream Pareto
+## 12. Run 3 result (downstream Pareto, 3 models) — `docs/FINDINGS_run3.md`
+
+The non-circular end-to-end test **overturns the reconstruction result**:
+
+- `hessian_diag`/`salience` (recon winners, ρ≈0.99) are the **worst** allocators
+  — mean PPL gap vs random +3.4 / +2.0. Their extensive per-layer sums
+  over-protect `lm_head` and starve the rest to 3-bit (e.g. 1B @4b: 79% of
+  params at 3-bit → PPL 30 vs ~11).
+- `entropy` ≈ `magnitude` ≈ `random` (entropy −0.12 vs random): at module
+  granularity, 3–7 bits, **no signal reliably beats uniform**. Entropy only
+  "works" because it is near-uniform, so allocating by it ≈ uniform.
+- Reconstruction correlation is therefore a **misleading proxy**: acing it (a
+  local per-layer sum) predicts end-to-end failure because errors compound and
+  concentration starves the network.
+
+Implication: the module-level signal thesis is not supported. Open levers:
+per-channel (within-layer) allocation, per-parameter-normalized signals
+(`hessian_diag_pp`) with a low-bit floor, and a compounding-aware objective.
+Salvage run (cheap): `--signals hessian_diag_pp,salience_pp,entropy,uniform,random --levels 4,8`.
+
+### Run 3 recipe: downstream Pareto
 
 ```bash
 python -m seq_core.pareto_sweep \

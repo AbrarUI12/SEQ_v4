@@ -22,6 +22,7 @@ from __future__ import annotations
 import copy
 import gc
 import logging
+import math
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
 import torch
@@ -68,7 +69,15 @@ def make_ppl_fn(
             full_corpus=full_corpus,
         )
         ppl = result.get("ppl") if isinstance(result, dict) else None
-        return float(ppl) if ppl is not None else float("nan")
+        if ppl is None or not math.isfinite(float(ppl)):
+            # Never silently return a bare nan: surface *why* (dataset load,
+            # datasets-unavailable, insufficient tokens, diverged loss).
+            err = result.get("error") if isinstance(result, dict) else "non_dict_result"
+            LOGGER.warning(
+                "ppl unavailable (mode=%s split=%s): error=%s", mode, split, err
+            )
+            return float("nan")
+        return float(ppl)
 
     return ppl_fn
 
