@@ -34,7 +34,10 @@ import torch
 LOGGER = logging.getLogger(__name__)
 
 WEIGHT_SIGNALS = ("entropy", "magnitude", "kurtosis", "outlier_frac")
-ACT_SIGNALS = ("act_scale", "hessian_diag", "salience")
+# Extensive (sum over the matrix) vs. per-parameter (``_pp``, intensive) forms.
+# Extensive predicts *whole-module* ΔLoss; ``_pp`` is comparable across module
+# sizes (see docs/FINDINGS_run1.md — the extensive forms rank by size / flag lm_head).
+ACT_SIGNALS = ("act_scale", "hessian_diag", "hessian_diag_pp", "salience", "salience_pp")
 ALL_SIGNALS = WEIGHT_SIGNALS + ACT_SIGNALS
 
 
@@ -266,17 +269,22 @@ def activation_signals_for_module(
     w2 = w * w                                  # [out, in]
     col_w2 = w2.sum(dim=0)                       # [in]  ‖w_:,j‖²
     hess = w2 * act_sq.unsqueeze(0)              # [out, in]
+    sal_in = act_scale * torch.sqrt(col_w2 + eps)  # [in]
 
     out: Dict[str, Any] = {
         "act_scale": {"module": float(act_scale.mean().item())},
+        # extensive: total whole-module second-order ΔLoss / salience
         "hessian_diag": {"module": float(hess.sum().item())},
-        "salience": {"module": float((act_scale * torch.sqrt(col_w2 + eps)).sum().item())},
+        "salience": {"module": float(sal_in.sum().item())},
+        # per-parameter (intensive): comparable across module sizes
+        "hessian_diag_pp": {"module": float(hess.mean().item())},
+        "salience_pp": {"module": float(sal_in.mean().item())},
     }
     if return_channels:
         out["act_scale"]["in_channel"] = _vec(act_scale)
         out["hessian_diag"]["in_channel"] = _vec(act_sq * col_w2)
         out["hessian_diag"]["out_channel"] = _vec(hess.sum(dim=1))
-        out["salience"]["in_channel"] = _vec(act_scale * torch.sqrt(col_w2 + eps))
+        out["salience"]["in_channel"] = _vec(sal_in)
     return out
 
 

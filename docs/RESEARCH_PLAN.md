@@ -148,12 +148,33 @@ arbitrary-bit backends dominate at 5–7 effective bits; (c) best combo =
 
 ---
 
-## 9. Build status (this branch)
+## 9. Run 1 result (module-level, 3 models) — see `docs/FINDINGS_run1.md`
 
-- [x] `seq_core/stats_utils.py` — rank-correlation + bit-allocation (stdlib, tested)
-- [x] `seq_core/signals.py` — per-module + per-channel signal extractors
+First study on Llama-3.2-1B / 3B / 8B (HQQ 3-bit one-hot degrade, proxy PPL):
+
+- **The module-level ground truth is under-powered.** 26–65% of modules are
+  usable; the rest sit in the noise (up to 40% show *negative* ΔPPL). Effect is
+  carried by 1–2 modules per model (a `down_proj` and `lm_head`).
+- **Entropy is not validated.** It leads a weak field (ρ = +0.16/+0.12/+0.19)
+  but is significant in only 1/3 models. Its weak positive signal is essentially
+  the inverse of kurtosis (uniform weights ≈ slightly more 3-bit damage).
+- **`hessian_diag` predicts within `down_proj`** (+0.51/+0.20/+0.39) but its
+  extensive module sum is size-dominated and just flags `lm_head` → motivates
+  per-parameter normalization (added: `hessian_diag_pp`, `salience_pp`) and
+  per-channel granularity.
+
+Conclusion: module-level scalar signals are the wrong abstraction; the protocol
+must be strengthened (bigger PPL, operating-regime bits) and moved to channels.
+
+## 10. Build status (this branch)
+
+- [x] `seq_core/stats_utils.py` — rank-correlation + **significance + reliability** + bit-allocation (stdlib, tested)
+- [x] `seq_core/signals.py` — per-module + per-channel signals (now incl. `_pp` normalized forms)
 - [x] `seq_core/sensitivity.py` — ground-truth one-hot sensitivity harness
 - [x] `seq_core/quantizers/` — pluggable backend interface + bnb + HQQ
 - [x] `seq_core/signal_study.py` — RQ1/RQ2 driver (signals → sensitivity → ρ/τ)
-- [ ] Backend Pareto sweep driver (RQ3) — next
-- [ ] GPTQ/AWQ-under-policy integration — next
+- [x] `analysis/analyze_runs.py` — reliability/significance/per-type analysis → `docs/FINDINGS_run1.md`
+- [ ] **Stronger ground-truth protocol** (canonical/≥256-seq PPL, 4-bit marginal) — next
+- [ ] **Per-channel second-order sensitivity** (`E[x²]·w²`) — next
+- [ ] Backend Pareto sweep driver (RQ3)
+- [ ] GPTQ/AWQ-under-policy integration

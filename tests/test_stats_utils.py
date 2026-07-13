@@ -10,10 +10,12 @@ from seq_core.stats_utils import (  # noqa: E402
     aligned_correlation,
     average_bits,
     bits_to_tier,
+    correlation_pvalue,
     greedy_bit_allocation,
     kendall_tau,
     pearson,
     rankdata,
+    sensitivity_reliability,
     spearman,
 )
 
@@ -98,6 +100,25 @@ alloc3 = greedy_bit_allocation(
     {"a": 1.0, "b": 2.0}, {"a": 1, "b": 1}, levels=[4, 8], target_bits=3.0
 )
 check(min(alloc3.values()) == 4, "alloc floor when target below min level")
+
+# --- correlation_pvalue (normal approx): matches hand values from the runs ---
+# entropy on 1B: rho=0.164, n=113 -> not significant (p ~ 0.08)
+p_1b = correlation_pvalue(0.164, 113)
+check(p_1b is not None and 0.06 <= p_1b <= 0.10, f"pvalue weak rho not significant (got {p_1b})")
+# entropy on 8B: rho=0.188, n=225 -> significant (p ~ 0.005)
+p_8b = correlation_pvalue(0.188, 225)
+check(p_8b is not None and p_8b <= 0.01, f"pvalue larger-n rho significant (got {p_8b})")
+check(correlation_pvalue(1.0, 100) < 1e-6, "pvalue perfect corr ~0")
+check(correlation_pvalue(0.0, 100) is not None and abs(correlation_pvalue(0.0, 100) - 1.0) < 1e-9, "pvalue zero corr == 1")
+check(correlation_pvalue(None, 100) is None, "pvalue None rho -> None")
+
+# --- sensitivity_reliability: catches a noise-dominated ground truth ---
+noisy = [-0.05, -0.01, 0.0, 0.001, 0.002, 0.005, -0.003, 2.3, 0.004, -0.02]
+rel = sensitivity_reliability(noisy, noise_threshold=0.02)
+check(rel["n"] == 10, "reliability n")
+check(rel["frac_negative"] == 0.4, "reliability frac_negative")
+check(rel["top1_share"] > 0.85, "reliability top1 share dominated by one unit")
+check(0.0 <= rel["frac_below_noise"] <= 1.0, "reliability frac_below_noise in range")
 
 # --- bits_to_tier ---
 check(bits_to_tier(3) == "int4" and bits_to_tier(4) == "int4", "tier int4")

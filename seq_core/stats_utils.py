@@ -128,6 +128,51 @@ def _finite(v: object) -> bool:
     return math.isfinite(f)
 
 
+def correlation_pvalue(rho: Optional[float], n: int) -> Optional[float]:
+    """Two-sided p-value for a rank correlation, large-n normal approximation.
+
+    Under H0 (no association), Spearman's rho is ~N(0, 1/(n-1)), so
+    z = rho * sqrt(n-1) and p = erfc(|z| / sqrt(2)). Adequate for n > ~30
+    (here n is 100-225). Returns None when undefined.
+    """
+    if rho is None or n is None or n < 3:
+        return None
+    z = abs(float(rho)) * math.sqrt(n - 1)
+    return math.erfc(z / math.sqrt(2.0))
+
+
+def sensitivity_reliability(
+    values: Sequence[float],
+    noise_threshold: float = 0.02,
+) -> Dict[str, float]:
+    """Diagnose whether a measured-sensitivity vector is usable as ground truth.
+
+    A vector where most units are near zero (or negative, i.e. quantizing
+    "helped" — a measurement artifact) cannot rank-order signals meaningfully.
+    Reports the fraction below the noise floor and how concentrated the total
+    effect is in the top units.
+    """
+    vals = [float(v) for v in values if _finite(v)]
+    n = len(vals)
+    if n == 0:
+        return {"n": 0}
+    neg = sum(1 for v in vals if v < 0)
+    tiny = sum(1 for v in vals if abs(v) < noise_threshold)
+    abs_sorted = sorted((abs(v) for v in vals), reverse=True)
+    total_abs = sum(abs_sorted) or 1.0
+    top1 = abs_sorted[0] / total_abs
+    top5 = sum(abs_sorted[:5]) / total_abs
+    return {
+        "n": n,
+        "frac_negative": neg / n,
+        "frac_below_noise": tiny / n,
+        "top1_share": top1,
+        "top5_share": top5,
+        "max": abs_sorted[0],
+        "usable_fraction": 1.0 - tiny / n,
+    }
+
+
 # --------------------------------------------------------------------------- #
 # Bit allocation: signal -> precision map at a target effective-bit budget
 # --------------------------------------------------------------------------- #
