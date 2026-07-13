@@ -52,6 +52,13 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--sensitivity_bits", type=int, default=3)
     p.add_argument("--skip_sensitivity", action="store_true", help="only extract + save signals")
     p.add_argument("--max_modules", type=int, default=0, help="0 = all Linear modules")
+    p.add_argument(
+        "--ground_truth",
+        default="ppl_degrade",
+        choices=["ppl_degrade", "recon"],
+        help="ppl_degrade: one-hot ΔPPL (noisy, global). recon: local reconstruction error "
+        "(deterministic, per-channel-capable, recommended after run 1).",
+    )
 
     p.add_argument("--sensitivity_ppl_mode", default="proxy", choices=["proxy", "canonical"])
     p.add_argument("--sensitivity_ppl_dataset", default="wikitext2")
@@ -131,30 +138,46 @@ def main() -> int:
         if not backend.is_available():
             raise RuntimeError(f"backend '{args.backend}' not available in this environment")
 
-        ppl_fn = sens.make_ppl_fn(
-            dataset_name=args.sensitivity_ppl_dataset,
-            split="test" if args.sensitivity_ppl_mode == "canonical" else "validation",
-            seq_len=args.sensitivity_ppl_seq_len,
-            device=device,
-            dtype=dtype,
-            mode=args.sensitivity_ppl_mode,
-            max_examples=None if args.sensitivity_ppl_mode == "canonical" else args.sensitivity_max_examples,
-            full_corpus=(args.sensitivity_ppl_mode == "canonical"),
-        )
+        if args.ground_truth == "recon":
+            from seq_core import recon_sensitivity as recon
 
-        LOGGER.info("measuring one-hot degrade sensitivity (%d modules @ %d-bit) ...",
-                    len(names), args.sensitivity_bits)
-        gt_result = sens.one_hot_degrade(
-            model, tokenizer, ppl_fn, backend,
-            bits=args.sensitivity_bits, module_names=names,
-            device=device, compute_dtype=dtype, group_size=args.group_size,
-        )
-        (out_dir / "sensitivity_degrade.json").write_text(json.dumps(gt_result, indent=2))
+            LOGGER.info("measuring reconstruction sensitivity (%d modules @ %d-bit) ...",
+                        len(names), args.sensitivity_bits)
+            gt_result = recon.reconstruction_sensitivity(
+                model, tokenizer, prompts, backend,
+                bits=args.sensitivity_bits, group_size=args.group_size,
+                device=device, compute_dtype=dtype,
+                seq_len=args.calib_seq_len, max_prompts=args.max_calib_prompts,
+                module_names=names, return_channels=False,
+            )
+            (out_dir / "sensitivity_recon.json").write_text(json.dumps(gt_result, indent=2))
+            gt = recon.ground_truth_scores(gt_result, key="module")
+            ranked = recon.correlate_signals(scalar_table, gt)
+        else:
+            ppl_fn = sens.make_ppl_fn(
+                dataset_name=args.sensitivity_ppl_dataset,
+                split="test" if args.sensitivity_ppl_mode == "canonical" else "validation",
+                seq_len=args.sensitivity_ppl_seq_len,
+                device=device,
+                dtype=dtype,
+                mode=args.sensitivity_ppl_mode,
+                max_examples=None if args.sensitivity_ppl_mode == "canonical" else args.sensitivity_max_examples,
+                full_corpus=(args.sensitivity_ppl_mode == "canonical"),
+            )
+            LOGGER.info("measuring one-hot degrade sensitivity (%d modules @ %d-bit) ...",
+                        len(names), args.sensitivity_bits)
+            gt_result = sens.one_hot_degrade(
+                model, tokenizer, ppl_fn, backend,
+                bits=args.sensitivity_bits, module_names=names,
+                device=device, compute_dtype=dtype, group_size=args.group_size,
+            )
+            (out_dir / "sensitivity_degrade.json").write_text(json.dumps(gt_result, indent=2))
+            gt = sens.ground_truth_scores(gt_result, key="delta_ppl")
+            report["baseline_ppl"] = gt_result.get("baseline_ppl")
+            ranked = sens.correlate_signals(scalar_table, gt)
 
-        gt = sens.ground_truth_scores(gt_result, key="delta_ppl")
         # ---- 4. correlate ------------------------------------------------- #
-        ranked = sens.correlate_signals(scalar_table, gt)
-        report["baseline_ppl"] = gt_result.get("baseline_ppl")
+        report["ground_truth"] = args.ground_truth
         report["sensitivity_bits"] = args.sensitivity_bits
         report["signal_ranking"] = ranked
         (out_dir / "signal_ranking.json").write_text(json.dumps(ranked, indent=2))

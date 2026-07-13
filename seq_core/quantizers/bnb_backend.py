@@ -64,3 +64,18 @@ class BnbBackend(QuantBackend):
             device=device,
             threshold=kwargs.get("int8_threshold", self.int8_threshold),
         )
+
+    def dequantize_weight(self, module: torch.nn.Module) -> Optional[torch.Tensor]:
+        # 4-bit: reconstruct via bnb.functional.dequantize_4bit(weight, quant_state).
+        try:
+            import bitsandbytes.functional as bnb_f
+
+            weight = getattr(module, "weight", None)
+            quant_state = getattr(weight, "quant_state", None)
+            if weight is not None and quant_state is not None:
+                w = bnb_f.dequantize_4bit(weight.data, quant_state)
+                if isinstance(w, torch.Tensor) and w.dim() == 2:
+                    return w.detach()
+        except Exception:  # noqa: BLE001
+            pass
+        return None  # 8-bit (LLM.int8) reconstruction is not supported here

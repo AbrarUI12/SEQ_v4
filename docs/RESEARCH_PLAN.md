@@ -174,7 +174,26 @@ must be strengthened (bigger PPL, operating-regime bits) and moved to channels.
 - [x] `seq_core/quantizers/` — pluggable backend interface + bnb + HQQ
 - [x] `seq_core/signal_study.py` — RQ1/RQ2 driver (signals → sensitivity → ρ/τ)
 - [x] `analysis/analyze_runs.py` — reliability/significance/per-type analysis → `docs/FINDINGS_run1.md`
-- [ ] **Stronger ground-truth protocol** (canonical/≥256-seq PPL, 4-bit marginal) — next
-- [ ] **Per-channel second-order sensitivity** (`E[x²]·w²`) — next
+- [x] `seq_core/recon_sensitivity.py` — deterministic reconstruction-error ground truth
+      (per-module + per-channel), wired into `signal_study.py` via `--ground_truth recon`
+- [x] backend `dequantize_weight` (HQQ + bnb-4bit) for the real ΔW
+- [ ] **Stronger PPL protocol re-run** (≥256-seq proxy or canonical, 4-bit marginal) — quick win
 - [ ] Backend Pareto sweep driver (RQ3)
 - [ ] GPTQ/AWQ-under-policy integration
+
+### Recommended run 2 (reconstruction ground truth; kills the PPL noise)
+
+```bash
+python -m seq_core.signal_study \
+  --model meta-llama/Llama-3.2-1B \
+  --backend hqq --sensitivity_bits 4 --group_size 64 \
+  --ground_truth recon \
+  --calibration_prompts calibration_prompts.json \
+  --max_calib_prompts 64 --target_bits 6.0 \
+  --out_dir runs/recon_study
+```
+
+Then `python analysis/analyze_runs.py` (it reads `sensitivity_recon.json` too) for
+the significance-aware comparison. Use `--sensitivity_bits 4` because the target
+is 5–7 effective bits — measure sensitivity in the operating regime, not 3-bit
+collapse.

@@ -71,6 +71,15 @@ class QuantBackend(ABC):
                 f"(supports {sorted(self.supported_bits())})"
             )
 
+    def dequantize_weight(self, module: torch.nn.Module) -> Optional[torch.Tensor]:
+        """Return the dequantized weight [out, in] of a module this backend made.
+
+        Used by the reconstruction-error sensitivity harness to compute the real
+        quantization error ΔW = W − Q(W). Backends that cannot reconstruct return
+        None (the harness then skips that unit with a warning).
+        """
+        return None
+
 
 # --------------------------------------------------------------------------- #
 # Module tree helpers (kept local to avoid import cycles).

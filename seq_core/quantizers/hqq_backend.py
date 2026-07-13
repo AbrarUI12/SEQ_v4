@@ -9,11 +9,14 @@ arbitrary-bit substrate (RQ3).
 """
 from __future__ import annotations
 
+import logging
 from typing import Any, Optional, Set
 
 import torch
 
 from .base import QuantBackend
+
+LOGGER = logging.getLogger(__name__)
 
 try:
     from hqq.core.quantize import BaseQuantizeConfig, HQQLinear
@@ -70,3 +73,16 @@ class HqqBackend(QuantBackend):
             del_orig=True,
         )
         return hqq_layer
+
+    def dequantize_weight(self, module: torch.nn.Module) -> Optional[torch.Tensor]:
+        # HQQLinear exposes .dequantize(); fall back to alternate names across versions.
+        for meth in ("dequantize", "dequantize_aten"):
+            fn = getattr(module, meth, None)
+            if callable(fn):
+                try:
+                    w = fn()
+                    if isinstance(w, torch.Tensor) and w.dim() == 2:
+                        return w.detach()
+                except Exception as exc:  # noqa: BLE001
+                    LOGGER.warning("hqq dequantize via %s failed: %s", meth, exc)
+        return None
