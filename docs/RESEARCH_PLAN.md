@@ -177,9 +177,37 @@ must be strengthened (bigger PPL, operating-regime bits) and moved to channels.
 - [x] `seq_core/recon_sensitivity.py` — deterministic reconstruction-error ground truth
       (per-module + per-channel), wired into `signal_study.py` via `--ground_truth recon`
 - [x] backend `dequantize_weight` (HQQ + bnb-4bit) for the real ΔW
-- [ ] **Stronger PPL protocol re-run** (≥256-seq proxy or canonical, 4-bit marginal) — quick win
-- [ ] Backend Pareto sweep driver (RQ3)
+- [x] `seq_core/pareto_sweep.py` — downstream PPL-vs-bits per signal (the non-circular test)
+- [ ] Multi-model recon (3B/8B) to confirm the flip generalizes
+- [ ] Per-channel (within-module) allocation
 - [ ] GPTQ/AWQ-under-policy integration
+
+## 11. Run 2 result (reconstruction ground truth, Llama-3.2-1B) — `docs/FINDINGS_run2.md`
+
+Switching to the deterministic reconstruction ground truth flips the picture and
+removes the noise (0% negative, 96% usable):
+
+- `hessian_diag` ρ = **+0.997** (robust: same without `lm_head`, +0.85–1.00
+  within every module type); `salience` +0.99.
+- `entropy` ρ = **−0.18** — actively anti-correlated, not merely weak.
+- Caveat: recon objective and `hessian_diag` are both E[x²]·weight-energy sums
+  and ‖ΔW‖²≈c‖W‖² at fixed bits (CV≈0.19), so ρ≈1 confirms the `w²` proxy is
+  faithful — it is not yet proof of the best end-to-end model.
+
+### Run 3 (decisive, non-circular): downstream Pareto
+
+```bash
+python -m seq_core.pareto_sweep \
+  --model meta-llama/Llama-3.2-1B --backend hqq \
+  --signals hessian_diag,salience,magnitude,entropy,random \
+  --budgets 4,5,6,7 --levels 3,4,8 --ppl_mode canonical \
+  --calibration_prompts calibration_prompts.json \
+  --out_dir runs/pareto
+```
+
+Produces PPL-vs-effective-bits per signal (the headline figure). If
+`hessian_diag`/`salience` sit below `entropy`/`random` at 5–7 bits, the signal
+story is proven end-to-end.
 
 ### Recommended run 2 (reconstruction ground truth; kills the PPL noise)
 

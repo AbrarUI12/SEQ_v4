@@ -1,5 +1,5 @@
 {
-  "meta-llama/Llama-3.2-1B": {
+  "meta-llama/Llama-3.2-1B [ppl_degrade]": {
     "reliability": {
       "n": 113,
       "frac_negative": 0.26548672566371684,
@@ -119,7 +119,7 @@
       }
     }
   },
-  "meta-llama/Llama-3.2-3B": {
+  "meta-llama/Llama-3.2-3B [ppl_degrade]": {
     "reliability": {
       "n": 197,
       "frac_negative": 0.30456852791878175,
@@ -239,7 +239,7 @@
       }
     }
   },
-  "meta-llama/Llama-3.1-8B": {
+  "meta-llama/Llama-3.1-8B [ppl_degrade]": {
     "reliability": {
       "n": 225,
       "frac_negative": 0.39555555555555555,

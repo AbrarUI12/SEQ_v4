@@ -147,7 +147,7 @@ def build_markdown(runs: List[Tuple[Dict[str, Any], Dict[str, Any]]], noise: flo
     for run, a in runs:
         r = a["reliability"]
         L.append(
-            f"| {run['model']} | {run['bits']} | {fmt(run['baseline_ppl'],2)} | {r['n']} | "
+            f"| {run['label']} | {run['bits']} | {fmt(run['baseline_ppl'],2)} | {r['n']} | "
             f"{r['frac_negative']*100:.0f}% | {r['frac_below_noise']*100:.0f}% | "
             f"{r['top1_share']*100:.0f}% | {r['top5_share']*100:.0f}% |"
         )
@@ -161,7 +161,7 @@ def build_markdown(runs: List[Tuple[Dict[str, Any], Dict[str, Any]]], noise: flo
     L.append("## 2. Signal vs. measured sensitivity (global, with significance)")
     L.append("")
     for run, a in runs:
-        L.append(f"### {run['model']}")
+        L.append(f"### {run['label']}")
         L.append("")
         L.append("| rank | signal | Spearman ρ | p-value | significant (p<0.05) |")
         L.append("|---|---|---|---|---|")
@@ -199,7 +199,7 @@ def build_markdown(runs: List[Tuple[Dict[str, Any], Dict[str, Any]]], noise: flo
         pt = a["per_type"]
         if not pt:
             continue
-        L.append(f"### {run['model']}")
+        L.append(f"### {run['label']}")
         L.append("")
         L.append("| type (n) | " + " | ".join(f"`{s}`" for s in sig_names) + " |")
         L.append("|" + "---|" * (len(sig_names) + 1))
@@ -208,44 +208,62 @@ def build_markdown(runs: List[Tuple[Dict[str, Any], Dict[str, Any]]], noise: flo
             L.append(f"| {t} | {cells} |")
         L.append("")
 
-    # 5. interpretation (data-driven)
+    has_ppl = any(run.get("mode") == "ppl_degrade" for run, _a in runs)
+    has_recon = any(run.get("mode") == "recon" for run, _a in runs)
+
+    def best_of(mode: str) -> Optional[Dict[str, Any]]:
+        for run, a in runs:
+            if run.get("mode") == mode and a["ranking"]:
+                return a["ranking"][0]
+        return None
+
+    def rho_of(mode: str, signal: str) -> Optional[float]:
+        for run, a in runs:
+            if run.get("mode") == mode:
+                row = next((r for r in a["ranking"] if r["signal"] == signal), None)
+                if row:
+                    return row["spearman"]
+        return None
+
+    # 5. interpretation (data-driven, mode-aware)
     L.append("## 5. Interpretation")
     L.append("")
-    # reliability verdict
-    worst_neg = max(a["reliability"]["frac_negative"] for _r, a in runs)
-    worst_noise = max(a["reliability"]["frac_below_noise"] for _r, a in runs)
-    L.append(f"- **Ground truth is under-powered.** Up to {worst_neg*100:.0f}% of modules show "
-             f"*negative* ΔPPL and up to {worst_noise*100:.0f}% sit below the noise floor. The 3-bit "
-             "proxy-PPL one-hot degrade resolves only a handful of modules (a `down_proj` and "
-             "`lm_head`); everything else is noise.")
-    # entropy verdict
-    ent_rhos = []
-    ent_sig = 0
-    for _r, a in runs:
-        row = next((r for r in a["ranking"] if r["signal"] == "entropy"), None)
-        if row and row["spearman"] is not None:
-            ent_rhos.append(row["spearman"])
-            if row["pvalue"] is not None and row["pvalue"] < 0.05:
-                ent_sig += 1
-    if ent_rhos:
-        L.append(f"- **Entropy is not validated.** It leads a weak field (ρ = "
-                 f"{', '.join(f'{r:+.2f}' for r in ent_rhos)}) but is significant in only "
-                 f"{ent_sig}/{len(ent_rhos)} models; the lead is a weak-field artifact, not evidence "
-                 "the signal is good.")
-    L.append("- **The principled signal works where theory applies.** Within `down_proj`, "
-             "`hessian_diag` is consistently the best within-type predictor — but its *module-level* "
-             "sum is dominated by size and just flags `lm_head`. Normalizing per-parameter and moving "
-             "to **per-channel** is the indicated fix.")
+    if has_ppl:
+        worst_neg = max(a["reliability"]["frac_negative"] for run, a in runs if run.get("mode") == "ppl_degrade")
+        worst_noise = max(a["reliability"]["frac_below_noise"] for run, a in runs if run.get("mode") == "ppl_degrade")
+        ent_ppl = rho_of("ppl_degrade", "entropy")
+        L.append(f"- **PPL-degrade ground truth is under-powered.** Up to {worst_neg*100:.0f}% of "
+                 f"modules show *negative* ΔPPL and up to {worst_noise*100:.0f}% sit below the noise "
+                 "floor — only a `down_proj` and `lm_head` rise above it. Rankings on it are mostly "
+                 f"noise (entropy leads at ρ={fmt(ent_ppl,2)} but that is a weak-field artifact).")
+    if has_recon:
+        hd = rho_of("recon", "hessian_diag")
+        ent = rho_of("recon", "entropy")
+        L.append(f"- **Under the deterministic reconstruction ground truth the picture is decisive.** "
+                 f"`hessian_diag` predicts sensitivity almost perfectly (ρ={fmt(hd,3)}, robust "
+                 "within every module type and with `lm_head` removed), while `entropy` is *negatively* "
+                 f"correlated (ρ={fmt(ent,3)}) — entropy is not just weak, it points the wrong way.")
+        L.append("- **Caveat (partly built-in).** The recon objective `Σ E[x²]·‖ΔW‖²` and the "
+                 "`hessian_diag` signal `Σ E[x²]·‖W‖²` are both E[x²]-weighted weight-energy sums, and "
+                 "at fixed bits ‖ΔW‖²≈c·‖W‖² (measured CV≈0.19). So ρ≈1 largely confirms the `w²` "
+                 "proxy tracks the real error — it is **not** independent proof of the best end-to-end "
+                 "model. That requires the downstream test below.")
     L.append("")
     L.append("## 6. Recommended next experiment")
     L.append("")
-    L.append("1. **Strengthen the ground truth**: canonical (or ≥256-seq) PPL to kill the negative/"
-             "noise ΔPPL, and measure at the *operating* regime (4-bit marginal, since the target is "
-             "5–7 effective bits), not 3-bit collapse.")
-    L.append("2. **Normalize the extensive signals** (`hessian_diag`, `salience`) per-parameter so "
-             "they are comparable across modules instead of ranking by size.")
-    L.append("3. **Go per-channel**: use the second-order estimate `E[x²]·w²` per input channel, where "
-             "the Hessian theory applies cleanly and the down_proj result should sharpen.")
+    if has_recon:
+        L.append("1. **Close the loop with a downstream Pareto** (`seq_core/pareto_sweep.py`): allocate "
+                 "bits by each signal (entropy vs hessian_diag vs magnitude vs uniform) at fixed "
+                 "effective-bit budgets ∈ {4,5,6,7}, actually quantize with HQQ, and measure real PPL. "
+                 "This is the non-circular test the caveat above demands.")
+        L.append("2. **Per-channel allocation**: use the per-input-channel recon/`hessian_diag` to drive "
+                 "mixed-precision *within* a module, not just across modules.")
+        L.append("3. **Multi-model**: repeat recon on 3B/8B to confirm the flip generalizes.")
+    else:
+        L.append("1. **Switch to the reconstruction ground truth** (`--ground_truth recon`) to remove "
+                 "PPL noise and reach per-channel granularity.")
+        L.append("2. **Normalize the extensive signals** (`_pp` variants) for a fair cross-size ranking.")
+        L.append("3. **Downstream Pareto**: allocate bits by each signal and measure real PPL.")
     return "\n".join(L) + "\n"
 
 
@@ -260,20 +278,23 @@ def main() -> int:
 
     run_dirs = args.run or find_runs(args.root)
     loaded: List[Dict[str, Any]] = []
-    seen_models = set()
+    seen = set()
     for d in run_dirs:
         r = load_run(d)
         if not r:
             continue
-        if r["model"] in seen_models:  # dedup identical re-runs of a model
+        key = (r["model"], r.get("mode"))  # keep one per (model, ground-truth mode)
+        if key in seen:
             continue
-        seen_models.add(r["model"])
+        seen.add(key)
         loaded.append(r)
     if not loaded:
         print("no runs found", file=sys.stderr)
         return 1
-    # order small->large by baseline modules if available
-    loaded.sort(key=lambda r: len(r["delta"]))
+    for r in loaded:
+        r["label"] = f"{r['model']} [{r.get('mode')}]"
+    # group by model, then mode, so ppl_degrade and recon for one model sit together
+    loaded.sort(key=lambda r: (len(r["delta"]), r["model"], r.get("mode") or ""))
     analyzed = [(r, analyze_run(r, args.noise)) for r in loaded]
 
     md = build_markdown(analyzed, args.noise)
@@ -281,7 +302,7 @@ def main() -> int:
     open(args.out, "w").write(md)
     os.makedirs(os.path.dirname(args.json_out) or ".", exist_ok=True)
     summary = {
-        r["model"]: {"reliability": a["reliability"], "ranking": a["ranking"], "per_type": a["per_type"]}
+        r["label"]: {"reliability": a["reliability"], "ranking": a["ranking"], "per_type": a["per_type"]}
         for r, a in analyzed
     }
     open(args.json_out, "w").write(json.dumps(summary, indent=2))
@@ -289,7 +310,7 @@ def main() -> int:
     for r, a in analyzed:
         rel = a["reliability"]
         best = a["ranking"][0]
-        print(f"  {r['model']:>22}: usable={rel['usable_fraction']*100:.0f}%  "
+        print(f"  {r['label']:>34}: usable={rel['usable_fraction']*100:.0f}%  "
               f"best={best['signal']}(rho={fmt(best['spearman'])},p={fmt(best['pvalue'],3)})")
     return 0
 
