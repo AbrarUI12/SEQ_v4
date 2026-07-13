@@ -214,6 +214,36 @@ per-channel (within-layer) allocation, per-parameter-normalized signals
 (`hessian_diag_pp`) with a low-bit floor, and a compounding-aware objective.
 Salvage run (cheap): `--signals hessian_diag_pp,salience_pp,entropy,uniform,random --levels 4,8`.
 
+## 13. Pivot: per-channel protection (the positive-result bet)
+
+Run 3 killed module-level allocation. Within a layer, uniform is **not** the
+ceiling — a small fraction of input channels (outlier features) genuinely need
+precision (LLM.int8 / AWQ). We quantize each layer to `base_bits` and keep the
+top-k% input channels (by a per-input-channel signal) in FP16, realized as a
+full-layer quant + exact FP16 correction on protected columns
+(`seq_core/channel_protect.py`, `ChannelProtectedLinear`). Base is numerically
+identical to the uniform baseline, isolating the effect of protection.
+
+**Decisive comparison:** signal-chosen vs. `random`-chosen protected channels at
+the same k (same effective bits). Signal < random ⇒ per-channel importance is
+real. Signals: `act_scale` (AWQ), `hessian_diag` (per-channel), `salience`,
+`magnitude`; `k` small (0–20%) so effective bits land in 4–6.
+
+### Run 4 recipe: per-channel sweep
+
+```bash
+python -m seq_core.channel_sweep \
+  --model meta-llama/Llama-3.2-1B --backend hqq \
+  --base_bits 4 --protect_fracs 0,0.02,0.05,0.1,0.2 \
+  --signals act_scale,hessian_diag,salience,magnitude,random \
+  --ppl_mode canonical --calibration_prompts calibration_prompts.json \
+  --out_dir runs/channel/Llama-3.2-1B
+```
+
+Also try `--base_bits 3` (protection matters more at 3-bit) and
+`--protect_bits 8` (int8 columns instead of FP16, cheaper). Status:
+`channel_utils` unit-tested (12/12); torch paths compile-checked only.
+
 ### Run 3 recipe: downstream Pareto
 
 ```bash
