@@ -38,10 +38,19 @@ def collect_gptq_hessians(
     seq_len: int,
     device: str,
     max_prompts: Optional[int] = None,
+    hessian_device: str = "cpu",
 ) -> Dict[str, Tuple[torch.Tensor, int]]:
-    """Accumulate the input Hessian H = XᵀX per Linear over calibration data."""
+    """Accumulate the input Hessian H = XᵀX per Linear over calibration data.
+
+    Hessians are stored on ``hessian_device`` (default ``"cpu"``). Holding every
+    layer's [in, in] Hessian on the GPU simultaneously OOMs large models (8B down
+    projections alone are ~37 GiB); accumulating on CPU bounds GPU use to the
+    model plus one transient XᵀX, and ``gptq_quantize_model`` moves each Hessian
+    to the GPU only when it quantizes that layer.
+    """
     accs: Dict[str, list] = {}
     handles = []
+    hdev = torch.device(hessian_device)
 
     def make_hook(name: str):
         def pre_hook(_module, inputs):
@@ -52,9 +61,10 @@ def collect_gptq_hessians(
             x = x[mask]
             if x.numel() == 0:
                 return
+            xtx = (x.t() @ x).to(hdev)  # compute on the activation's device, store on hdev
             if name not in accs:
-                accs[name] = [torch.zeros(x.shape[1], x.shape[1], device=x.device, dtype=torch.float32), 0]
-            accs[name][0] += x.t() @ x
+                accs[name] = [torch.zeros(x.shape[1], x.shape[1], device=hdev, dtype=torch.float32), 0]
+            accs[name][0].add_(xtx)
             accs[name][1] += int(x.shape[0])
         return pre_hook
 
@@ -166,14 +176,22 @@ def gptq_quantize_model(
     percdamp: float = 0.01,
     skip: Optional[Sequence[str]] = None,
     out_dtype: torch.dtype = torch.float16,
+    out_device: str = "cpu",
+    hessian_device: str = "cpu",
 ) -> Dict[str, torch.Tensor]:
     """Return ``{layer_name: fake_quantized_weight}`` for every Linear.
 
     NB: this quantizes each layer independently from the FP16 activations (no
     sequential re-capture between layers). That is the standard "one-shot" GPTQ
-    setup used for calibration-cheap PTQ and is sufficient here.
+    setup used for calibration-cheap PTQ and is sufficient here. Hessians live on
+    ``hessian_device`` (CPU by default) and are moved to the layer's device only
+    while that layer is quantized, then freed — so GPU peak is model + one
+    Hessian, not all of them.
     """
-    accs = collect_gptq_hessians(model, tokenizer, prompts, seq_len=seq_len, device=device, max_prompts=max_prompts)
+    accs = collect_gptq_hessians(
+        model, tokenizer, prompts, seq_len=seq_len, device=device,
+        max_prompts=max_prompts, hessian_device=hessian_device,
+    )
     skip_set = set(skip or [])
     result: Dict[str, torch.Tensor] = {}
     for name, module in model.named_modules():
@@ -181,11 +199,18 @@ def gptq_quantize_model(
             continue
         H, n = accs[name]
         try:
-            Wq = gptq_quantize_weight(module.weight, H, bits, group_size=group_size, percdamp=percdamp)
-            result[name] = Wq.to(dtype=out_dtype)
+            H_dev = H.to(module.weight.device)  # bring just this layer's Hessian to the GPU
+            Wq = gptq_quantize_weight(module.weight, H_dev, bits, group_size=group_size, percdamp=percdamp)
+            # store off the GPU by default: the whole fake-quant model would
+            # otherwise coexist with each reloaded model during the sweep (OOM on 8B)
+            result[name] = Wq.to(dtype=out_dtype, device=torch.device(out_device))
+            del H_dev, Wq
         except Exception as exc:  # noqa: BLE001
             LOGGER.warning("gptq: layer %s failed (%s); leaving FP16", name, exc)
         finally:
-            del accs[name]  # free the Hessian immediately
+            accs[name] = None  # free the CPU Hessian immediately
+            del H
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
     LOGGER.info("gptq: quantized %d layers to %d-bit", len(result), bits)
     return result

@@ -241,8 +241,14 @@ python -m seq_core.channel_sweep \
 it should be ~10–11 (near FP16 9.76), *not* ~11.2 (HQQ) or 30+. If k=0 looks
 wrong, GPTQ is misconfigured — stop and report before trusting the sweep.
 (GPTQ code is faithful to auto-gptq and the affine math is unit-tested, but the
-torch path is compile-checked only here.) Also try `--base_bits 3`. Run 1B/3B
-(GPTQ Hessians + fake-quant weights are memory-heavy).
+torch path is compile-checked only here.) Also try `--base_bits 3`.
+
+**Memory (RTX 3090 / 24 GiB):** Hessians and the fake-quant base are kept on
+**CPU** by default (`--gptq_hessian_device cpu`), moved to GPU one layer at a
+time — GPU peak ≈ model + one layer's Hessian. Comfortable for **1B and 3B**.
+**8B** additionally needs ~55 GiB *CPU* RAM (≈37 GiB Hessians + ~16 GiB
+fake-quant base); if CPU RAM is short, 8B needs sequential per-block GPTQ (a
+larger change — ask). For 1B, `--gptq_hessian_device cuda` is faster.
 
 ## 15. Per-channel true-sensitivity audit (`seq_core/channel_audit.py`)
 

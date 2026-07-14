@@ -60,6 +60,8 @@ def parse_args() -> argparse.Namespace:
                    help="base quantizer under the protection (gptq = error-compensated; run 1B/3B)")
     p.add_argument("--gptq_group_size", type=int, default=128)
     p.add_argument("--gptq_percdamp", type=float, default=0.01)
+    p.add_argument("--gptq_hessian_device", default="cpu", choices=["cpu", "cuda"],
+                   help="cpu (default) accumulates Hessians off-GPU so 3B/8B don't OOM; cuda is faster for 1B")
     p.add_argument("--seed", type=int, default=1234)
 
     p.add_argument("--ppl_mode", default="canonical", choices=["proxy", "canonical"])
@@ -142,7 +144,7 @@ def main() -> int:
         gptq_base = gptq_quantize_model(
             model, tokenizer, prompts, bits=args.base_bits, group_size=args.gptq_group_size,
             seq_len=args.calib_seq_len, device=device, max_prompts=args.max_calib_prompts,
-            percdamp=args.gptq_percdamp, skip=skip,
+            percdamp=args.gptq_percdamp, skip=skip, hessian_device=args.gptq_hessian_device,
         )
 
     baseline_ppl = ppl_fn(model, tokenizer)
