@@ -214,6 +214,29 @@ per-channel (within-layer) allocation, per-parameter-normalized signals
 (`hessian_diag_pp`) with a low-bit floor, and a compounding-aware objective.
 Salvage run (cheap): `--signals hessian_diag_pp,salience_pp,entropy,uniform,random --levels 4,8`.
 
+## 15. Per-channel true-sensitivity audit (`seq_core/channel_audit.py`)
+
+The honest ground truth for channel importance: quantize the whole model to
+`base_bits`, then for sampled layers protect each rank-bucket of channels one at
+a time and measure the ΔPPL it recovers. Outputs (a) protection value by
+`act_max`-rank bucket (monotonic ⇒ well-ordered) and (b) Spearman of every
+signal's per-bucket mean vs measured value (a signal beating `act_max` here is a
+candidate to beat the outlier-magnitude heuristic — the novelty lead). Pure
+logic (`bucket_by_rank`) unit-tested; torch paths compile-checked.
+
+### Audit recipe
+
+```bash
+python -m seq_core.channel_audit \
+  --model meta-llama/Llama-3.2-1B --backend hqq \
+  --base_bits 3 --rank_by act_max --num_buckets 8 --audit_layers 6 \
+  --ppl_mode proxy --ppl_max_examples 128 \
+  --calibration_prompts calibration_prompts.json \
+  --out_dir runs/audit/Llama-3.2-1B
+```
+
+Cost ≈ 1 + audit_layers×num_buckets model reloads (proxy PPL); run on 1B/3B.
+
 ## 14. Run 4 result — per-channel protection WORKS (`docs/FINDINGS_run4.md`)
 
 Activation-aware channel selection beats a random-channel control at every k,

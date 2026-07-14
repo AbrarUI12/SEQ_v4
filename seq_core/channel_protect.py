@@ -120,11 +120,14 @@ def apply_channel_protection(
     group_size: Optional[int] = 64,
     skip: Optional[Sequence[str]] = None,
     protect_bits: int = 16,
+    explicit_protected: Optional[Dict[str, Sequence[int]]] = None,
     **backend_kwargs: Any,
 ) -> Dict[str, Any]:
     """Replace each scored Linear with a column-split protected version.
 
-    Returns effective-bit accounting and per-layer protected counts.
+    If ``explicit_protected`` is given, each named layer protects exactly those
+    channel indices (``k_frac``/scores ignored) — used by the sensitivity audit
+    to protect a specific rank bucket. Returns effective-bit accounting.
     """
     skip_set = set(skip or [])
     total_params = 0
@@ -144,7 +147,10 @@ def apply_channel_protection(
             continue
         in_f = module.in_features
         out_f = module.out_features
-        prot = select_protected_channels(scores, k_frac)
+        if explicit_protected is not None:
+            prot = list(explicit_protected.get(name, []))
+        else:
+            prot = select_protected_channels(scores, k_frac)
         try:
             new_module = ChannelProtectedLinear(
                 module.weight, module.bias, prot, backend, base_bits,

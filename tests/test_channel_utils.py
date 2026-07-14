@@ -4,7 +4,11 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from seq_core.channel_utils import layer_effective_bits, select_protected_channels  # noqa: E402
+from seq_core.channel_utils import (  # noqa: E402
+    bucket_by_rank,
+    layer_effective_bits,
+    select_protected_channels,
+)
 
 FAILS = []
 CHECKS = 0
@@ -38,6 +42,19 @@ check(layer_effective_bits(0, 0, 3) == 3.0, "zero in-features guard")
 check(abs(layer_effective_bits(100, 10, 3, 8) - 3.5) < 1e-9, "eff bits 8-bit protect 3.5")
 # clamp over-count
 check(layer_effective_bits(50, 999, 4, 16) == 16.0, "num_protected clamped to in_features")
+
+# --- bucket_by_rank ---
+sc = [0.1, 0.9, 0.5, 0.3, 0.8, 0.2]  # rank desc: 1(.9),4(.8),2(.5),3(.3),5(.2),0(.1)
+bk = bucket_by_rank(sc, 3)
+check(len(bk) == 3, "bucket count")
+check(bk[0] == [1, 4], "bucket 0 = top-2 by score (sorted idx)")
+check(bk[1] == [2, 3], "bucket 1 = middle")
+check(bk[2] == [0, 5], "bucket 2 = bottom")
+check(sorted(i for b in bk for i in b) == [0, 1, 2, 3, 4, 5], "buckets partition all indices")
+# uneven split: 7 into 3 -> sizes 3,2,2
+bk2 = bucket_by_rank(list(range(7)), 3)
+check([len(b) for b in bk2] == [3, 2, 2], "uneven split remainder to front")
+check(bucket_by_rank([], 4) == [], "empty -> no buckets")
 
 print("\n%d checks, %d failures" % (CHECKS, len(FAILS)))
 sys.exit(1 if FAILS else 0)

@@ -21,6 +21,31 @@ def select_protected_channels(scores: Sequence[float], k_frac: float) -> List[in
     return sorted(i for i, _ in finite[:k])
 
 
+def bucket_by_rank(scores: Sequence[float], num_buckets: int) -> List[List[int]]:
+    """Split channel indices into ``num_buckets`` contiguous groups by score rank.
+
+    Bucket 0 = highest-scored channels ... bucket B-1 = lowest. Used by the
+    sensitivity audit to measure the true protection value of each rank band and
+    check whether a signal's ordering matches measured importance. Non-finite
+    scores sort to the bottom.
+    """
+    n = len(scores)
+    if n == 0 or num_buckets <= 0:
+        return []
+    order = sorted(range(n), key=lambda i: (_finite(scores[i]), scores[i] if _finite(scores[i]) else 0.0), reverse=True)
+    buckets: List[List[int]] = []
+    # even split with the remainder spread over the first buckets
+    base, rem = divmod(n, num_buckets)
+    start = 0
+    for b in range(num_buckets):
+        size = base + (1 if b < rem else 0)
+        if size == 0:
+            continue
+        buckets.append(sorted(order[start:start + size]))
+        start += size
+    return buckets
+
+
 def layer_effective_bits(
     in_features: int,
     num_protected: int,
