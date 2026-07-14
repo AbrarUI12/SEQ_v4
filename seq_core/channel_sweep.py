@@ -56,6 +56,10 @@ def parse_args() -> argparse.Namespace:
                    help="also compute per-channel activation entropy as signal 'act_entropy' (memory-heavy; try 1B/3B first)")
     p.add_argument("--entropy_bins", type=int, default=32)
     p.add_argument("--skip_lm_head", action="store_true")
+    p.add_argument("--base_quantizer", default="hqq", choices=["hqq", "gptq"],
+                   help="base quantizer under the protection (gptq = error-compensated; run 1B/3B)")
+    p.add_argument("--gptq_group_size", type=int, default=128)
+    p.add_argument("--gptq_percdamp", type=float, default=0.01)
     p.add_argument("--seed", type=int, default=1234)
 
     p.add_argument("--ppl_mode", default="canonical", choices=["proxy", "canonical"])
@@ -127,11 +131,23 @@ def main() -> int:
         if "act_entropy" not in signal_names:
             signal_names.append("act_entropy")
 
+    skip = [n for n in in_features if "lm_head" in n] if args.skip_lm_head else []
+
+    # optional GPTQ base: precompute error-compensated fake-quant weights once
+    gptq_base: Dict[str, Any] = {}
+    if args.base_quantizer == "gptq":
+        from seq_core.gptq import gptq_quantize_model
+
+        LOGGER.info("precomputing GPTQ %d-bit base (group_size=%d) ...", args.base_bits, args.gptq_group_size)
+        gptq_base = gptq_quantize_model(
+            model, tokenizer, prompts, bits=args.base_bits, group_size=args.gptq_group_size,
+            seq_len=args.calib_seq_len, device=device, max_prompts=args.max_calib_prompts,
+            percdamp=args.gptq_percdamp, skip=skip,
+        )
+
     baseline_ppl = ppl_fn(model, tokenizer)
     LOGGER.info("FP16 baseline ppl = %.4f", baseline_ppl)
     unload_model(model, tokenizer)
-
-    skip = [n for n in in_features if "lm_head" in n] if args.skip_lm_head else []
 
     # precompute per-signal per-layer channel scores
     signal_scores: Dict[str, Dict[str, List[float]]] = {}
@@ -167,6 +183,7 @@ def main() -> int:
                 model, scores, k, backend, args.base_bits,
                 device=device, compute_dtype=dtype, group_size=args.group_size,
                 skip=skip, protect_bits=args.protect_bits,
+                precomputed_base=(gptq_base or None),
             )
             ppl = ppl_fn(model, tokenizer)
             unload_model(model, tokenizer)
@@ -183,8 +200,8 @@ def main() -> int:
                         s, k, info["effective_bits"], ppl, row["delta_ppl_vs_fp16"] or 0.0, len(info["errors"]))
 
     payload = {
-        "model": args.model, "backend": backend.name, "base_bits": args.base_bits,
-        "protect_bits": args.protect_bits, "protect_fracs": fracs,
+        "model": args.model, "backend": backend.name, "base_quantizer": args.base_quantizer,
+        "base_bits": args.base_bits, "protect_bits": args.protect_bits, "protect_fracs": fracs,
         "baseline_fp16_ppl": baseline_ppl, "ppl_mode": args.ppl_mode,
         "skip_lm_head": bool(args.skip_lm_head), "results": results,
     }

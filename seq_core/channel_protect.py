@@ -51,12 +51,13 @@ class ChannelProtectedLinear(nn.Module):
         weight: torch.Tensor,
         bias: Optional[torch.Tensor],
         protected_idx: Sequence[int],
-        backend: QuantBackend,
+        backend: Optional[QuantBackend],
         base_bits: int,
         *,
         device: str,
         compute_dtype: torch.dtype,
         group_size: Optional[int] = 64,
+        precomputed_base: Optional[torch.Tensor] = None,
         **backend_kwargs: Any,
     ) -> None:
         super().__init__()
@@ -66,16 +67,29 @@ class ChannelProtectedLinear(nn.Module):
         prot = sorted(set(int(i) for i in protected_idx))
         w = weight.detach()
 
-        full = nn.Linear(in_f, out_f, bias=False)
-        full.weight = nn.Parameter(w.contiguous(), requires_grad=False)
-        self.q_full = backend.quantize_linear(
-            full, int(base_bits), device=device, compute_dtype=compute_dtype,
-            group_size=group_size, **backend_kwargs,
-        )
+        # Base = a precomputed fake-quant weight (e.g. GPTQ) or a data-free
+        # backend quantization (HQQ/bnb). Both expose a dequantized weight for
+        # the protection correction.
+        if precomputed_base is not None:
+            base_w = precomputed_base.detach().to(device=device, dtype=compute_dtype)
+            full = nn.Linear(in_f, out_f, bias=False)
+            full.weight = nn.Parameter(base_w.contiguous(), requires_grad=False)
+            self.q_full = full.to(device)
+            dequant = base_w
+        else:
+            if backend is None:
+                raise ValueError("ChannelProtectedLinear needs a backend or precomputed_base")
+            full = nn.Linear(in_f, out_f, bias=False)
+            full.weight = nn.Parameter(w.contiguous(), requires_grad=False)
+            self.q_full = backend.quantize_linear(
+                full, int(base_bits), device=device, compute_dtype=compute_dtype,
+                group_size=group_size, **backend_kwargs,
+            )
+            dequant = backend.dequantize_weight(self.q_full)
 
         self._has_correction = False
         if prot:
-            wq = backend.dequantize_weight(self.q_full)
+            wq = dequant
             if wq is not None:
                 wq = wq.to(device=device, dtype=torch.float32)
                 wf = w.to(device=device, dtype=torch.float32)
@@ -112,7 +126,7 @@ def apply_channel_protection(
     model: nn.Module,
     layer_channel_scores: Dict[str, Sequence[float]],
     k_frac: float,
-    backend: QuantBackend,
+    backend: Optional[QuantBackend],
     base_bits: int,
     *,
     device: str,
@@ -121,13 +135,14 @@ def apply_channel_protection(
     skip: Optional[Sequence[str]] = None,
     protect_bits: int = 16,
     explicit_protected: Optional[Dict[str, Sequence[int]]] = None,
+    precomputed_base: Optional[Dict[str, torch.Tensor]] = None,
     **backend_kwargs: Any,
 ) -> Dict[str, Any]:
     """Replace each scored Linear with a column-split protected version.
 
-    If ``explicit_protected`` is given, each named layer protects exactly those
-    channel indices (``k_frac``/scores ignored) — used by the sensitivity audit
-    to protect a specific rank bucket. Returns effective-bit accounting.
+    ``explicit_protected`` protects exactly the given channel indices per layer
+    (audit). ``precomputed_base`` supplies a per-layer fake-quant base weight
+    (e.g. GPTQ) instead of quantizing via ``backend``. Returns effective bits.
     """
     skip_set = set(skip or [])
     total_params = 0
@@ -151,10 +166,16 @@ def apply_channel_protection(
             prot = list(explicit_protected.get(name, []))
         else:
             prot = select_protected_channels(scores, k_frac)
+        base_w = precomputed_base.get(name) if precomputed_base else None
+        # a layer with no precomputed base (e.g. skipped by GPTQ) stays FP16-quantized
+        # by the backend if available; if neither, skip it.
+        if base_w is None and backend is None:
+            continue
         try:
             new_module = ChannelProtectedLinear(
                 module.weight, module.bias, prot, backend, base_bits,
                 device=device, compute_dtype=compute_dtype, group_size=group_size,
+                precomputed_base=base_w,
                 **backend_kwargs,
             )
             tag_quantized(new_module, base_bits, f"{backend.name}+chprot")

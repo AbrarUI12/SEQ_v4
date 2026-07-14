@@ -214,6 +214,36 @@ per-channel (within-layer) allocation, per-parameter-normalized signals
 (`hessian_diag_pp`) with a low-bit floor, and a compounding-aware objective.
 Salvage run (cheap): `--signals hessian_diag_pp,salience_pp,entropy,uniform,random --levels 4,8`.
 
+## 16. GPTQ base (error-compensated) — the RQ3 lever (`seq_core/gptq.py`)
+
+Run 6 proved RTN (bitsandbytes/HQQ) is the Pareto ceiling. GPTQ compensates
+quantization error with the layer's input Hessian, so a GPTQ 4-bit base is far
+closer to FP16 — the base a competitive Pareto needs. Faithful dependency-free
+GPTQ (mirrors auto-gptq), fake-quant output usable by the same per-channel
+`act_max` protection. Wired into `channel_sweep.py` via `--base_quantizer gptq`.
+
+**Decisive question:** does `GPTQ-4bit + act_max protection` reach ≤ FP16 PPL at
+5–7 effective bits (and beat AWQ/GPTQ baselines)? If yes → competitive method.
+
+### Run 7 recipe: GPTQ base + per-channel protection
+
+```bash
+python -m seq_core.channel_sweep \
+  --model meta-llama/Llama-3.2-1B --base_quantizer gptq \
+  --base_bits 4 --gptq_group_size 128 \
+  --protect_fracs 0,0.02,0.05,0.1,0.2 \
+  --signals act_max,act_scale,random \
+  --ppl_mode canonical --calibration_prompts calibration_prompts.json \
+  --out_dir runs/gptq7_b4/Llama-3.2-1B
+```
+
+**SANITY-CHECK FIRST:** the `k=0` row = uniform GPTQ-4bit PPL. For Llama-3.2-1B
+it should be ~10–11 (near FP16 9.76), *not* ~11.2 (HQQ) or 30+. If k=0 looks
+wrong, GPTQ is misconfigured — stop and report before trusting the sweep.
+(GPTQ code is faithful to auto-gptq and the affine math is unit-tested, but the
+torch path is compile-checked only here.) Also try `--base_bits 3`. Run 1B/3B
+(GPTQ Hessians + fake-quant weights are memory-heavy).
+
 ## 15. Per-channel true-sensitivity audit (`seq_core/channel_audit.py`)
 
 The honest ground truth for channel importance: quantize the whole model to
