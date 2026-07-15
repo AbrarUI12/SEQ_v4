@@ -1,0 +1,154 @@
+{
+  "model": "meta-llama/Llama-3.2-1B",
+  "backend": "hqq",
+  "base_quantizer": "gptq",
+  "base_bits": 4,
+  "protect_bits": 16,
+  "protect_fracs": [
+    0.0,
+    0.02,
+    0.05,
+    0.1,
+    0.2
+  ],
+  "baseline_fp16_ppl": 9.757328887480368,
+  "ppl_mode": "canonical",
+  "skip_lm_head": false,
+  "results": [
+    {
+      "signal": "act_max",
+      "k_frac": 0.0,
+      "effective_bits": 4.0,
+      "ppl": 6717.57818971349,
+      "delta_ppl_vs_fp16": 6707.82086082601,
+      "num_layers": 113,
+      "errors": 0
+    },
+    {
+      "signal": "act_max",
+      "k_frac": 0.02,
+      "effective_bits": 4.240234375,
+      "ppl": 11.005746612400406,
+      "delta_ppl_vs_fp16": 1.2484177249200386,
+      "num_layers": 113,
+      "errors": 0
+    },
+    {
+      "signal": "act_max",
+      "k_frac": 0.05,
+      "effective_bits": 4.602879222793805,
+      "ppl": 10.85023412889264,
+      "delta_ppl_vs_fp16": 1.0929052414122715,
+      "num_layers": 113,
+      "errors": 0
+    },
+    {
+      "signal": "act_max",
+      "k_frac": 0.1,
+      "effective_bits": 5.201171875,
+      "ppl": 10.722327378526389,
+      "delta_ppl_vs_fp16": 0.9649984910460212,
+      "num_layers": 113,
+      "errors": 0
+    },
+    {
+      "signal": "act_max",
+      "k_frac": 0.2,
+      "effective_bits": 6.402025548896903,
+      "ppl": 10.557755209079014,
+      "delta_ppl_vs_fp16": 0.8004263215986462,
+      "num_layers": 113,
+      "errors": 0
+    },
+    {
+      "signal": "act_scale",
+      "k_frac": 0.0,
+      "effective_bits": 4.0,
+      "ppl": 6717.57818971349,
+      "delta_ppl_vs_fp16": 6707.82086082601,
+      "num_layers": 113,
+      "errors": 0
+    },
+    {
+      "signal": "act_scale",
+      "k_frac": 0.02,
+      "effective_bits": 4.240234375,
+      "ppl": 4946.107609184574,
+      "delta_ppl_vs_fp16": 4936.350280297094,
+      "num_layers": 113,
+      "errors": 0
+    },
+    {
+      "signal": "act_scale",
+      "k_frac": 0.05,
+      "effective_bits": 4.602879222793805,
+      "ppl": 5102.980724346739,
+      "delta_ppl_vs_fp16": 5093.223395459259,
+      "num_layers": 113,
+      "errors": 0
+    },
+    {
+      "signal": "act_scale",
+      "k_frac": 0.1,
+      "effective_bits": 5.201171875,
+      "ppl": 4773.9110998816695,
+      "delta_ppl_vs_fp16": 4764.1537709941895,
+      "num_layers": 113,
+      "errors": 0
+    },
+    {
+      "signal": "act_scale",
+      "k_frac": 0.2,
+      "effective_bits": 6.402025548896903,
+      "ppl": 4202.373160095467,
+      "delta_ppl_vs_fp16": 4192.615831207987,
+      "num_layers": 113,
+      "errors": 0
+    },
+    {
+      "signal": "random",
+      "k_frac": 0.0,
+      "effective_bits": 4.0,
+      "ppl": 6717.57818971349,
+      "delta_ppl_vs_fp16": 6707.82086082601,
+      "num_layers": 113,
+      "errors": 0
+    },
+    {
+      "signal": "random",
+      "k_frac": 0.02,
+      "effective_bits": 4.240234375,
+      "ppl": 6340.413057763638,
+      "delta_ppl_vs_fp16": 6330.655728876158,
+      "num_layers": 113,
+      "errors": 0
+    },
+    {
+      "signal": "random",
+      "k_frac": 0.05,
+      "effective_bits": 4.602879222793805,
+      "ppl": 5887.3807699872705,
+      "delta_ppl_vs_fp16": 5877.62344109979,
+      "num_layers": 113,
+      "errors": 0
+    },
+    {
+      "signal": "random",
+      "k_frac": 0.1,
+      "effective_bits": 5.201171875,
+      "ppl": 4546.6852421055755,
+      "delta_ppl_vs_fp16": 4536.9279132180955,
+      "num_layers": 113,
+      "errors": 0
+    },
+    {
+      "signal": "random",
+      "k_frac": 0.2,
+      "effective_bits": 6.402025548896903,
+      "ppl": 3440.9819005590057,
+      "delta_ppl_vs_fp16": 3431.224571671525,
+      "num_layers": 113,
+      "errors": 0
+    }
+  ]
+}
