@@ -51,10 +51,23 @@ competitive-Pareto piece (GPTQ base) is implemented, had a calibration bug
 ## 5. GPTQ base status
 
 Implemented from scratch (faithful to auto-gptq), fake-quant output under the
-same protection. **Bug found by the k=0 sanity check** (uniform GPTQ PPL 6717,
-should be ~10–11): the Hessian was calibrated on padded sequences (~97% pad
-tokens). **Fixed** (calibrate on real tokens, no padding). Pending: re-run the
-1B k=0 point to confirm ~10–11.
+same protection. The k=0 sanity check caught two calibration bugs:
+1. Padding (~97% pad tokens) polluted the Hessian — fixed (real tokens).
+2. **Root cause:** the calibration set is only ~614 real tokens, but GPTQ
+   inverts a per-layer Hessian of size [in, in] (in up to ~14k) → rank-deficient
+   → singular inverse → garbage base (k=0 PPL 15701). **Fixed:**
+   `build_gptq_calibration` makes 128×2048 = 262k real tokens (standard GPTQ).
+   The algorithm itself was fine — it was starved of data. **Pending: re-run 1B
+   k=0, expect ~10–11.**
+
+## 5b. Composite-signal result (run 8, HQQ 3-bit) — act_max is the best simple signal
+
+Tested composites and the proper entropy direction against `act_max`. **Nothing
+beats `act_max`** (gap vs act_max, 1B/3B/8B): `act_max*act_rms` +0.1–0.5,
+`act_scale` +0.2–1.5, `neg_act_entropy` +0.4–2.2, `act_max*act_kurt` +0.3–2.0,
+`act_entropy`/`random` +2–17. Conclusion: there is **no novel composite signal**;
+per-channel **outlier magnitude alone** is the selection criterion. This closes
+the "new signal" search and sharpens the message.
 
 ## 6. Two paper scenarios
 
