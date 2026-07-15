@@ -46,6 +46,45 @@ def bucket_by_rank(scores: Sequence[float], num_buckets: int) -> List[List[int]]
     return buckets
 
 
+def normalize_minmax(arr: Sequence[float]) -> List[float]:
+    """Per-array min-max normalize to [0,1]; non-finite -> 0; constant -> 0.5.
+
+    Used to put per-channel signals on a common scale before combining them into
+    a composite selection score (protection selects top-k *within* each layer,
+    so this normalizes within a layer)."""
+    vals = [float(v) if _finite(v) else None for v in arr]
+    finite = [v for v in vals if v is not None]
+    if not finite:
+        return [0.0] * len(vals)
+    lo, hi = min(finite), max(finite)
+    if hi == lo:
+        return [0.5 if v is not None else 0.0 for v in vals]
+    span = hi - lo
+    return [((v - lo) / span) if v is not None else 0.0 for v in vals]
+
+
+def combine_scores(arrays: Sequence[Sequence[float]], op: str = "mul") -> List[float]:
+    """Combine several equal-length per-channel score arrays elementwise.
+
+    Each array is min-max normalized first; ``op`` is ``"mul"`` (favor channels
+    high in *all* signals) or ``"add"`` (high in *any*). Empty -> []."""
+    arrays = [a for a in arrays if a is not None and len(a) > 0]
+    if not arrays:
+        return []
+    n = min(len(a) for a in arrays)
+    norm = [normalize_minmax(a[:n]) for a in arrays]
+    out: List[float] = []
+    for i in range(n):
+        if op == "add":
+            out.append(sum(nrm[i] for nrm in norm))
+        else:  # mul
+            v = 1.0
+            for nrm in norm:
+                v *= nrm[i]
+            out.append(v)
+    return out
+
+
 def layer_effective_bits(
     in_features: int,
     num_protected: int,

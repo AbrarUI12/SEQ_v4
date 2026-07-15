@@ -6,7 +6,9 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from seq_core.channel_utils import (  # noqa: E402
     bucket_by_rank,
+    combine_scores,
     layer_effective_bits,
+    normalize_minmax,
     select_protected_channels,
 )
 
@@ -55,6 +57,25 @@ check(sorted(i for b in bk for i in b) == [0, 1, 2, 3, 4, 5], "buckets partition
 bk2 = bucket_by_rank(list(range(7)), 3)
 check([len(b) for b in bk2] == [3, 2, 2], "uneven split remainder to front")
 check(bucket_by_rank([], 4) == [], "empty -> no buckets")
+
+# --- normalize_minmax ---
+check(normalize_minmax([0.0, 5.0, 10.0]) == [0.0, 0.5, 1.0], "minmax scales to [0,1]")
+check(normalize_minmax([3.0, 3.0]) == [0.5, 0.5], "constant -> 0.5")
+check(normalize_minmax([]) == [], "empty -> empty")
+nn2 = normalize_minmax([1.0, float("nan"), 3.0])  # lo=1,hi=3 -> [0, 0, 1]
+check(nn2[0] == 0.0 and nn2[2] == 1.0 and nn2[1] == 0.0, "non-finite -> 0")
+
+# --- combine_scores ---
+# mul favors channels high in BOTH; A=[0,1] B=[1,0] -> norm same -> product [0,0]
+check(combine_scores([[0.0, 1.0], [1.0, 0.0]], "mul") == [0.0, 0.0], "mul: no channel high in both")
+# A=[0,1,2] B=[0,1,2] -> norm [0,.5,1] each -> product [0,.25,1]
+check(combine_scores([[0.0, 1.0, 2.0], [0.0, 1.0, 2.0]], "mul") == [0.0, 0.25, 1.0], "mul agreeing signals")
+# add: [0,.5,1]+[0,.5,1] = [0,1,2]
+check(combine_scores([[0.0, 1.0, 2.0], [0.0, 1.0, 2.0]], "add") == [0.0, 1.0, 2.0], "add agreeing signals")
+# ranking: a channel high in one and mid in other beats one high in one and low in other (mul)
+comp = combine_scores([[10.0, 10.0, 0.0], [0.0, 5.0, 10.0]], "mul")  # norm A=[1,1,0] B=[0,.5,1]
+check(comp[1] > comp[0] and comp[1] > comp[2], "mul rewards jointly-high channel")
+check(len(combine_scores([[1.0, 2.0, 3.0], [1.0, 2.0]], "mul")) == 2, "combine truncates to min length")
 
 print("\n%d checks, %d failures" % (CHECKS, len(FAILS)))
 sys.exit(1 if FAILS else 0)

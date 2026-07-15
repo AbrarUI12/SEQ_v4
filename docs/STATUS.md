@@ -83,6 +83,35 @@ GPTQ Pareto lands cleanly — so there is a submittable paper either way.
 ≈ 1 week of experiments + 5 days writing → fits in the ~4.5 weeks to Aug 15 with
 buffer, **if GPTQ validates in the next day or two.**
 
+## 7b. Making SEQ a distinctive method (not just AWQ+act_max)
+
+Two channel-selection ideas were **never properly tested** and are where a novel
+SEQ could live:
+
+- **Composite signals** (now supported): `A*B` (min-max normalize each, product —
+  favor channels high in *both*) or `A+B` (sum). Never tried; a composite that
+  beats `act_max` alone would be the SEQ selection criterion.
+- **`neg_act_entropy`** (protect *low*-entropy = outlier channels): the correct
+  entropy direction, silently skipped in run 6.
+
+Run (works on the validated HQQ base now; add `--base_quantizer gptq` after GPTQ
+validates):
+
+```bash
+python -m seq_core.channel_sweep \
+  --model meta-llama/Llama-3.2-1B --backend hqq --base_bits 3 \
+  --protect_fracs 0,0.02,0.05,0.1,0.2 \
+  --channel_entropy --entropy_bins 32 \
+  --signals act_max,act_scale,random,neg_act_entropy,"act_max*act_kurt","act_max*neg_act_entropy","act_max*act_rms" \
+  --ppl_mode canonical --calibration_prompts calibration_prompts.json \
+  --out_dir runs/seq8_composite/Llama-3.2-1B
+```
+
+Decision rule: if any composite beats `act_max` by a consistent margin across
+1B/3B, that is *SEQ's* selection score (the method's novelty). If not, SEQ =
+`act_max` protection on a strong base, framed against AWQ/LLM.int8 + the audit.
+(`3-bit base` chosen because the signal gaps are largest there.)
+
 ## 8. Honest bottom line
 
 - **A submittable, honest paper by the deadline: yes, feasible.**

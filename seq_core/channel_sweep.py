@@ -151,24 +151,37 @@ def main() -> int:
     LOGGER.info("FP16 baseline ppl = %.4f", baseline_ppl)
     unload_model(model, tokenizer)
 
-    # precompute per-signal per-layer channel scores
-    signal_scores: Dict[str, Dict[str, List[float]]] = {}
-    for s in signal_names:
-        # 'neg_<sig>' protects the LOWEST-scored channels (e.g. outlier channels
-        # are LOW activation-entropy, so neg_act_entropy protects them).
-        base = s[4:] if s.startswith("neg_") else s
-        invert = s.startswith("neg_")
-        if base == "random":
+    from seq_core.channel_utils import combine_scores
+
+    def _base_scores(part: str) -> Dict[str, List[float]]:
+        """Per-layer per-channel scores for a single base signal."""
+        if part == "random":
             rng = random.Random(args.seed)
-            sc = {n: [rng.random() for _ in range(f)] for n, f in in_features.items()}
-        elif base == "act_entropy":
+            return {n: [rng.random() for _ in range(f)] for n, f in in_features.items()}
+        if part == "act_entropy":
             if not channel_entropy:
                 LOGGER.warning("act_entropy requested but not computed; skipping")
-            sc = channel_entropy
+            return channel_entropy
+        sc = _in_channel_scores(signals, part)
+        if not sc:
+            LOGGER.warning("signal '%s' has no per-channel arrays", part)
+        return sc
+
+    # precompute per-signal per-layer channel scores.
+    #   'neg_<sig>'      -> protect the LOWEST-scored channels (e.g. low-entropy outliers)
+    #   'A*B' / 'A+B'    -> composite: min-max normalize each, then product / sum
+    signal_scores: Dict[str, Dict[str, List[float]]] = {}
+    for s in signal_names:
+        base = s[4:] if s.startswith("neg_") else s
+        invert = s.startswith("neg_")
+        if "*" in base or "+" in base:
+            op = "mul" if "*" in base else "add"
+            parts = [p.strip() for p in base.replace("+", "*").split("*") if p.strip()]
+            part_maps = {p: _base_scores(p) for p in parts}
+            layers = set.intersection(*[set(m.keys()) for m in part_maps.values()]) if all(part_maps.values()) else set()
+            sc = {n: combine_scores([part_maps[p][n] for p in parts], op) for n in layers}
         else:
-            sc = _in_channel_scores(signals, base)
-            if not sc:
-                LOGGER.warning("signal '%s' has no per-channel arrays; skipping", base)
+            sc = _base_scores(base)
         if invert:
             sc = {n: [-v for v in arr] for n, arr in sc.items()}
         signal_scores[s] = sc
