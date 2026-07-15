@@ -30,6 +30,42 @@ import torch
 LOGGER = logging.getLogger(__name__)
 
 
+def build_gptq_calibration(
+    tokenizer,
+    *,
+    n_samples: int = 128,
+    seq_len: int = 2048,
+    dataset_name: str = "wikitext2",
+    split: str = "train",
+    seed: int = 1234,
+) -> list:
+    """Standard GPTQ calibration: ``n_samples`` contiguous ``seq_len``-token chunks
+    of real text (decoded back to strings for the tokenizer-based collector).
+
+    GPTQ inverts a per-layer Hessian H = XᵀX of size [in, in] (in up to ~14k);
+    with too few tokens H is rank-deficient and the inverse is garbage. This
+    yields ~n_samples*seq_len tokens (e.g. 128*2048 = 262k), enough for full rank.
+    """
+    import random as _random
+
+    from benchmarks.core import _load_text_dataset
+
+    ds, field = _load_text_dataset(dataset_name, split)
+    text = "\n\n".join(t for t in ds[field] if isinstance(t, str) and t.strip())
+    ids = tokenizer(text, return_tensors="pt")["input_ids"][0]
+    n = int(ids.shape[0])
+    rng = _random.Random(seed)
+    texts = []
+    for _ in range(int(n_samples)):
+        if n <= seq_len:
+            chunk = ids
+        else:
+            start = rng.randint(0, n - seq_len - 1)
+            chunk = ids[start:start + seq_len]
+        texts.append(tokenizer.decode(chunk, skip_special_tokens=True))
+    return texts
+
+
 def collect_gptq_hessians(
     model: torch.nn.Module,
     tokenizer,

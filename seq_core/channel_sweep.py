@@ -60,6 +60,9 @@ def parse_args() -> argparse.Namespace:
                    help="base quantizer under the protection (gptq = error-compensated; run 1B/3B)")
     p.add_argument("--gptq_group_size", type=int, default=128)
     p.add_argument("--gptq_percdamp", type=float, default=0.01)
+    p.add_argument("--gptq_calib_samples", type=int, default=128,
+                   help="GPTQ needs many tokens for a full-rank Hessian; build this many "
+                        "seq_len chunks of real text (0 = reuse --calibration_prompts, usually too small)")
     p.add_argument("--gptq_hessian_device", default="cpu", choices=["cpu", "cuda"],
                    help="cpu (default) accumulates Hessians off-GPU so 3B/8B don't OOM; cuda is faster for 1B")
     p.add_argument("--seed", type=int, default=1234)
@@ -138,12 +141,21 @@ def main() -> int:
     # optional GPTQ base: precompute error-compensated fake-quant weights once
     gptq_base: Dict[str, Any] = {}
     if args.base_quantizer == "gptq":
-        from seq_core.gptq import gptq_quantize_model
+        from seq_core.gptq import build_gptq_calibration, gptq_quantize_model
 
+        # GPTQ needs a full-rank Hessian -> many real tokens (the signal-extraction
+        # prompt set is far too small, which produces a singular H and garbage base).
+        gptq_prompts = prompts
+        if args.gptq_calib_samples > 0:
+            LOGGER.info("building GPTQ calibration: %d x %d-token chunks of real text ...",
+                        args.gptq_calib_samples, args.calib_seq_len)
+            gptq_prompts = build_gptq_calibration(
+                tokenizer, n_samples=args.gptq_calib_samples, seq_len=args.calib_seq_len, seed=args.seed,
+            )
         LOGGER.info("precomputing GPTQ %d-bit base (group_size=%d) ...", args.base_bits, args.gptq_group_size)
         gptq_base = gptq_quantize_model(
-            model, tokenizer, prompts, bits=args.base_bits, group_size=args.gptq_group_size,
-            seq_len=args.calib_seq_len, device=device, max_prompts=args.max_calib_prompts,
+            model, tokenizer, gptq_prompts, bits=args.base_bits, group_size=args.gptq_group_size,
+            seq_len=args.calib_seq_len, device=device, max_prompts=None,
             percdamp=args.gptq_percdamp, skip=skip, hessian_device=args.gptq_hessian_device,
         )
 
