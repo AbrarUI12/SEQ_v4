@@ -77,7 +77,11 @@ def collect_gptq_hessians(
         for prompt in used:
             if not isinstance(prompt, str) or not prompt.strip():
                 continue
-            enc = tokenizer(prompt, return_tensors="pt", truncation=True, padding="max_length", max_length=seq_len)
+            # NO padding: the Hessian H = XᵀX sums over all positions, so padding
+            # every short prompt to seq_len would make H ~97% pad-token statistics
+            # and GPTQ would compensate for the wrong distribution (garbage base).
+            # Batch=1 natural length = real tokens only.
+            enc = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=seq_len)
             enc = {k: v.to(next(model.parameters()).device) for k, v in enc.items()}
             model(**enc)
     for h in handles:
