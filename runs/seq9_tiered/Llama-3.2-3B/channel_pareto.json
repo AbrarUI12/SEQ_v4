@@ -1,0 +1,99 @@
+{
+  "model": "meta-llama/Llama-3.2-3B",
+  "backend": "hqq",
+  "base_quantizer": "hqq",
+  "base_bits": 3,
+  "protect_bits": 16,
+  "protect_fracs": [
+    0.0,
+    0.02,
+    0.05,
+    0.1,
+    0.2
+  ],
+  "baseline_fp16_ppl": 7.816530870250679,
+  "ppl_mode": "canonical",
+  "skip_lm_head": false,
+  "results": [
+    {
+      "signal": "act_max",
+      "k_frac": null,
+      "tiers": "16:0.1",
+      "effective_bits": 4.302921320379437,
+      "ppl": 9.300600057643214,
+      "delta_ppl_vs_fp16": 1.4840691873925351,
+      "num_layers": 197,
+      "errors": 0
+    },
+    {
+      "signal": "act_max",
+      "k_frac": null,
+      "tiers": "16:0.05,8:0.13",
+      "effective_bits": 4.302279203641371,
+      "ppl": 9.09974358184327,
+      "delta_ppl_vs_fp16": 1.2832127115925918,
+      "num_layers": 197,
+      "errors": 0
+    },
+    {
+      "signal": "act_max",
+      "k_frac": null,
+      "tiers": "16:0.02,8:0.22",
+      "effective_bits": 4.362210736689106,
+      "ppl": 8.9618690600431,
+      "delta_ppl_vs_fp16": 1.1453381897924206,
+      "num_layers": 197,
+      "errors": 0
+    },
+    {
+      "signal": "act_max",
+      "k_frac": null,
+      "tiers": "8:0.26",
+      "effective_bits": 4.300366479880661,
+      "ppl": 9.038026372223962,
+      "delta_ppl_vs_fp16": 1.2214955019732834,
+      "num_layers": 197,
+      "errors": 0
+    },
+    {
+      "signal": "random",
+      "k_frac": null,
+      "tiers": "16:0.1",
+      "effective_bits": 4.302921320379437,
+      "ppl": 12.941150205642373,
+      "delta_ppl_vs_fp16": 5.124619335391694,
+      "num_layers": 197,
+      "errors": 0
+    },
+    {
+      "signal": "random",
+      "k_frac": null,
+      "tiers": "16:0.05,8:0.13",
+      "effective_bits": 4.302279203641371,
+      "ppl": 12.471164708123142,
+      "delta_ppl_vs_fp16": 4.654633837872463,
+      "num_layers": 197,
+      "errors": 0
+    },
+    {
+      "signal": "random",
+      "k_frac": null,
+      "tiers": "16:0.02,8:0.22",
+      "effective_bits": 4.362210736689106,
+      "ppl": 12.15736022060076,
+      "delta_ppl_vs_fp16": 4.340829350350081,
+      "num_layers": 197,
+      "errors": 0
+    },
+    {
+      "signal": "random",
+      "k_frac": null,
+      "tiers": "8:0.26",
+      "effective_bits": 4.300366479880661,
+      "ppl": 12.034027019934163,
+      "delta_ppl_vs_fp16": 4.217496149683484,
+      "num_layers": 197,
+      "errors": 0
+    }
+  ]
+}
