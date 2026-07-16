@@ -21,6 +21,50 @@ def select_protected_channels(scores: Sequence[float], k_frac: float) -> List[in
     return sorted(i for i, _ in finite[:k])
 
 
+def parse_tiers(spec: str) -> List[tuple]:
+    """Parse '16:0.02,8:0.08' -> [(16, 0.02), (8, 0.08)] sorted by bits desc.
+
+    Each entry is (protect_bits, fraction-of-channels). Highest precision first
+    so the top-ranked channels get the most bits."""
+    tiers = []
+    for part in str(spec).split(","):
+        part = part.strip()
+        if not part:
+            continue
+        b, f = part.split(":")
+        tiers.append((int(b), float(f)))
+    tiers.sort(key=lambda t: -t[0])
+    return tiers
+
+
+def assign_tiers(scores: Sequence[float], tiers: List[tuple]) -> dict:
+    """Assign channels to precision tiers by score rank.
+
+    Top ``tiers[0][1]`` fraction (highest score) -> tiers[0] bits, next fraction
+    -> tiers[1] bits, ... ; the remainder stays at the base bit-width.
+    Returns ``{bits: [sorted channel indices]}``."""
+    n = len(scores)
+    if n == 0 or not tiers:
+        return {}
+    order = sorted(
+        range(n),
+        key=lambda i: (scores[i] if _finite(scores[i]) else float("-inf")),
+        reverse=True,
+    )
+    out: dict = {}
+    start = 0
+    for bits, frac in tiers:
+        cnt = min(n - start, int(math.ceil(frac * n)) if frac > 0 else 0)
+        if cnt <= 0:
+            continue
+        out.setdefault(bits, [])
+        out[bits] = sorted(out[bits] + order[start:start + cnt])
+        start += cnt
+        if start >= n:
+            break
+    return out
+
+
 def packed_storage_bits(
     in_features: int,
     out_features: int,
@@ -54,6 +98,23 @@ def packed_storage_bits(
         n_groups = math.ceil(rest / group_size) if rest > 0 else 0
         scale_bits = out_features * n_groups * 2 * scale_zero_bits
     return (weight_bits + idx_bits + scale_bits) / params
+
+
+def layer_effective_bits_tiered(
+    in_features: int,
+    tier_counts: dict,
+    base_bits: int,
+) -> float:
+    """Nominal effective bits for a multi-tier protected layer.
+
+    ``tier_counts`` = {protect_bits: num_channels}; the remainder is at base_bits."""
+    if in_features <= 0:
+        return float(base_bits)
+    protected = sum(int(c) for c in tier_counts.values())
+    protected = max(0, min(protected, in_features))
+    rest = in_features - protected
+    total = rest * base_bits + sum(int(b) * int(c) for b, c in tier_counts.items())
+    return total / in_features
 
 
 def bucket_by_rank(scores: Sequence[float], num_buckets: int) -> List[List[int]]:

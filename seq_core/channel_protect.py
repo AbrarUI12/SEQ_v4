@@ -31,6 +31,15 @@ from .quantizers.base import QuantBackend, get_module_by_name, set_module_by_nam
 LOGGER = logging.getLogger(__name__)
 
 
+def _quantize_columns(cols: torch.Tensor, bits: int) -> torch.Tensor:
+    """Per-input-column symmetric quantization of a [out, k] weight block to ``bits``."""
+    qmax = float(2 ** (int(bits) - 1) - 1)  # 127 for 8-bit
+    if qmax < 1:
+        qmax = 1.0
+    scale = cols.abs().amax(dim=0, keepdim=True).clamp_min(1e-8) / qmax
+    return torch.round(cols / scale).clamp(-qmax, qmax) * scale
+
+
 class ChannelProtectedLinear(nn.Module):
     """Full-layer quantization + exact FP16 correction on protected columns.
 
@@ -58,13 +67,19 @@ class ChannelProtectedLinear(nn.Module):
         compute_dtype: torch.dtype,
         group_size: Optional[int] = 64,
         precomputed_base: Optional[torch.Tensor] = None,
+        tiers: Optional[Dict[int, Sequence[int]]] = None,
         **backend_kwargs: Any,
     ) -> None:
         super().__init__()
         out_f, in_f = int(weight.shape[0]), int(weight.shape[1])
         self.in_features, self.out_features = in_f, out_f
         self.base_bits = int(base_bits)
-        prot = sorted(set(int(i) for i in protected_idx))
+        # tiers: {protect_bits: [channel idx]}. Single-tier FP16 protection is the
+        # default (protected_idx -> the 16-bit tier).
+        if tiers is None:
+            tiers = {16: sorted(set(int(i) for i in protected_idx))} if len(protected_idx) else {}
+        else:
+            tiers = {int(b): sorted(set(int(i) for i in idx)) for b, idx in tiers.items() if len(idx)}
         w = weight.detach()
 
         # Base = a precomputed fake-quant weight (e.g. GPTQ) or a data-free
@@ -87,26 +102,36 @@ class ChannelProtectedLinear(nn.Module):
             )
             dequant = backend.dequantize_weight(self.q_full)
 
-        self._has_correction = False
-        if prot:
-            wq = dequant
-            if wq is not None:
-                wq = wq.to(device=device, dtype=torch.float32)
-                wf = w.to(device=device, dtype=torch.float32)
-                if wq.shape != wf.shape and wq.t().shape == wf.shape:
-                    wq = wq.t().contiguous()
-                if wq.shape == wf.shape:
-                    idx = torch.tensor(prot, dtype=torch.long, device=device)
-                    corr = (wf.index_select(1, idx) - wq.index_select(1, idx)).to(compute_dtype)
-                    self.register_buffer("protected_idx", idx)
-                    self.register_buffer("correction", corr.contiguous())  # [out, k]
-                    self._has_correction = True
-                else:
-                    LOGGER.warning("channel protect: dequant shape mismatch; protection disabled for a layer")
-            else:
-                LOGGER.warning("channel protect: backend cannot dequantize; protection disabled for a layer")
+        # Build one correction per tier: for a channel protected at ``b`` bits,
+        # restore it from the base to a b-bit representation via a residual
+        # C_b = (Q_b(W) − Q_base(W))[:, idx].  b=16 is exact FP16 (Q_16 = W).
+        self._corr_names = []  # list of (idx_buffer, corr_buffer, bits)
+        self.tier_counts: Dict[int, int] = {}
+        wq = dequant
+        if tiers and wq is not None:
+            wq = wq.to(device=device, dtype=torch.float32)
+            wf = w.to(device=device, dtype=torch.float32)
+            if wq.shape != wf.shape and wq.t().shape == wf.shape:
+                wq = wq.t().contiguous()
+            if wq.shape == wf.shape:
+                for ti, (bits, idx_list) in enumerate(sorted(tiers.items(), key=lambda kv: -kv[0])):
+                    if not idx_list:
+                        continue
+                    idx = torch.tensor(idx_list, dtype=torch.long, device=device)
+                    target = wf.index_select(1, idx)
+                    if int(bits) < 16:
+                        target = _quantize_columns(target, int(bits))
+                    corr = (target - wq.index_select(1, idx)).to(compute_dtype)
+                    self.register_buffer(f"corr_idx_{ti}", idx)
+                    self.register_buffer(f"corr_w_{ti}", corr.contiguous())
+                    self._corr_names.append((f"corr_idx_{ti}", f"corr_w_{ti}"))
+                    self.tier_counts[int(bits)] = self.tier_counts.get(int(bits), 0) + len(idx_list)
+            elif tiers:
+                LOGGER.warning("channel protect: dequant shape mismatch; protection disabled for a layer")
+        elif tiers and wq is None:
+            LOGGER.warning("channel protect: backend cannot dequantize; protection disabled for a layer")
 
-        self.num_protected = len(prot) if self._has_correction else 0
+        self.num_protected = sum(self.tier_counts.values())
         self.bias = (
             nn.Parameter(bias.detach().to(device=device, dtype=compute_dtype), requires_grad=False)
             if bias is not None else None
@@ -114,9 +139,11 @@ class ChannelProtectedLinear(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         y = self.q_full(x)
-        if self._has_correction:
-            xp = x.index_select(-1, self.protected_idx).to(self.correction.dtype)
-            y = y + torch.matmul(xp, self.correction.t()).to(y.dtype)
+        for iname, wname in self._corr_names:
+            idx = getattr(self, iname)
+            corr = getattr(self, wname)
+            xp = x.index_select(-1, idx).to(corr.dtype)
+            y = y + torch.matmul(xp, corr.t()).to(y.dtype)
         if self.bias is not None:
             y = y + self.bias.to(y.dtype)
         return y
@@ -136,14 +163,17 @@ def apply_channel_protection(
     protect_bits: int = 16,
     explicit_protected: Optional[Dict[str, Sequence[int]]] = None,
     precomputed_base: Optional[Dict[str, torch.Tensor]] = None,
+    tier_fracs: Optional[List[tuple]] = None,
     **backend_kwargs: Any,
 ) -> Dict[str, Any]:
     """Replace each scored Linear with a column-split protected version.
 
     ``explicit_protected`` protects exactly the given channel indices per layer
     (audit). ``precomputed_base`` supplies a per-layer fake-quant base weight
-    (e.g. GPTQ) instead of quantizing via ``backend``. Returns effective bits.
+    (e.g. GPTQ). ``tier_fracs`` = [(bits, frac), ...] enables multi-precision
+    protection (top frac -> highest bits, etc.). Returns effective bits.
     """
+    from .channel_utils import assign_tiers, layer_effective_bits_tiered
     skip_set = set(skip or [])
     total_params = 0
     weighted_bits = 0.0
@@ -162,7 +192,11 @@ def apply_channel_protection(
             continue
         in_f = module.in_features
         out_f = module.out_features
-        if explicit_protected is not None:
+        tiers = None
+        prot = []
+        if tier_fracs:
+            tiers = assign_tiers(scores, tier_fracs)
+        elif explicit_protected is not None:
             prot = list(explicit_protected.get(name, []))
         else:
             prot = select_protected_channels(scores, k_frac)
@@ -175,7 +209,7 @@ def apply_channel_protection(
             new_module = ChannelProtectedLinear(
                 module.weight, module.bias, prot, backend, base_bits,
                 device=device, compute_dtype=compute_dtype, group_size=group_size,
-                precomputed_base=base_w,
+                precomputed_base=base_w, tiers=tiers,
                 **backend_kwargs,
             )
             tag_quantized(new_module, base_bits, f"{backend.name}+chprot")
@@ -184,11 +218,15 @@ def apply_channel_protection(
             errors.append({"module": name, "error": str(exc)})
             continue
         # account for channels the module *actually* corrected (dequant may disable)
-        eff = layer_effective_bits(in_f, new_module.num_protected, base_bits, protect_bits)
+        if new_module.tier_counts and any(b != 16 for b in new_module.tier_counts):
+            eff = layer_effective_bits_tiered(in_f, new_module.tier_counts, base_bits)
+        else:
+            eff = layer_effective_bits(in_f, new_module.num_protected, base_bits, protect_bits)
         params = in_f * out_f + (out_f if module.bias is not None else 0)
         total_params += params
         weighted_bits += eff * params
-        per_layer[name] = {"in_features": in_f, "num_protected": len(prot), "effective_bits": eff}
+        per_layer[name] = {"in_features": in_f, "num_protected": new_module.num_protected,
+                           "tier_counts": dict(new_module.tier_counts), "effective_bits": eff}
 
     effective_bits = weighted_bits / total_params if total_params else float(base_bits)
     if errors:

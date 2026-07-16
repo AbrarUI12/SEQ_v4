@@ -51,6 +51,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--base_bits", type=int, default=4)
     p.add_argument("--protect_bits", type=int, default=16, help="16=FP16 columns, or 8 for int8 columns")
     p.add_argument("--protect_fracs", default="0,0.02,0.05,0.1,0.2")
+    p.add_argument("--protect_tiers", default="",
+                   help="multi-precision protection instead of --protect_fracs; ';'-separated "
+                        "configs, each 'bits:frac,...' e.g. '16:0.02,8:0.08;16:0.01,8:0.04'")
     p.add_argument("--signals", default="act_scale,act_max,act_kurt,hessian_diag,magnitude,random")
     p.add_argument("--channel_entropy", action="store_true",
                    help="also compute per-channel activation entropy as signal 'act_entropy' (memory-heavy; try 1B/3B first)")
@@ -198,24 +201,34 @@ def main() -> int:
             sc = {n: [-v for v in arr] for n, arr in sc.items()}
         signal_scores[s] = sc
 
-    # ---- pass 2: per (signal, k) protect -> quantize -> PPL --------------- #
+    # build the config list: single-tier fracs, or multi-precision tier specs
+    from seq_core.channel_utils import parse_tiers
+    if args.protect_tiers.strip():
+        configs = [("tiers", spec.strip(), parse_tiers(spec)) for spec in args.protect_tiers.split(";") if spec.strip()]
+    else:
+        configs = [("frac", k, k) for k in fracs]
+
+    # ---- pass 2: per (signal, config) protect -> quantize -> PPL ----------- #
     results: List[Dict[str, Any]] = []
     for s in signal_names:
         scores = signal_scores.get(s) or {}
         if not scores:
             continue
-        for k in fracs:
+        for kind, label, value in configs:
             model, tokenizer = load_model_and_tokenizer(args.model, device, dtype, trust_remote_code=bool(args.trust_remote_code))
             info = apply_channel_protection(
-                model, scores, k, backend, args.base_bits,
+                model, scores, value if kind == "frac" else 0.0, backend, args.base_bits,
                 device=device, compute_dtype=dtype, group_size=args.group_size,
                 skip=skip, protect_bits=args.protect_bits,
                 precomputed_base=(gptq_base or None),
+                tier_fracs=(value if kind == "tiers" else None),
             )
             ppl = ppl_fn(model, tokenizer)
             unload_model(model, tokenizer)
             row = {
-                "signal": s, "k_frac": k,
+                "signal": s,
+                "k_frac": value if kind == "frac" else None,
+                "tiers": label if kind == "tiers" else None,
                 "effective_bits": info["effective_bits"],
                 "ppl": ppl,
                 "delta_ppl_vs_fp16": (ppl - baseline_ppl) if ppl == ppl else None,
@@ -223,8 +236,9 @@ def main() -> int:
                 "errors": len(info["errors"]),
             }
             results.append(row)
-            LOGGER.info("%-13s k=%.3f eff=%.2f ppl=%.4f (Δ%+.4f) errs=%d",
-                        s, k, info["effective_bits"], ppl, row["delta_ppl_vs_fp16"] or 0.0, len(info["errors"]))
+            LOGGER.info("%-13s %-14s eff=%.2f ppl=%.4f (Δ%+.4f) errs=%d",
+                        s, f"{kind}={label}", info["effective_bits"], ppl,
+                        row["delta_ppl_vs_fp16"] or 0.0, len(info["errors"]))
 
     payload = {
         "model": args.model, "backend": backend.name, "base_quantizer": args.base_quantizer,
@@ -238,40 +252,52 @@ def main() -> int:
     return 0
 
 
+def _cfg_label(r: Dict[str, Any]) -> str:
+    return f"[{r['tiers']}]" if r.get("tiers") else f"k={r.get('k_frac')}"
+
+
 def _write_md(path: Path, payload: Dict[str, Any]) -> None:
     rs = payload["results"]
     signals = sorted({r["signal"] for r in rs})
-    fracs = payload["protect_fracs"]
+    # config columns in first-seen order (fracs or tier specs)
+    cols: List[str] = []
+    for r in rs:
+        lab = _cfg_label(r)
+        if lab not in cols:
+            cols.append(lab)
     base = payload["baseline_fp16_ppl"]
+
+    def cell(s: str, col: str) -> Any:
+        return next((r for r in rs if r["signal"] == s and _cfg_label(r) == col), None)
+
     L = [f"# Per-channel protection — {payload['model']}", ""]
-    L.append(f"Backend `{payload['backend']}`, base {payload['base_bits']}-bit, protected columns at "
-             f"{payload['protect_bits']}-bit, {payload['ppl_mode']} PPL. FP16 PPL = **{base:.4f}**.")
-    L.append("Rows = signal used to pick protected channels; `random` is the control. "
-             "**At each k (same effective bits), signal < random means per-channel importance is real.**")
+    L.append(f"Backend `{payload['backend']}`, base {payload['base_bits']}-bit, {payload['ppl_mode']} PPL. "
+             f"FP16 PPL = **{base:.4f}**.")
+    L.append("Rows = signal; columns = protection config; `random` is the control. "
+             "**At matched effective bits, signal < random means per-channel importance is real.**")
     L.append("")
-    L.append("## PPL by protection fraction k (effective bits in parentheses)")
+    L.append("## PPL by config (effective bits in parentheses)")
     L.append("")
-    L.append("| signal | " + " | ".join(f"k={k}" for k in fracs) + " |")
-    L.append("|" + "---|" * (len(fracs) + 1))
+    L.append("| signal | " + " | ".join(cols) + " |")
+    L.append("|" + "---|" * (len(cols) + 1))
     for s in signals:
-        cells = []
-        for k in fracs:
-            r = next((r for r in rs if r["signal"] == s and r["k_frac"] == k), None)
-            cells.append(f"{r['ppl']:.3f} ({r['effective_bits']:.2f}b)" if r and r["ppl"] == r["ppl"] else "—")
-        L.append(f"| `{s}` | " + " | ".join(cells) + " |")
+        row = []
+        for c in cols:
+            r = cell(s, c)
+            row.append(f"{r['ppl']:.3f} ({r['effective_bits']:.2f}b)" if r and r["ppl"] == r["ppl"] else "—")
+        L.append(f"| `{s}` | " + " | ".join(row) + " |")
     L.append("")
-    # gap vs random per k
-    L.append("## PPL gap vs random at each k (negative = signal beats random)")
+    L.append("## PPL gap vs random (negative = signal beats random)")
     L.append("")
-    L.append("| signal | " + " | ".join(f"k={k}" for k in fracs) + " |")
-    L.append("|" + "---|" * (len(fracs) + 1))
+    L.append("| signal | " + " | ".join(cols) + " |")
+    L.append("|" + "---|" * (len(cols) + 1))
     for s in signals:
         if s == "random":
             continue
         cells = []
-        for k in fracs:
-            r = next((r for r in rs if r["signal"] == s and r["k_frac"] == k), None)
-            rr = next((r for r in rs if r["signal"] == "random" and r["k_frac"] == k), None)
+        for c in cols:
+            r = cell(s, c)
+            rr = cell("random", c)
             if r and rr and r["ppl"] == r["ppl"] and rr["ppl"] == rr["ppl"]:
                 cells.append(f"{r['ppl'] - rr['ppl']:+.3f}")
             else:

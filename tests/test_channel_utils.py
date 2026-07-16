@@ -5,11 +5,13 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from seq_core.channel_utils import (  # noqa: E402
+    assign_tiers,
     bucket_by_rank,
     combine_scores,
     layer_effective_bits,
     normalize_minmax,
     packed_storage_bits,
+    parse_tiers,
     select_protected_channels,
 )
 
@@ -91,6 +93,20 @@ check(pk_scales > 4.0, "base group scales/zeros add overhead over nominal 4-bit"
 # more protected channels -> more bits
 check(packed_storage_bits(2048, 2048, 4, 400, count_base_scales=False)
       > packed_storage_bits(2048, 2048, 4, 100, count_base_scales=False), "more protected -> more bits")
+
+# --- parse_tiers / assign_tiers ---
+check(parse_tiers("16:0.02,8:0.08") == [(16, 0.02), (8, 0.08)], "parse tiers sorted bits desc")
+check(parse_tiers("8:0.1,16:0.05") == [(16, 0.05), (8, 0.1)], "parse tiers reorders desc")
+# scores: rank desc = idx 4(.9? ) ... use clear scores
+sc_t = [0.1, 0.9, 0.5, 0.3, 0.8, 0.2, 0.7, 0.4, 0.6, 0.05]  # 10 channels
+# top 20% (2) -> 16bit = idx 1(.9),4(.8); next 30% (3) -> 8bit = 6(.7),8(.6),2(.5)
+at = assign_tiers(sc_t, [(16, 0.2), (8, 0.3)])
+check(at.get(16) == [1, 4], "tier16 = top-2 by score")
+check(at.get(8) == [2, 6, 8], "tier8 = next-3 by score (sorted idx)")
+# tiers disjoint and within range
+allidx = at.get(16, []) + at.get(8, [])
+check(len(allidx) == len(set(allidx)) == 5, "tiers disjoint, 5 protected")
+check(assign_tiers([], [(16, 0.5)]) == {}, "empty scores -> no tiers")
 
 print("\n%d checks, %d failures" % (CHECKS, len(FAILS)))
 sys.exit(1 if FAILS else 0)
