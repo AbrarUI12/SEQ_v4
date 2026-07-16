@@ -30,6 +30,151 @@ import torch
 LOGGER = logging.getLogger(__name__)
 
 
+class _StopForward(Exception):
+    pass
+
+
+def _find_decoder_layers(model: torch.nn.Module):
+    """Locate the ModuleList of transformer blocks and its dotted name prefix."""
+    import torch.nn as nn
+
+    for path in ("model.layers", "model.model.layers", "transformer.h", "gpt_neox.layers", "model.decoder.layers"):
+        obj = model
+        ok = True
+        for p in path.split("."):
+            if hasattr(obj, p):
+                obj = getattr(obj, p)
+            else:
+                ok = False
+                break
+        if ok and isinstance(obj, nn.ModuleList) and len(obj) > 0:
+            return obj, path
+    # fallback: the largest ModuleList whose blocks contain Linears
+    best = None
+    best_len = 0
+    for name, mod in model.named_modules():
+        if isinstance(mod, nn.ModuleList) and len(mod) > best_len:
+            if any(isinstance(m, nn.Linear) for m in mod[0].modules()):
+                best, best_len = (mod, name), len(mod)
+    if best is not None:
+        return best[0], best[1]
+    raise RuntimeError("could not locate decoder layers for sequential GPTQ")
+
+
+@torch.no_grad()
+def gptq_quantize_model_sequential(
+    model: torch.nn.Module,
+    tokenizer,
+    prompts,
+    *,
+    bits: int,
+    group_size: int = 128,
+    seq_len: int,
+    device: str,
+    max_prompts: Optional[int] = 32,
+    percdamp: float = 0.01,
+    skip: Optional[Sequence[str]] = None,
+    out_dtype: torch.dtype = torch.float16,
+    out_device: str = "cpu",
+) -> Dict[str, torch.Tensor]:
+    """Sequential GPTQ: quantize block-by-block, feeding each block's *quantized*
+    output to the next so Hessians reflect the true (quantized) input distribution.
+
+    This is the correct fix for the one-shot failure (which miscalibrates because
+    upstream layers change the activations). Weights are replaced in-place as we
+    go; returns ``{layer_name: fake_quant_weight}`` for the protection step.
+    Only one block's activations/Hessians are resident, so memory is modest.
+    """
+    import torch.nn as nn
+
+    skip_set = set(skip or [])
+    layers, prefix = _find_decoder_layers(model)
+    dev = torch.device(device if device != "auto" else ("cuda" if torch.cuda.is_available() else "cpu"))
+
+    # ---- capture inputs (and per-block kwargs) to the first block ---------- #
+    inps: list = []
+    saved = {"args": None, "kwargs": None}
+
+    class _Catcher(nn.Module):
+        def __init__(self, module):
+            super().__init__()
+            self.module = module
+
+        def forward(self, hidden_states, *args, **kwargs):  # noqa: D401
+            inps.append(hidden_states.detach())
+            if saved["kwargs"] is None:
+                saved["args"], saved["kwargs"] = args, kwargs
+            raise _StopForward
+
+    layers[0] = _Catcher(layers[0])
+    used = list(prompts) if max_prompts is None else list(prompts)[: int(max_prompts)]
+    for prompt in used:
+        if not isinstance(prompt, str) or not prompt.strip():
+            continue
+        enc = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=seq_len)
+        enc = {k: v.to(dev) for k, v in enc.items()}
+        try:
+            model(**enc)
+        except _StopForward:
+            pass
+    layers[0] = layers[0].module
+
+    fwd_args = saved["args"] or ()
+    fwd_kwargs = saved["kwargs"] or {}
+    result: Dict[str, torch.Tensor] = {}
+
+    # ---- iterate blocks: accumulate H, quantize in-place, re-run to advance - #
+    for i, block in enumerate(layers):
+        sub = {n: m for n, m in block.named_modules() if isinstance(m, nn.Linear)}
+        accs: Dict[str, list] = {}
+
+        def make_hook(nm):
+            def pre_hook(_m, inputs):
+                if not inputs or not isinstance(inputs[0], torch.Tensor):
+                    return
+                x = inputs[0].detach().reshape(-1, inputs[0].shape[-1]).to(torch.float32)
+                m = torch.isfinite(x).all(dim=1)
+                x = x[m]
+                if x.numel() == 0:
+                    return
+                if nm not in accs:
+                    accs[nm] = [torch.zeros(x.shape[1], x.shape[1], device=x.device, dtype=torch.float32), 0]
+                accs[nm][0] += x.t() @ x
+                accs[nm][1] += int(x.shape[0])
+            return pre_hook
+
+        handles = [sub[n].register_forward_pre_hook(make_hook(n)) for n in sub]
+        for j in range(len(inps)):
+            block(inps[j], *fwd_args, **fwd_kwargs)
+        for h in handles:
+            h.remove()
+
+        for n, lin in sub.items():
+            full = f"{prefix}.{i}.{n}"
+            if full in skip_set or n not in accs:
+                continue
+            try:
+                Wq = gptq_quantize_weight(lin.weight, accs[n][0], bits, group_size=group_size, percdamp=percdamp)
+                lin.weight.data = Wq.to(lin.weight.dtype)  # in-place so next block sees quantized upstream
+                result[full] = Wq.to(dtype=out_dtype, device=torch.device(out_device))
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.warning("seq-gptq: layer %s failed (%s)", full, exc)
+            finally:
+                accs[n] = None
+
+        # advance: re-run the now-quantized block to produce next block's inputs
+        new_inps = []
+        for j in range(len(inps)):
+            out = block(inps[j], *fwd_args, **fwd_kwargs)
+            new_inps.append((out[0] if isinstance(out, tuple) else out).detach())
+        inps = new_inps
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    LOGGER.info("seq-gptq: quantized %d layers to %d-bit across %d blocks", len(result), bits, len(layers))
+    return result
+
+
 def build_gptq_calibration(
     tokenizer,
     *,
