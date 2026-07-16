@@ -17,8 +17,10 @@ Two steps:
 - ``collect_gptq_hessians``: one calibration pass accumulating H = XᵀX per Linear.
 - ``gptq_quantize_weight`` / ``gptq_quantize_model``: the error-compensated quant.
 
-Memory: H is [in, in] per layer; ``gptq_quantize_model`` frees each H right after
-use, but the returned fake-quant weights are full fp16 — run on 1B/3B first.
+Memory: H is [in, in] per layer. The one-shot path stores Hessians on CPU and
+moves them to the weight device individually. The sequential path additionally
+offloads inactive decoder blocks and calibration activations to CPU. Returned
+fake-quant weights are still full fp16 and therefore require substantial RAM.
 """
 from __future__ import annotations
 
@@ -32,6 +34,51 @@ LOGGER = logging.getLogger(__name__)
 
 class _StopForward(Exception):
     pass
+
+
+_CACHE_KWARGS = {"past_key_value", "past_key_values"}
+
+
+def _is_transformers_cache(value) -> bool:
+    """Recognize HF cache objects without importing a version-specific class."""
+    if value is None:
+        return False
+    cls = type(value)
+    if cls.__module__.startswith("transformers.cache_utils"):
+        return True
+    return (
+        callable(getattr(value, "update", None))
+        and callable(getattr(value, "get_seq_length", None))
+    )
+
+
+def _move_replay_value(value, device: torch.device):
+    """Detach tensor trees for replay and discard mutable attention caches."""
+    if _is_transformers_cache(value):
+        return None
+    if isinstance(value, torch.Tensor):
+        return value.detach().to(device)
+    if isinstance(value, dict):
+        return {key: _move_replay_value(item, device) for key, item in value.items()}
+    if isinstance(value, tuple):
+        moved = tuple(_move_replay_value(item, device) for item in value)
+        if hasattr(value, "_fields"):  # preserve namedtuple types
+            return type(value)(*moved)
+        return moved
+    if isinstance(value, list):
+        return [_move_replay_value(item, device) for item in value]
+    return value
+
+
+def _prepare_replay_call(args, kwargs, device: torch.device):
+    """Make an independent, cache-free copy of one decoder-block call."""
+    clean_kwargs = {key: value for key, value in kwargs.items() if key not in _CACHE_KWARGS}
+    if "use_cache" in clean_kwargs:
+        clean_kwargs["use_cache"] = False
+    return (
+        _move_replay_value(args, device),
+        _move_replay_value(clean_kwargs, device),
+    )
 
 
 def _find_decoder_layers(model: torch.nn.Module):
@@ -83,7 +130,11 @@ def gptq_quantize_model_sequential(
     This is the correct fix for the one-shot failure (which miscalibrates because
     upstream layers change the activations). Weights are replaced in-place as we
     go; returns ``{layer_name: fake_quant_weight}`` for the protection step.
-    Only one block's activations/Hessians are resident, so memory is modest.
+
+    Calibration activations and their per-sample arguments live on CPU. On CUDA,
+    decoder blocks are also offloaded and processed one at a time. Attention
+    caching is forcibly disabled, because replaying a mutable KV cache across
+    independent samples makes the effective sequence length grow without bound.
     """
     import torch.nn as nn
 
@@ -91,9 +142,23 @@ def gptq_quantize_model_sequential(
     layers, prefix = _find_decoder_layers(model)
     dev = torch.device(device if device != "auto" else ("cuda" if torch.cuda.is_available() else "cpu"))
 
-    # ---- capture inputs (and per-block kwargs) to the first block ---------- #
-    inps: list = []
-    saved = {"args": None, "kwargs": None}
+    cpu = torch.device("cpu")
+    replay: list = []
+    result: Dict[str, torch.Tensor] = {}
+    original_use_cache = getattr(getattr(model, "config", None), "use_cache", None)
+    original_devices = []
+    for block in layers:
+        param = next(block.parameters(), None)
+        original_devices.append(param.device if param is not None else dev)
+
+    # Keeping an 8B model resident defeats sequential GPTQ's memory bound. The
+    # first-block catcher stops before any decoder computation, so all blocks can
+    # be on CPU during capture and only the active block needs to return to CUDA.
+    offload_blocks = dev.type == "cuda"
+    if offload_blocks:
+        for block in layers:
+            block.to(cpu)
+        torch.cuda.empty_cache()
 
     class _Catcher(nn.Module):
         def __init__(self, module):
@@ -101,73 +166,129 @@ def gptq_quantize_model_sequential(
             self.module = module
 
         def forward(self, hidden_states, *args, **kwargs):  # noqa: D401
-            inps.append(hidden_states.detach())
-            if saved["kwargs"] is None:
-                saved["args"], saved["kwargs"] = args, kwargs
+            replay_args, replay_kwargs = _prepare_replay_call(args, kwargs, cpu)
+            replay.append((hidden_states.detach().to(cpu), replay_args, replay_kwargs))
             raise _StopForward
 
-    layers[0] = _Catcher(layers[0])
-    used = list(prompts) if max_prompts is None else list(prompts)[: int(max_prompts)]
-    for prompt in used:
-        if not isinstance(prompt, str) or not prompt.strip():
-            continue
-        enc = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=seq_len)
-        enc = {k: v.to(dev) for k, v in enc.items()}
+    try:
+        if original_use_cache is not None:
+            model.config.use_cache = False
+
+        # ---- capture first-block inputs and each sample's own call metadata - #
+        first_block = layers[0]
+        layers[0] = _Catcher(first_block)
         try:
-            model(**enc)
-        except _StopForward:
-            pass
-    layers[0] = layers[0].module
+            used = list(prompts) if max_prompts is None else list(prompts)[: int(max_prompts)]
+            for prompt in used:
+                if not isinstance(prompt, str) or not prompt.strip():
+                    continue
+                enc = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=seq_len)
+                enc = {key: value.to(dev) for key, value in enc.items()}
+                try:
+                    model(**enc, use_cache=False)
+                except _StopForward:
+                    pass
+        finally:
+            layers[0] = first_block
 
-    fwd_args = saved["args"] or ()
-    fwd_kwargs = saved["kwargs"] or {}
-    result: Dict[str, torch.Tensor] = {}
+        if not replay:
+            raise ValueError("sequential GPTQ captured no usable calibration samples")
+        LOGGER.info(
+            "seq-gptq: captured %d samples on CPU; processing %d decoder blocks",
+            len(replay), len(layers),
+        )
 
-    # ---- iterate blocks: accumulate H, quantize in-place, re-run to advance - #
-    for i, block in enumerate(layers):
-        sub = {n: m for n, m in block.named_modules() if isinstance(m, nn.Linear)}
-        accs: Dict[str, list] = {}
+        # ---- accumulate, quantize, and advance one decoder block at a time -- #
+        for i, block in enumerate(layers):
+            LOGGER.info("seq-gptq: block %d/%d", i + 1, len(layers))
+            if offload_blocks:
+                block.to(dev)
+            sub = {n: m for n, m in block.named_modules() if isinstance(m, nn.Linear)}
+            accs: Dict[str, list] = {}
 
-        def make_hook(nm):
-            def pre_hook(_m, inputs):
-                if not inputs or not isinstance(inputs[0], torch.Tensor):
-                    return
-                x = inputs[0].detach().reshape(-1, inputs[0].shape[-1]).to(torch.float32)
-                m = torch.isfinite(x).all(dim=1)
-                x = x[m]
-                if x.numel() == 0:
-                    return
-                if nm not in accs:
-                    accs[nm] = [torch.zeros(x.shape[1], x.shape[1], device=x.device, dtype=torch.float32), 0]
-                accs[nm][0] += x.t() @ x
-                accs[nm][1] += int(x.shape[0])
-            return pre_hook
+            def make_hook(nm):
+                def pre_hook(_m, inputs):
+                    if not inputs or not isinstance(inputs[0], torch.Tensor):
+                        return
+                    x = inputs[0].detach().reshape(-1, inputs[0].shape[-1]).to(torch.float32)
+                    finite_rows = torch.isfinite(x).all(dim=1)
+                    if not bool(finite_rows.all()):
+                        x = x[finite_rows]
+                    if x.numel() == 0:
+                        return
+                    if nm not in accs:
+                        accs[nm] = [
+                            torch.zeros(x.shape[1], x.shape[1], device=x.device, dtype=torch.float32),
+                            0,
+                        ]
+                    accs[nm][0].add_(x.t() @ x)
+                    accs[nm][1] += int(x.shape[0])
+                return pre_hook
 
-        handles = [sub[n].register_forward_pre_hook(make_hook(n)) for n in sub]
-        for j in range(len(inps)):
-            block(inps[j], *fwd_args, **fwd_kwargs)
-        for h in handles:
-            h.remove()
-
-        for n, lin in sub.items():
-            full = f"{prefix}.{i}.{n}"
-            if full in skip_set or n not in accs:
-                continue
+            handles = []
+            for name, module in sub.items():
+                if f"{prefix}.{i}.{name}" not in skip_set:
+                    handles.append(module.register_forward_pre_hook(make_hook(name)))
             try:
-                Wq = gptq_quantize_weight(lin.weight, accs[n][0], bits, group_size=group_size, percdamp=percdamp)
-                lin.weight.data = Wq.to(lin.weight.dtype)  # in-place so next block sees quantized upstream
-                result[full] = Wq.to(dtype=out_dtype, device=torch.device(out_device))
-            except Exception as exc:  # noqa: BLE001
-                LOGGER.warning("seq-gptq: layer %s failed (%s)", full, exc)
+                for hidden_states, cpu_args, cpu_kwargs in replay:
+                    args = _move_replay_value(cpu_args, dev)
+                    kwargs = _move_replay_value(cpu_kwargs, dev)
+                    block(hidden_states.to(dev), *args, **kwargs)
             finally:
-                accs[n] = None
+                for handle in handles:
+                    handle.remove()
 
-        # advance: re-run the now-quantized block to produce next block's inputs
-        new_inps = []
-        for j in range(len(inps)):
-            out = block(inps[j], *fwd_args, **fwd_kwargs)
-            new_inps.append((out[0] if isinstance(out, tuple) else out).detach())
-        inps = new_inps
+            # Free persistent block Hessians from CUDA before Cholesky. Each one
+            # is transferred back individually for quantization below.
+            if dev.type == "cuda":
+                for entry in accs.values():
+                    entry[0] = entry[0].to(cpu)
+                torch.cuda.empty_cache()
+
+            for name, lin in sub.items():
+                full = f"{prefix}.{i}.{name}"
+                if full in skip_set or name not in accs:
+                    continue
+                H_dev = None
+                Wq = None
+                try:
+                    H_dev = accs[name][0].to(lin.weight.device)
+                    Wq = gptq_quantize_weight(
+                        lin.weight, H_dev, bits, group_size=group_size,
+                        percdamp=percdamp, clone_hessian=False,
+                    )
+                    lin.weight.data.copy_(Wq)
+                    result[full] = Wq.to(dtype=out_dtype, device=torch.device(out_device))
+                except Exception as exc:  # noqa: BLE001
+                    LOGGER.warning("seq-gptq: layer %s failed (%s)", full, exc)
+                finally:
+                    accs[name] = None
+                    del H_dev, Wq
+                    if dev.type == "cuda":
+                        torch.cuda.empty_cache()
+
+            # Re-run the quantized block and retain only CPU outputs for the
+            # next block. Per-sample args/kwargs remain independent and on CPU.
+            next_replay = []
+            for hidden_states, cpu_args, cpu_kwargs in replay:
+                args = _move_replay_value(cpu_args, dev)
+                kwargs = _move_replay_value(cpu_kwargs, dev)
+                out = block(hidden_states.to(dev), *args, **kwargs)
+                next_hidden = out[0] if isinstance(out, (tuple, list)) else out
+                next_replay.append((next_hidden.detach().to(cpu), cpu_args, cpu_kwargs))
+            replay = next_replay
+
+            if offload_blocks:
+                block.to(cpu)
+                torch.cuda.empty_cache()
+
+    finally:
+        if original_use_cache is not None:
+            model.config.use_cache = original_use_cache
+        for block, original_device in zip(layers, original_devices):
+            param = next(block.parameters(), None)
+            if param is not None and param.device != original_device:
+                block.to(original_device)
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
@@ -294,16 +415,21 @@ def gptq_quantize_weight(
     group_size: int = 128,
     percdamp: float = 0.01,
     blocksize: int = 128,
+    clone_hessian: bool = True,
 ) -> torch.Tensor:
     """GPTQ fake-quantized weight [out, in] using input Hessian H [in, in].
 
     Faithful to auto-gptq: damped inverse Cholesky of H drives per-column error
-    compensation; per-(row, group) asymmetric quantization.
+    compensation; per-(row, group) asymmetric quantization. Set
+    ``clone_hessian=False`` only when the caller owns and can discard ``H``;
+    this avoids retaining two large Hessian buffers during Cholesky.
     """
     W = weight.detach().to(dtype=torch.float32).clone()
     out_f, in_f = W.shape
     maxq = float(2 ** int(bits) - 1)
-    H = H.detach().to(dtype=torch.float32).clone()
+    H = H.detach().to(dtype=torch.float32)
+    if clone_hessian:
+        H = H.clone()
 
     dead = torch.diag(H) == 0
     H[dead, dead] = 1.0
@@ -315,7 +441,9 @@ def gptq_quantize_weight(
 
     # Hinv = upper Cholesky of H^{-1}
     L = torch.linalg.cholesky(H)
+    del H
     Hinv = torch.cholesky_inverse(L)
+    del L
     Hinv = torch.linalg.cholesky(Hinv, upper=True)
 
     Q = torch.zeros_like(W)
@@ -385,7 +513,10 @@ def gptq_quantize_model(
         H, n = accs[name]
         try:
             H_dev = H.to(module.weight.device)  # bring just this layer's Hessian to the GPU
-            Wq = gptq_quantize_weight(module.weight, H_dev, bits, group_size=group_size, percdamp=percdamp)
+            Wq = gptq_quantize_weight(
+                module.weight, H_dev, bits, group_size=group_size,
+                percdamp=percdamp, clone_hessian=False,
+            )
             # store off the GPU by default: the whole fake-quant model would
             # otherwise coexist with each reloaded model during the sweep (OOM on 8B)
             result[name] = Wq.to(dtype=out_dtype, device=torch.device(out_device))

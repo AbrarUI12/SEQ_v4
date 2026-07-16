@@ -243,12 +243,15 @@ wrong, GPTQ is misconfigured — stop and report before trusting the sweep.
 (GPTQ code is faithful to auto-gptq and the affine math is unit-tested, but the
 torch path is compile-checked only here.) Also try `--base_bits 3`.
 
-**Memory (RTX 3090 / 24 GiB):** Hessians and the fake-quant base are kept on
-**CPU** by default (`--gptq_hessian_device cpu`), moved to GPU one layer at a
-time — GPU peak ≈ model + one layer's Hessian. Comfortable for **1B and 3B**.
-**8B** additionally needs ~55 GiB *CPU* RAM (≈37 GiB Hessians + ~16 GiB
-fake-quant base); if CPU RAM is short, 8B needs sequential per-block GPTQ (a
-larger change — ask). For 1B, `--gptq_hessian_device cuda` is faster.
+**Memory (RTX 3090 / 24 GiB):** Sequential GPTQ disables KV caching, keeps
+calibration activations and per-sample forward metadata on CPU, and offloads
+inactive decoder blocks. GPU residency is bounded to the active block and its
+Hessian accumulation; before Cholesky, those Hessians move to CPU and return to
+CUDA one at a time. This avoids unbounded attention-cache growth and makes 8B
+GPU usage practical on 24 GiB cards, provided there is enough CPU RAM for the
+offloaded model, activations, and full-fp16 fake-quant base. The one-shot path
+instead uses `--gptq_hessian_device cpu` to store Hessians off-GPU and remains
+mainly useful for diagnostics. For 1B, one-shot Hessians on CUDA are faster.
 
 ## 15. Per-channel true-sensitivity audit (`seq_core/channel_audit.py`)
 
