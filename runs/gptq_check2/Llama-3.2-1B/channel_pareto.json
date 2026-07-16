@@ -1,0 +1,24 @@
+{
+  "model": "meta-llama/Llama-3.2-1B",
+  "backend": "hqq",
+  "base_quantizer": "gptq",
+  "base_bits": 4,
+  "protect_bits": 16,
+  "protect_fracs": [
+    0.0
+  ],
+  "baseline_fp16_ppl": 9.757328887480368,
+  "ppl_mode": "canonical",
+  "skip_lm_head": false,
+  "results": [
+    {
+      "signal": "act_max",
+      "k_frac": 0.0,
+      "effective_bits": 4.0,
+      "ppl": 4885.717979886109,
+      "delta_ppl_vs_fp16": 4875.960650998629,
+      "num_layers": 113,
+      "errors": 0
+    }
+  ]
+}
