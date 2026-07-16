@@ -21,6 +21,41 @@ def select_protected_channels(scores: Sequence[float], k_frac: float) -> List[in
     return sorted(i for i, _ in finite[:k])
 
 
+def packed_storage_bits(
+    in_features: int,
+    out_features: int,
+    base_bits: int,
+    num_protected: int,
+    *,
+    group_size: int = 64,
+    scale_zero_bits: int = 16,
+    protect_bits: int = 16,
+    index_bits: Optional[int] = None,
+    count_base_scales: bool = True,
+) -> float:
+    """Honest *actual* bits/param for a channel-protected layer.
+
+    Nominal effective bits (base_bits·(1−k) + 16·k) omits real overhead reviewers
+    will recompute: FP16 residual columns, the channel index table, and the base
+    quantizer's group scales/zero-points. This counts all of them.
+
+    - protected columns cost ``protect_bits`` (FP16) instead of ``base_bits``,
+    - each protected channel needs an index (``ceil(log2(in_features))`` bits),
+    - the base quantizer stores 2 values (scale+zero) per group per output row.
+    """
+    params = max(1, in_features * out_features)
+    rest = max(0, in_features - num_protected)
+    weight_bits = out_features * (rest * base_bits + num_protected * protect_bits)
+    if index_bits is None:
+        index_bits = max(1, math.ceil(math.log2(max(2, in_features))))
+    idx_bits = num_protected * index_bits
+    scale_bits = 0
+    if count_base_scales and group_size and group_size > 0:
+        n_groups = math.ceil(rest / group_size) if rest > 0 else 0
+        scale_bits = out_features * n_groups * 2 * scale_zero_bits
+    return (weight_bits + idx_bits + scale_bits) / params
+
+
 def bucket_by_rank(scores: Sequence[float], num_buckets: int) -> List[List[int]]:
     """Split channel indices into ``num_buckets`` contiguous groups by score rank.
 

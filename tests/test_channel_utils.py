@@ -9,6 +9,7 @@ from seq_core.channel_utils import (  # noqa: E402
     combine_scores,
     layer_effective_bits,
     normalize_minmax,
+    packed_storage_bits,
     select_protected_channels,
 )
 
@@ -76,6 +77,20 @@ check(combine_scores([[0.0, 1.0, 2.0], [0.0, 1.0, 2.0]], "add") == [0.0, 1.0, 2.
 comp = combine_scores([[10.0, 10.0, 0.0], [0.0, 5.0, 10.0]], "mul")  # norm A=[1,1,0] B=[0,.5,1]
 check(comp[1] > comp[0] and comp[1] > comp[2], "mul rewards jointly-high channel")
 check(len(combine_scores([[1.0, 2.0, 3.0], [1.0, 2.0]], "mul")) == 2, "combine truncates to min length")
+
+# --- packed_storage_bits (honest actual bits) ---
+# no protection, no base scales: pure base bits
+check(packed_storage_bits(2048, 2048, 4, 0, count_base_scales=False) == 4.0, "packed: base only = base_bits")
+# nominal effective bits ignores overhead; packed >= nominal
+nom = layer_effective_bits(2048, 205, 4, 16)  # ~10% protected -> ~5.2 nominal
+pk = packed_storage_bits(2048, 2048, 4, 205, group_size=64, count_base_scales=False)
+check(pk > nom, "packed (with index overhead) exceeds nominal effective bits")
+# base scales add real overhead
+pk_scales = packed_storage_bits(2048, 2048, 4, 0, group_size=64)
+check(pk_scales > 4.0, "base group scales/zeros add overhead over nominal 4-bit")
+# more protected channels -> more bits
+check(packed_storage_bits(2048, 2048, 4, 400, count_base_scales=False)
+      > packed_storage_bits(2048, 2048, 4, 100, count_base_scales=False), "more protected -> more bits")
 
 print("\n%d checks, %d failures" % (CHECKS, len(FAILS)))
 sys.exit(1 if FAILS else 0)
