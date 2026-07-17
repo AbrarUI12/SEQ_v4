@@ -164,14 +164,18 @@ def apply_channel_protection(
     explicit_protected: Optional[Dict[str, Sequence[int]]] = None,
     precomputed_base: Optional[Dict[str, torch.Tensor]] = None,
     tier_fracs: Optional[List[tuple]] = None,
+    explicit_tiers: Optional[Dict[str, Dict[int, Sequence[int]]]] = None,
     **backend_kwargs: Any,
 ) -> Dict[str, Any]:
     """Replace each scored Linear with a column-split protected version.
 
     ``explicit_protected`` protects exactly the given channel indices per layer
-    (audit). ``precomputed_base`` supplies a per-layer fake-quant base weight
-    (e.g. GPTQ). ``tier_fracs`` = [(bits, frac), ...] enables multi-precision
-    protection (top frac -> highest bits, etc.). Returns effective bits.
+    (audit / greedy selection). ``explicit_tiers`` assigns exact per-layer
+    precision tiers ``{bits: [idx]}`` (value-based bit allocation). ``precomputed_base``
+    supplies a per-layer fake-quant base weight (e.g. GPTQ). ``tier_fracs`` =
+    [(bits, frac), ...] enables percentage-based multi-precision protection (top
+    frac -> highest bits, etc.). Precedence: explicit_tiers > tier_fracs >
+    explicit_protected > top-k by score. Returns effective bits.
     """
     from .channel_utils import assign_tiers, layer_effective_bits_tiered
     skip_set = set(skip or [])
@@ -194,7 +198,9 @@ def apply_channel_protection(
         out_f = module.out_features
         tiers = None
         prot = []
-        if tier_fracs:
+        if explicit_tiers is not None:
+            tiers = {int(b): list(idx) for b, idx in (explicit_tiers.get(name) or {}).items() if len(idx)} or None
+        elif tier_fracs:
             tiers = assign_tiers(scores, tier_fracs)
         elif explicit_protected is not None:
             prot = list(explicit_protected.get(name, []))

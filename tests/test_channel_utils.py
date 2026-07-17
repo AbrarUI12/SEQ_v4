@@ -8,6 +8,7 @@ from seq_core.channel_utils import (  # noqa: E402
     assign_tiers,
     bucket_by_rank,
     combine_scores,
+    greedy_bit_alloc_by_value,
     layer_effective_bits,
     normalize_minmax,
     packed_storage_bits,
@@ -107,6 +108,26 @@ check(at.get(8) == [2, 6, 8], "tier8 = next-3 by score (sorted idx)")
 allidx = at.get(16, []) + at.get(8, [])
 check(len(allidx) == len(set(allidx)) == 5, "tiers disjoint, 5 protected")
 check(assign_tiers([], [(16, 0.5)]) == {}, "empty scores -> no tiers")
+
+# --- greedy_bit_alloc_by_value (error-per-byte tier allocation) ---
+# 2 channels, tiers [4,16]; ch0 big distortion reduction, ch1 small. index_bits=0.
+# upgrade cost 16-4=12/channel; budget=6 -> total budget=12 -> exactly one upgrade.
+D2 = [[10.0, 0.0], [1.0, 0.0]]
+check(greedy_bit_alloc_by_value(D2, [4, 16], 6.0) == [1, 0], "budget for one upgrade picks highest-value channel")
+check(greedy_bit_alloc_by_value(D2, [4, 16], 0.0) == [0, 0], "zero budget -> all base tier")
+check(greedy_bit_alloc_by_value(D2, [4, 16], 100.0) == [1, 1], "ample budget -> all upgraded")
+# no benefit -> never upgrade even with budget
+check(greedy_bit_alloc_by_value([[5.0, 5.0]], [4, 16], 100.0) == [0], "no distortion reduction -> stay base")
+# 3 tiers [4,8,16], single channel: tight budget takes the high-value 4->8 step,
+# not the low-value 8->16 step; larger budget reaches tier 2.
+D3 = [[10.0, 3.0, 0.0]]  # 4->8 reduces 7 @ cost 4 (v=1.75); 8->16 reduces 3 @ cost 8 (v=0.375)
+check(greedy_bit_alloc_by_value(D3, [4, 8, 16], 4.0) == [1], "tight budget takes best-value single step (tier 8)")
+check(greedy_bit_alloc_by_value(D3, [4, 8, 16], 12.0) == [2], "full budget climbs to tier 16")
+# value-greedy across channels: given budget for one step, upgrade the better ratio
+Dv = [[8.0, 0.0], [20.0, 0.0]]  # both cost 12; ch1 bigger reduction -> upgrade ch1 first
+check(greedy_bit_alloc_by_value(Dv, [4, 16], 6.0) == [0, 1], "value-greedy upgrades better benefit/cost first")
+check(greedy_bit_alloc_by_value([], [4, 16], 5.0) == [], "empty channels -> empty alloc")
+check(greedy_bit_alloc_by_value([[1.0]], [4], 5.0) == [0], "single tier -> no upgrade possible")
 
 print("\n%d checks, %d failures" % (CHECKS, len(FAILS)))
 sys.exit(1 if FAILS else 0)

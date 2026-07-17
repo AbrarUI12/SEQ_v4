@@ -3,6 +3,7 @@
 selection and effective-bit accounting can be unit-tested anywhere."""
 from __future__ import annotations
 
+import heapq
 import math
 from typing import List, Optional, Sequence
 
@@ -63,6 +64,78 @@ def assign_tiers(scores: Sequence[float], tiers: List[tuple]) -> dict:
         if start >= n:
             break
     return out
+
+
+def greedy_bit_alloc_by_value(
+    dist_per_channel: Sequence[Sequence[float]],
+    tier_bits: Sequence[int],
+    budget_extra_bits: float,
+    *,
+    index_bits: float = 0.0,
+) -> List[int]:
+    """Error-per-byte greedy bit allocation across precision tiers.
+
+    ``dist_per_channel[j][t]`` is the distortion of input channel ``j`` if it is
+    quantized at tier ``t`` (e.g. ``E[x_j²]·‖W_:,j − Q_t(W_:,j)‖²``); ``tier_bits``
+    lists the bit-widths **ascending** (``tier_bits[0]`` is the base, higher tiers
+    cost more but distort less). Every channel starts at the base tier; we then
+    repeatedly apply the single next-tier upgrade with the greatest distortion
+    reduction *per extra bit*, ``(D_t − D_{t+1}) / (cost_{t+1} − cost_t)``, while the
+    cumulative extra cost stays within the budget.
+
+    ``budget_extra_bits`` is the mean extra bits/channel allowed over the all-base
+    cost (so the total budget is ``budget_extra_bits · n_channels``). Tiers above
+    the base carry ``index_bits`` for the protected-channel index table. Returns
+    the chosen tier index per channel (0 = base).
+
+    This replaces fixed ``--protect_tiers`` percentages: instead of "protect the
+    top 2% at 16-bit and next 8% at 8-bit", it spends a bit budget where it buys
+    the most error reduction, which differs per layer.
+    """
+    n = len(dist_per_channel)
+    ntiers = len(tier_bits)
+    chosen = [0] * n
+    if n == 0 or ntiers <= 1 or budget_extra_bits <= 0:
+        return chosen
+
+    def _cost(t: int) -> float:
+        return float(tier_bits[t]) + (float(index_bits) if t > 0 else 0.0)
+
+    def _next_upgrade(j: int, from_t: int):
+        """Best-value single-step upgrade (from_t -> from_t+1) or None."""
+        to_t = from_t + 1
+        if to_t >= ntiers:
+            return None
+        row = dist_per_channel[j]
+        if to_t >= len(row):
+            return None
+        dred = float(row[from_t]) - float(row[to_t])  # distortion reduction (>0 = helps)
+        if not _finite(dred) or dred <= 0.0:
+            return None
+        incr = _cost(to_t) - _cost(from_t)
+        value = dred / incr if incr > 0 else float("inf")
+        return (-value, incr, j, to_t)
+
+    total_budget = float(budget_extra_bits) * n
+    spent = 0.0
+    heap: List[tuple] = []
+    for j in range(n):
+        up = _next_upgrade(j, 0)
+        if up is not None:
+            heapq.heappush(heap, up)
+
+    while heap and spent < total_budget:
+        neg_val, incr, j, to_t = heapq.heappop(heap)
+        if to_t != chosen[j] + 1:
+            continue  # stale (defensive; each channel has at most one live entry)
+        if incr > 0 and spent + incr > total_budget:
+            continue  # this upgrade doesn't fit; budget only shrinks, so skip it for good
+        chosen[j] = to_t
+        spent += max(0.0, incr)
+        up = _next_upgrade(j, to_t)
+        if up is not None:
+            heapq.heappush(heap, up)
+    return chosen
 
 
 def packed_storage_bits(

@@ -2,6 +2,82 @@
 
 Date: 2026-07-15. Target: August ARR cycle (deadline ~Aug 15), then ≥5 days to write.
 
+## 0. Update 2026-07-17 — principled selectors + a working GPTQ base
+
+Three changes land the method side of the project and fix a measurement bug.
+
+**(a) Baseline mislabel bug — FIXED.** In `channel_sweep.py` the FP16 baseline was
+measured *after* the GPTQ precompute; sequential GPTQ mutates the decoder weights
+in place, so `baseline_fp16_ppl` was silently recording the GPTQ-base PPL. The
+baseline is now measured on the unmodified FP16 model *before* any precompute, and
+the uniform-base PPL is recorded separately as `baseline_base_ppl` (the k=0 gate).
+
+**(b) From-scratch GPTQ — SHELVED; LightCompress is the base.** The hand-written
+`seq_core/gptq.py` never produced a working full-model base (≈5 attempts; even the
+sequential path gives k=0 ≈ 4900, not ~10.4) and cannot be debugged in the no-GPU
+dev environment. The per-layer math is provably correct (`scripts/diag_gptq.py`),
+so the failure is in full-model application, not the algorithm — but chasing it
+further is not worth the deadline risk. The strong-base path now **loads a saved
+LightCompress (LLMC) fake-quant model** (its GPTQ works: W4g128 ≈ 10.39) via
+`--base_quantizer gptq_llmc --gptq_model_path <dir>` (loader: `seq_core/gptq_llmc_base.py`).
+`--base_quantizer gptq` is kept for diagnostics only.
+
+**(c) Two principled, interaction-aware selectors** replace the (exhausted) scalar-
+signal search — the direction from the "IMPROVING HQQ SEQ" note:
+- **Residual-aware signals** `residual_rms` = `E[x_j²]·‖ΔW_:,j‖²` and `residual_max`
+  = `(max_t|x_{t,j}|)²·‖ΔW_:,j‖²` (`--signals residual_rms,residual_max`). Unlike
+  `act_max`, these weight each channel by the *real* quantization error it carries
+  against the built base (`ΔW = W − Wq`). (`seq_core/recon_sensitivity.py`.)
+- **Greedy OMP selector** (`--select greedy`): picks the *set* of channels that most
+  reduces the layer output residual `‖ΔW X‖²_F = tr(ΔWᵀΔW H)`, via
+  `G_j = 2⟨ΔW_:,j,(ΔW H)_:,j⟩ − ‖ΔW_:,j‖²·H_jj` with a rank-1 update each step. This
+  captures cross-channel interactions that any independent scalar score misses —
+  the audit's core finding. (`seq_core/greedy_select.py`.)
+- **Value-based tier allocation** (`--tier_alloc value`): spends a bit budget across
+  {base, 8, 16} by error-per-byte `(D_t − D_{t+1})/(cost_{t+1} − cost_t)` instead of
+  fixed `--protect_tiers` percentages. (`greedy_bit_alloc_by_value` in `channel_utils.py`.)
+
+All pure logic is unit-tested (`tests/test_greedy_select.py`,
+`tests/test_channel_utils.py`; 63 checks). **The decisive question is now runnable:**
+does protection improve a GPTQ base over plain GPTQ-4 at matched actual bits?
+
+**Run — new selectors on the HQQ base (does residual/greedy beat `act_max`?):**
+```bash
+python -m seq_core.channel_sweep --model meta-llama/Llama-3.2-1B --backend hqq \
+  --base_bits 4 --protect_fracs 0,0.02,0.05,0.1,0.2 \
+  --signals act_max,residual_rms,residual_max,random \
+  --ppl_mode canonical --calibration_prompts calibration_prompts.json \
+  --out_dir runs/seq10_residual/Llama-3.2-1B
+# greedy (signal-agnostic): add --select greedy, out_dir runs/seq10_greedy/...
+# value tiers: --tier_alloc value --protect_fracs 0.25,0.5,1.0,2.0 (fracs = extra bits/channel budget)
+```
+
+**Run — the decisive test (protection on the GPTQ base vs plain GPTQ-4):**
+```bash
+# 1) produce the LightCompress fake-quant W4 model (its GPTQ works ~10.39):
+python run_compare_matrix.py --model meta-llama/Llama-3.2-1B \
+  --methods gptq_llmc --llmc_save_mode fake --llmc_repo /path/to/LightCompress
+#    -> note the saved fake-quant dir (llmc_save_path in the run's meta)
+# 2) run SEQ protection on that base; the k=0 row MUST reproduce ~10.39:
+python -m seq_core.channel_sweep --model meta-llama/Llama-3.2-1B --backend hqq \
+  --base_bits 4 --base_quantizer gptq_llmc --gptq_model_path <SAVED_FAKE_QUANT_DIR> \
+  --protect_fracs 0,0.02,0.05,0.1 --signals act_max,residual_rms,random \
+  --ppl_mode canonical --calibration_prompts calibration_prompts.json \
+  --out_dir runs/seq10_gptqbase/Llama-3.2-1B
+#    strongest combo: add --select greedy (greedy selection on the GPTQ residual).
+# 3) rebuild the comparison table (include the new signal labels):
+python analysis/build_comparison.py \
+  --sweeps runs/seq10_residual runs/seq10_greedy runs/seq10_gptqbase \
+  --baselines baselines.json \
+  --signals act_max,residual_rms,residual_max,greedy,tier_alloc,random,act_scale \
+  --out docs/COMPARISON.md
+```
+
+Decision rule (unchanged): if GPTQ-base + protection beats plain GPTQ-4 at matched
+**actual** bits → scenario-B method paper; else the audit is the paper and these
+selectors are the interaction-aware method the audit motivates. Sections 5, 7
+below predate this update and are kept for history.
+
 ## 1. Where the project stands (one line)
 
 The original SEQ premise (entropy-guided module-level mixed precision) is

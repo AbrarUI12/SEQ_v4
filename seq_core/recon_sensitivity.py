@@ -123,6 +123,94 @@ def reconstruction_sensitivity(
     }
 
 
+def channel_residual_scores(
+    model: torch.nn.Module,
+    tokenizer: Any,
+    prompts: Sequence[str],
+    backend: QuantBackend,
+    *,
+    bits: int,
+    group_size: Optional[int] = 64,
+    device: str = "cuda",
+    compute_dtype: torch.dtype = torch.float16,
+    seq_len: int = 2048,
+    max_prompts: Optional[int] = 64,
+    precomputed_base: Optional[Dict[str, torch.Tensor]] = None,
+    module_names: Optional[Sequence[str]] = None,
+    **backend_kwargs: Any,
+) -> Dict[str, Dict[str, List[float]]]:
+    """Per-input-channel *residual-aware* selection scores against the built base.
+
+    Unlike the scalar activation signals (which look only at ``x`` or ``W``), these
+    weight each channel by the **real** quantization error it carries, ``ΔW = W − Wq``:
+
+        residual_rms_j = E[x_j²] · ‖ΔW_:,j‖²             (mean-energy weighted)
+        residual_max_j = (max_t |x_{t,j}|)² · ‖ΔW_:,j‖²  (worst-case / outlier weighted)
+
+    ``Wq`` is the precomputed base (``gptq`` / ``gptq_llmc``) when supplied for the
+    layer, else the backend's dequantized ``bits``-bit quantization (``hqq``). The
+    activation moments reuse ``collect_input_stats`` — the same pass and padding as
+    the ``act_max`` signal, so the comparison is apples-to-apples. Returns
+    ``{layer: {"residual_rms": [...], "residual_max": [...]}}`` (per input channel).
+    """
+    accs = collect_input_stats(
+        model, tokenizer, prompts, seq_len=seq_len, device=device, max_prompts=max_prompts
+    )
+    names = list(module_names) if module_names is not None else [
+        n for n, m in model.named_modules() if isinstance(m, torch.nn.Linear)
+    ]
+    base = precomputed_base or {}
+    out: Dict[str, Dict[str, List[float]]] = {}
+    skipped: List[str] = []
+    for name in names:
+        module = get_module_by_name(model, name)
+        acc = accs.get(name)
+        if acc is None or not isinstance(module, torch.nn.Linear):
+            continue
+        w = module.weight.detach().to(dtype=torch.float32)
+        # ΔW: prefer the precomputed base for this layer; else quantize with backend.
+        if name in base:
+            wq = base[name].detach().to(dtype=torch.float32, device=w.device)
+        else:
+            try:
+                clone = copy.deepcopy(module)
+                q = backend.quantize_linear(
+                    clone, bits, device=device, compute_dtype=compute_dtype,
+                    group_size=group_size, **backend_kwargs,
+                )
+                wq = backend.dequantize_weight(q)
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.warning("residual: quantize %s failed: %s", name, exc)
+                skipped.append(name)
+                continue
+            if wq is None:
+                skipped.append(name)
+                continue
+            wq = wq.to(dtype=torch.float32, device=w.device)
+            del clone, q
+        if wq.shape != w.shape:
+            if wq.t().shape == w.shape:
+                wq = wq.t().contiguous()
+            else:
+                LOGGER.warning("residual: shape mismatch for %s (%s vs %s)", name, tuple(wq.shape), tuple(w.shape))
+                skipped.append(name)
+                continue
+        dw = w - wq                                    # [out, in]  real quant error
+        col_err = (dw * dw).sum(dim=0)                 # [in]  ‖ΔW_:,j‖²
+        act_sq = acc.act_sq().to(w.device)             # [in]  E[x_j²]
+        act_max = acc.act_max().to(w.device)           # [in]  max_t |x_{t,j}|
+        residual_rms = (act_sq * col_err)              # [in]
+        residual_max = (act_max * act_max * col_err)   # [in]
+        out[name] = {
+            "residual_rms": [float(v) for v in residual_rms.detach().cpu().tolist()],
+            "residual_max": [float(v) for v in residual_max.detach().cpu().tolist()],
+        }
+        _free()
+    if skipped:
+        LOGGER.warning("residual: %d modules skipped (no dequant / failure)", len(skipped))
+    return out
+
+
 def ground_truth_scores(result: Dict[str, Any], key: str = "module") -> Dict[str, float]:
     out: Dict[str, float] = {}
     for name, row in result.get("per_unit", {}).items():
