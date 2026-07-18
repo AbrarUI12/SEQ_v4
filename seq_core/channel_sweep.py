@@ -57,9 +57,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--signals", default="act_scale,act_max,act_kurt,hessian_diag,magnitude,random",
                    help="scalar per-channel signals; also accepts 'residual_rms'/'residual_max' "
                         "(HQQ/GPTQ-residual-aware) which are computed against the built base")
-    p.add_argument("--select", default="topk", choices=["topk", "greedy"],
+    p.add_argument("--select", default="topk", choices=["topk", "greedy", "greedy_indep"],
                    help="topk = protect the top-k channels by signal (per-channel independent); "
-                        "greedy = OMP residual-reduction selector (interaction-aware, ignores --signals)")
+                        "greedy = OMP residual-reduction selector (interaction-aware, iterative); "
+                        "greedy_indep = same objective's first-step gains, NO iterative update "
+                        "(the interaction-free ablation). greedy/greedy_indep ignore --signals.")
     p.add_argument("--tier_alloc", default="", choices=["", "value"],
                    help="'value' = allocate protection bits by error-per-byte (greedy benefit/cost) "
                         "across {base,8,16} instead of fixed --protect_tiers percentages")
@@ -235,7 +237,7 @@ def main() -> int:
                     if isinstance(m, torch.nn.Linear) and n not in skip_set]
 
     need_resid = any(("residual_rms" in s or "residual_max" in s) for s in signal_names)
-    need_greedy = (args.select == "greedy")
+    need_greedy = args.select in ("greedy", "greedy_indep")
     need_tier_alloc = (args.tier_alloc == "value")
 
     def _dequant_base_weights() -> Dict[str, Any]:
@@ -293,8 +295,9 @@ def main() -> int:
         max_frac = max([f for f in fracs if f > 0] or [0.0])
         weights = {n: m.weight.detach() for n, m in linear_items}
         k_by_layer = {n: int(_math.ceil(max_frac * in_features[n])) for n in weights if n in in_features}
+        greedy_mode = "greedy" if args.select == "greedy" else "independent"
         greedy_order = greedy_protected_map(weights, base_weights, hessians, k_by_layer,
-                                            device=device, logger=LOGGER)
+                                            mode=greedy_mode, device=device, logger=LOGGER)
         del hessians
 
     # value-based tier maps per budget (needs FP16 W -> precompute before unload)
@@ -491,14 +494,17 @@ def main() -> int:
                     row["delta_ppl_vs_fp16"] or 0.0, len(info["errors"]))
 
     # ---- pass 2: protect -> quantize -> PPL, by selection mode ------------- #
-    if args.select == "greedy":
-        # interaction-aware: one greedy order per layer, sliced per frac (signal-agnostic)
+    if args.select in ("greedy", "greedy_indep"):
+        # one selection order per layer, sliced per frac (signal-agnostic). The row
+        # is labelled by the select mode so build_comparison can compare the
+        # interaction-aware `greedy` against its interaction-free `greedy_indep`
+        # ablation at matched actual bits.
         for kind, label, value in configs:
             if kind != "frac":
                 continue
             explicit = {n: order[: int(_math.ceil(value * in_features[n]))]
                         for n, order in greedy_order.items()}
-            _protect_and_eval("greedy", kind, label, value, explicit_protected=explicit)
+            _protect_and_eval(args.select, kind, label, value, explicit_protected=explicit)
     elif args.tier_alloc == "value":
         # value-based bit allocation: per-layer {bits:[idx]} chosen by error-per-byte
         for kind, label, value in configs:

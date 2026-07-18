@@ -12,6 +12,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from seq_core.greedy_select import (  # noqa: E402
+    greedy_independent_reference,
     greedy_select_reference,
     residual_energy,
 )
@@ -119,6 +120,46 @@ check(greedy_select_reference([[1.0, 2.0, 3.0]], eye(3), 0) == [], "greedy k=0 r
 tie_a = greedy_select_reference([[1.0, 1.0, 1.0]], eye(3), 3)
 tie_b = greedy_select_reference([[1.0, 1.0, 1.0]], eye(3), 3)
 check(tie_a == tie_b == [0, 1, 2], "greedy ties are deterministic")
+
+
+# --- greedy_independent (interaction-free ablation) ------------------------- #
+def first_step_gains(dw, H, in_f, out_f):
+    """G_j^0 = 2<A_:,j, (A H)_:,j> - ||A_:,j||^2 H_jj, computed once."""
+    RX = [[sum(dw[o][a] * H[a][j] for a in range(in_f)) for j in range(in_f)] for o in range(out_f)]
+    G = []
+    for j in range(in_f):
+        dot = sum(dw[o][j] * RX[o][j] for o in range(out_f))
+        nrm = sum(dw[o][j] * dw[o][j] for o in range(out_f))
+        G.append(2.0 * dot - nrm * H[j][j])
+    return G
+
+# independent ranking == argsort of the one-shot gains (desc), positive only
+Gind = first_step_gains(dw1, H, 3, 2)
+brute_order = [j for j in sorted(range(3), key=lambda j: Gind[j], reverse=True) if Gind[j] > 0]
+check(greedy_independent_reference(dw1, H, 3) == brute_order, "greedy_indep == argsort of first-step gains")
+# its top pick equals greedy's first pick (identical first-step objective)...
+check(greedy_independent_reference(dw1, H, 1)[0] == greedy_select_reference(dw1, H, 1)[0],
+      "greedy_indep top pick == greedy first pick")
+# ...but the FULL orders can diverge, because greedy re-evaluates after each pick.
+# Construct a coupled case where the interaction-free order differs from greedy's.
+Wd = [[3.0, 2.9, 0.1], [0.0, 0.0, 3.0]]
+Hc = [[1.0, 0.95, 0.0], [0.95, 1.0, 0.0], [0.0, 0.0, 1.0]]  # cols 0,1 strongly coupled
+gi = greedy_independent_reference(Wd, Hc, 2)
+gg = greedy_select_reference(Wd, Hc, 2)
+check(gi[0] == gg[0], "coupled: same first pick")
+check(gi != gg, "coupled: interaction-free order differs from iterative greedy")
+# greedy's 2-set has <= residual energy than the independent 2-set (greedy optimizes it)
+def energy_of(order, dw, H):
+    cur = [list(r) for r in dw]
+    for j in order:
+        cur = zero_col(cur, j)
+    return residual_energy(cur, H)
+check(energy_of(gg, Wd, Hc) <= energy_of(gi, Wd, Hc) + 1e-12,
+      "greedy 2-set residual <= independent 2-set residual")
+# edge cases
+check(greedy_independent_reference([], [], 3) == [], "greedy_indep empty -> none")
+check(greedy_independent_reference([[0.0, 0.0]], eye(2), 2) == [], "greedy_indep zero ΔW -> none")
+check(greedy_independent_reference(dw1, H, 0) == [], "greedy_indep k=0 -> none")
 
 print("\n%d checks, %d failures" % (CHECKS, len(FAILS)))
 if __name__ == "__main__":

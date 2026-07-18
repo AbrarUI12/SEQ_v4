@@ -113,6 +113,31 @@ def greedy_select_reference(
     return order
 
 
+def greedy_independent_reference(
+    delta_w: Sequence[Sequence[float]],
+    H: Sequence[Sequence[float]],
+    k: int,
+) -> List[int]:
+    """Pure reference for the interaction-free ablation (first-step gains only).
+
+    Ranks columns by ``G_j⁰ = 2⟨ΔW_:,j,(ΔW H)_:,j⟩ − ‖ΔW_:,j‖²·H_jj`` computed once
+    (no iterative residual update) and returns up to ``k`` positive-gain columns in
+    descending gain order. Mirrors :func:`greedy_independent_order`. Its top pick
+    equals :func:`greedy_select_reference`'s first pick (identical first-step
+    objective); the two orders diverge afterwards because greedy re-evaluates.
+    """
+    out_f = len(delta_w)
+    in_f = len(delta_w[0]) if out_f else 0
+    if in_f == 0 or k <= 0:
+        return []
+    k = min(int(k), in_f)
+    RX = [[sum(delta_w[o][a] * H[a][j] for a in range(in_f)) for j in range(in_f)] for o in range(out_f)]
+    Hdiag = [float(H[j][j]) for j in range(in_f)]
+    G = _gains_reference(delta_w, RX, Hdiag, in_f, out_f)
+    order = sorted(range(in_f), key=lambda j: G[j], reverse=True)
+    return [j for j in order if G[j] > 0.0][:k]
+
+
 # --------------------------------------------------------------------------- #
 # Torch entry point (lazy import) — runs on real layers.
 # --------------------------------------------------------------------------- #
@@ -171,12 +196,57 @@ def greedy_select_channels(
     return order
 
 
+def greedy_independent_order(
+    delta_w: "Any",
+    H: "Any",
+    k: int,
+) -> List[int]:
+    """Independent (first-step) column ranking — the interaction-free ablation.
+
+    Ranks columns by the greedy objective's *marginal* gains evaluated ONCE, with
+    no iterative residual update::
+
+        G_j⁰ = 2·⟨ΔW_:,j, (ΔW H)_:,j⟩ − ‖ΔW_:,j‖²·H_jj
+
+    This uses the full Hessian in the score but ignores how protecting one column
+    changes the value of protecting another. Comparing this against
+    :func:`greedy_select_channels` at identical actual weight bits isolates exactly
+    the contribution of the iterative cross-column interactions (the paper's
+    novelty claim). Returns up to ``k`` channels with positive gain, in descending
+    gain order; the top pick coincides with greedy's first pick.
+    """
+    import torch
+
+    if delta_w.ndim != 2:
+        raise ValueError(f"delta_w must be [out, in], got {tuple(delta_w.shape)}")
+    in_f = int(delta_w.shape[1])
+    if in_f == 0 or k <= 0:
+        return []
+    k = min(int(k), in_f)
+    A = delta_w.detach().to(dtype=torch.float64)
+    Hf = H.detach().to(dtype=torch.float64, device=A.device)
+    if not bool(torch.isfinite(A).all()) or not bool(torch.isfinite(Hf).all()):
+        A = torch.nan_to_num(A)
+        Hf = torch.nan_to_num(Hf)
+    Hdiag = torch.diagonal(Hf)
+    RX = A @ Hf                                              # [out, in]
+    dot = (A * RX).sum(dim=0)                                # [in]
+    nrm = (A * A).sum(dim=0)                                 # [in]
+    G = 2.0 * dot - nrm * Hdiag                              # [in]
+    G = torch.where(torch.isfinite(G), G, torch.full_like(G, float("-inf")))
+    vals, idx = torch.sort(G, descending=True)
+    # keep only positive-gain columns (mirrors greedy's "protect only if it helps")
+    order = [int(j) for v, j in zip(vals.tolist(), idx.tolist()) if v > 0.0][:k]
+    return order
+
+
 def greedy_protected_map(
     weights: "Any",
     bases: "Any",
     hessians: "Any",
     k_by_layer: "Any",
     *,
+    mode: str = "greedy",
     device: str = "cuda",
     logger: "Any" = None,
 ) -> dict:
@@ -185,10 +255,13 @@ def greedy_protected_map(
     ``weights``/``bases`` map layer name -> weight tensor [out, in] (FP16 ``W`` and
     the quantized base ``Wq``); ``hessians`` maps layer name -> (H [in,in], count)
     as returned by ``gptq.collect_gptq_hessians``; ``k_by_layer`` maps layer name
-    -> number of channels to protect. Layers missing a base or Hessian are skipped.
+    -> number of channels to protect. ``mode`` selects ``"greedy"`` (interaction-
+    aware, iterative) or ``"independent"`` (first-step gains, no update). Layers
+    missing a base or Hessian are skipped.
     """
     import torch
 
+    select = greedy_select_channels if mode == "greedy" else greedy_independent_order
     out: dict = {}
     for name, w in weights.items():
         wq = bases.get(name) if hasattr(bases, "get") else None
@@ -206,7 +279,7 @@ def greedy_protected_map(
                 logger.warning("greedy: base/weight shape mismatch for %s; skipping", name)
             continue
         try:
-            order = greedy_select_channels(wf - wqf, H.to(device), k)
+            order = select(wf - wqf, H.to(device), k)
         except Exception as exc:  # noqa: BLE001
             if logger is not None:
                 logger.warning("greedy: selection failed for %s: %s", name, exc)
