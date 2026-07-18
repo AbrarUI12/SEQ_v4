@@ -1,5 +1,21 @@
 # Results summary
 
+## 2026-07-18 accounting and greedy-rerun update
+
+The primary comparison axis is now weight-only average bits per quantized
+linear weight, including quantizer metadata; FP16 embeddings, `lm_head`, and
+other unquantized parameters remain only in the separate full-model reference
+column. The CPU-regenerated comparison contains 74 points for the 1B/3B runs,
+with old greedy rows excluded because they predate the selection-order fix.
+GPTQ-4 metadata-aware weight bits are 4.293 (1B) and 4.284 (3B), rather than
+the old inflated full-model values.
+
+The corrected greedy runner is ready at
+`scripts/run_fixed_greedy_sweeps.sh`, but its preflight stops because no
+Llama-3.1-8B GPTQ fake-quant checkpoint exists in the repository. Therefore no
+corrected GPU greedy sweep is represented as complete; see
+`docs/GREEDY_REGEN_BLOCKED.md` and `runs/final_greedy_fixed/run.log`.
+
 Only finite, saved WSL runs are listed. Selector runs used 8 calibration prompts, so they are validated development evidence, not final robustness evidence.
 
 ## Completed evidence

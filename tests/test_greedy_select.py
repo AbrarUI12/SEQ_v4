@@ -105,6 +105,21 @@ check(greedy_select_reference([], [], 3) == [], "empty weight -> none")
 # zero error weight -> no channel reduces residual -> stop early (nothing to protect)
 check(greedy_select_reference([[0.0, 0.0]], eye(2), 2) == [], "zero ΔW -> no protection needed")
 
+# --- selection-order regression guards -------------------------------------- #
+# The first implementation accidentally sorted the selected IDs before
+# returning them.  This synthetic diagonal case has priority [2, 1, 0], which
+# is intentionally different from channel-index order [0, 1, 2].
+priority = greedy_select_reference([[1.0, 2.0, 3.0]], eye(3), 3)
+check(priority == [2, 1, 0], "greedy return preserves selection priority, not index order")
+prefix = greedy_select_reference([[1.0, 2.0, 3.0]], eye(3), 2)
+check(priority[:2] == prefix, "greedy prefixes are consistent across k")
+check(len(priority) == len(set(priority)), "greedy order has no duplicate channels")
+check(greedy_select_reference([[1.0, 2.0, 3.0]], eye(3), 0) == [], "greedy k=0 returns no channels")
+# Ties are deterministic because the first maximum encountered wins.
+tie_a = greedy_select_reference([[1.0, 1.0, 1.0]], eye(3), 3)
+tie_b = greedy_select_reference([[1.0, 1.0, 1.0]], eye(3), 3)
+check(tie_a == tie_b == [0, 1, 2], "greedy ties are deterministic")
+
 print("\n%d checks, %d failures" % (CHECKS, len(FAILS)))
 if __name__ == "__main__":
     sys.exit(1 if FAILS else 0)

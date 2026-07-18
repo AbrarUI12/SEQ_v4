@@ -40,7 +40,7 @@ def main():
         fig,ax=plt.subplots(figsize=(6.2,4.2)); labels=sorted(set(x[2] for x in rows))
         for label in labels:
             vals=[x for x in rows if x[2]==label]; vals.sort(); ax.plot([x[0] for x in vals],[x[1] for x in vals],marker='o',label=label)
-        ax.set_xlabel('Effective bits per parameter'); ax.set_ylabel('WikiText-2 perplexity'); ax.set_title(model); ax.grid(alpha=.25); ax.legend(fontsize=8); fig.tight_layout()
+        ax.set_xlabel('Average bits per quantized linear weight (metadata included)'); ax.set_ylabel('WikiText-2 perplexity'); ax.set_title(model); ax.grid(alpha=.25); ax.legend(fontsize=8); fig.tight_layout()
         slug=model.replace('/','_').replace(' ','_'); fig.savefig(args.output_dir/f'ppl_vs_actual_bits_{slug}.pdf'); plt.close(fig)
     print(f'wrote plots to {args.output_dir}'); return 0
 if __name__=='__main__': raise SystemExit(main())

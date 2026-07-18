@@ -123,16 +123,23 @@ def load_sweep_points(
             # the saved byte breakdown when present (authoritative), else fall back
             # to nominal + index overhead for legacy rows. Never use a stored
             # full-model average as the axis.
-            actual = _weight_bits_from_storage(r.get("storage"), bb)
+            storage = r.get("storage") if isinstance(r.get("storage"), dict) else None
+            actual = _weight_bits_from_storage(storage, bb)
             if actual is None:
-                actual = eff + (index_overhead if (k and k > 0) or r.get("tiers") else 0.0)
-            storage = r.get("storage") if isinstance(r.get("storage"), dict) else {}
+                # Do not silently put a nominal/full-model number on the
+                # weight-only axis.  Legacy rows without a storage breakdown
+                # are preserved on disk but excluded from the corrected table.
+                print(f"WARNING: excluding sweep row with missing storage breakdown: {f} "
+                      f"signal={r.get('signal')} k={r.get('k_frac')}", file=sys.stderr)
+                continue
+            storage = storage or {}
             model_bits = storage.get("actual_model_bits_per_parameter")
             name = f"SEQ:{r['signal']}({base}-{bb}b {_cfg_label(r)})"
             out.setdefault(model, []).append(
                 {"method": name, "bits": round(actual, 3), "nominal_bits": round(eff, 3),
                  "model_bits": round(float(model_bits), 3) if isinstance(model_bits, (int, float)) else None,
-                 "ppl": round(r["ppl"], 4), "source": "sweep"}
+                 "ppl": round(r["ppl"], 4), "source": "sweep",
+                 "accounting_status": "recomputed_from_storage_breakdown"}
             )
     return out
 
@@ -156,11 +163,15 @@ def main() -> int:
         base = json.load(open(args.baselines))
         for model, rows in base.items():
             for r in rows:
+                if not isinstance(r.get("storage"), dict) and r.get("method") != "FP16":
+                    print(f"WARNING: baseline has no storage breakdown; using declared bits for "
+                          f"{model} {r.get('method')}", file=sys.stderr)
                 per_model.setdefault(model, []).append(
                     {"method": r["method"], "bits": round(float(r["bits"]), 3),
                      "nominal_bits": round(float(r.get("nominal_bits", r["bits"])), 3),
                      "model_bits": (round(float(r["model_bits"]), 3) if r.get("model_bits") is not None else None),
-                     "ppl": round(float(r["ppl"]), 4), "source": "baseline"}
+                     "ppl": round(float(r["ppl"]), 4), "source": "baseline",
+                     "accounting_status": r.get("accounting_status", "declared_external")}
                 )
 
     if not per_model:
@@ -223,9 +234,9 @@ def main() -> int:
         handle.write("\n".join(L).rstrip() + "\n")
     for path in (args.csv, args.json):
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    fields = ["model", "method", "bits", "nominal_bits", "model_bits", "ppl", "source"]
+    fields = ["model", "method", "bits", "nominal_bits", "model_bits", "ppl", "source", "accounting_status"]
     with open(args.csv, "w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fields); writer.writeheader()
+        writer = csv.DictWriter(handle, fieldnames=fields, lineterminator="\n"); writer.writeheader()
         writer.writerows({k: row.get(k) for k in fields} for row in all_rows)
     with open(args.json, "w", encoding="utf-8") as handle:
         json.dump(all_rows, handle, indent=2); handle.write("\n")
