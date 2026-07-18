@@ -136,18 +136,27 @@ def greedy_select_channels(
     if in_f == 0 or k <= 0:
         return []
     k = min(int(k), in_f)
-    A = delta_w.detach().to(dtype=torch.float32).clone()
-    Hf = H.detach().to(dtype=torch.float32, device=A.device)
+    # float64 throughout: on an error-compensated (GPTQ) base the residual ΔW is
+    # small and H is ill-conditioned, so the rank-1 ``RX -= col ⊗ H_j`` update
+    # accumulates float32 drift over hundreds of steps and corrupts late gains
+    # (the source of the k=0.10 blow-up). float64 + a periodic exact recompute of
+    # ``RX = A @ H`` keeps the gains accurate; non-finite gains are masked out.
+    A = delta_w.detach().to(dtype=torch.float64).clone()
+    Hf = H.detach().to(dtype=torch.float64, device=A.device)
+    if not bool(torch.isfinite(A).all()) or not bool(torch.isfinite(Hf).all()):
+        A = torch.nan_to_num(A)
+        Hf = torch.nan_to_num(Hf)
     Hdiag = torch.diagonal(Hf).clone()
     RX = A @ Hf                                              # [out, in]
     avail = torch.ones(in_f, dtype=torch.bool, device=A.device)
-    neg_inf = torch.tensor(float("-inf"), device=A.device)
+    neg_inf = torch.tensor(float("-inf"), dtype=RX.dtype, device=A.device)
+    recompute_every = 64                                    # cancel accumulated drift
     order: List[int] = []
-    for _ in range(k):
+    for step in range(k):
         dot = (A * RX).sum(dim=0)                            # [in]
         nrm = (A * A).sum(dim=0)                             # [in]
         G = 2.0 * dot - nrm * Hdiag                          # [in]
-        G = torch.where(avail, G, neg_inf)
+        G = torch.where(avail & torch.isfinite(G), G, neg_inf)
         gmax, jstar = torch.max(G, dim=0)
         if not bool(torch.isfinite(gmax)) or float(gmax) <= 0.0:
             break
@@ -157,6 +166,8 @@ def greedy_select_channels(
         A[:, j] = 0.0
         avail[j] = False
         order.append(j)
+        if recompute_every and (step + 1) % recompute_every == 0:
+            RX = A @ Hf                                      # exact refresh kills drift
     return order
 
 
@@ -200,5 +211,9 @@ def greedy_protected_map(
             if logger is not None:
                 logger.warning("greedy: selection failed for %s: %s", name, exc)
             continue
-        out[name] = sorted(order)
+        # Preserve *selection priority* order: callers slice ``order[:k']`` to get
+        # the top-k' greedy set for a smaller fraction. Sorting by index here would
+        # make every prefix protect the lowest-index channels instead of the most
+        # important ones (ChannelProtectedLinear sorts the final set internally).
+        out[name] = list(order)
     return out

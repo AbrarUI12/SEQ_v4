@@ -78,6 +78,47 @@ Decision rule (unchanged): if GPTQ-base + protection beats plain GPTQ-4 at match
 selectors are the interaction-aware method the audit motivates. Sections 5, 7
 below predate this update and are kept for history.
 
+## 0b. Update 2026-07-18 — bit-accounting fix + greedy bug (results reframed)
+
+Two bugs in the "final" comparison were fixed; both change how the results read.
+
+**(a) The comparison axis was inconsistent.** `COMPARISON.md` plotted HQQ rows on a
+weight-only axis (~4–6 bits) but `gptq_llmc`/`tier_alloc` rows on a full-model
+average that counts FP16 embeddings/lm_head/norms (~8–10 bits) — so the 4-bit GPTQ
+base was charged **7.90** and every GPTQ-base/tiered point was pushed off the
+frontier by bookkeeping, not cost. Fixed: a single **weight-only bits/param** axis
+(quantized linear weights + inline group-scale/residual/index overhead ÷
+quantized-linear params; embeddings excluded, comparable to GPTQ-4 = 4.0) is now
+the sole Pareto axis; the full-model average is kept as a separate reference
+column. `seq_core/storage_accounting.py` adds `actual_weight_bits_per_param`;
+`channel_sweep.py` records it as `actual_effective_bits` (+ full-model separately);
+`analysis/build_comparison.py` **recomputes the weight-only axis from each row's
+saved `storage` breakdown**, so the table regenerates on CPU alone — no GPU
+re-sweep. On the fixed axis the GPTQ base sits at ~4.5 weight-bits, not 7.9.
+
+**(b) Greedy selection order was destroyed.** `greedy_protected_map` returned
+`sorted(order)`, so slicing `order[:k]` for any fraction below the max protected
+the *lowest-index* channels instead of the top-priority ones — every greedy point
+below k=0.20 (and the k=0.10 GPTQ blow-up to PPL 77.99) is invalid. Fixed: keep
+selection-priority order; also hardened `greedy_select_channels` numerics (float64,
+periodic exact `RX=A@H` refresh, non-finite guards) against drift on
+error-compensated bases. **The greedy rows must be re-run on GPU.**
+
+**Corrected read (once regenerated).** On the honest weight-only axis: HQQ+`act_max`
+protection still beats random (positive), but HQQ+protection is **dominated by
+GPTQ-4** on bits. GPTQ-base + protection: on **1B** it is dominated by plain
+GPTQ-4 (needs ~4.5–4.8 bits to reach a *worse* PPL than GPTQ-4 @ 4.0; random ≈
+signal) — **negative**; on **3B** `residual_max` reaches ~8.10 vs GPTQ-4's 8.30 at
+a small bit premium, so it sits **on the frontier** — a modest positive. Net: no
+clean "beat GPTQ-4" headline, but a defensible **audit + "protection and error
+compensation are substitutes"** story. Sections 5–7 predate this and section 0.
+
+**To regenerate:** (1) CPU — `python analysis/build_comparison.py --sweeps
+runs/final_* --baselines <baselines.json> --signals
+act_max,residual_rms,residual_max,greedy,tier_alloc,random,act_scale --out
+docs/COMPARISON.md`; (2) GPU — re-run only the `--select greedy` sweeps (HQQ and
+gptq_llmc bases) to replace the invalidated greedy rows, then re-run (1).
+
 ## 1. Where the project stands (one line)
 
 The original SEQ premise (entropy-guided module-level mixed precision) is

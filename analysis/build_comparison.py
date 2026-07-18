@@ -61,6 +61,37 @@ def _cfg_label(r: Dict[str, Any]) -> str:
     return f"k={r.get('k_frac')}"
 
 
+# The weight-only comparison axis (comparable to GPTQ-4 = 4.0) counts ONLY the
+# quantized linear weights plus their inline overhead. Embeddings/lm_head/norms/
+# bias are FP16 in every method and excluded so the axis is not dominated by
+# them (a pure 4-bit base would otherwise measure ~7 bits on a 1B model).
+_WEIGHT_BYTE_KEYS = (
+    "dense_quantized_weight_bytes", "quantization_scale_bytes", "zero_point_bytes",
+    "group_metadata_bytes", "fp16_residual_bytes", "int8_tier_bytes", "channel_index_bytes",
+)
+
+
+def _weight_bits_from_storage(storage: Any, base_bits: Any) -> Optional[float]:
+    """Weight-only bits/param recomputed from a saved ``storage`` breakdown.
+
+    Robust to the earlier bug where rows stored the full-model average (with FP16
+    embeddings) under ``actual_effective_bits``: this ignores that field and
+    rebuilds the weight-only number from the byte breakdown, so regenerating the
+    table needs only a CPU re-run of this script — no GPU re-sweep.
+    """
+    if not isinstance(storage, dict):
+        return None
+    v = storage.get("actual_weight_bits_per_param")
+    if isinstance(v, (int, float)) and v > 0:
+        return float(v)
+    qbytes = storage.get("dense_quantized_weight_bytes")
+    if not qbytes or not base_bits:
+        return None
+    qparams = float(qbytes) * 8 / float(base_bits)  # count of quantized linear weights
+    wbytes = sum(float(storage.get(k, 0) or 0) for k in _WEIGHT_BYTE_KEYS)
+    return (wbytes * 8 / qparams) if qparams else None
+
+
 def load_sweep_points(
     sweep_dirs: List[str],
     signals: List[str],
@@ -88,14 +119,19 @@ def load_sweep_points(
                 continue
             k = r.get("k_frac") or 0.0
             eff = r.get("effective_bits", bb)
-            # Prefer authoritative byte accounting from new runs. Historical
-            # rows retain the documented approximation for backward compatibility.
-            actual = r.get("actual_effective_bits")
+            # ONE consistent weight-only axis for every sweep row: recompute from
+            # the saved byte breakdown when present (authoritative), else fall back
+            # to nominal + index overhead for legacy rows. Never use a stored
+            # full-model average as the axis.
+            actual = _weight_bits_from_storage(r.get("storage"), bb)
             if actual is None:
                 actual = eff + (index_overhead if (k and k > 0) or r.get("tiers") else 0.0)
+            storage = r.get("storage") if isinstance(r.get("storage"), dict) else {}
+            model_bits = storage.get("actual_model_bits_per_parameter")
             name = f"SEQ:{r['signal']}({base}-{bb}b {_cfg_label(r)})"
             out.setdefault(model, []).append(
                 {"method": name, "bits": round(actual, 3), "nominal_bits": round(eff, 3),
+                 "model_bits": round(float(model_bits), 3) if isinstance(model_bits, (int, float)) else None,
                  "ppl": round(r["ppl"], 4), "source": "sweep"}
             )
     return out
@@ -123,6 +159,7 @@ def main() -> int:
                 per_model.setdefault(model, []).append(
                     {"method": r["method"], "bits": round(float(r["bits"]), 3),
                      "nominal_bits": round(float(r.get("nominal_bits", r["bits"])), 3),
+                     "model_bits": (round(float(r["model_bits"]), 3) if r.get("model_bits") is not None else None),
                      "ppl": round(float(r["ppl"]), 4), "source": "baseline"}
                 )
 
@@ -132,10 +169,12 @@ def main() -> int:
 
     all_rows: List[Dict[str, Any]] = []
     L: List[str] = ["# SEQ vs baselines — actual-bits comparison", ""]
-    L.append("Points from SEQ sweeps + external baselines, sorted by actual bits. "
-             "★ = on the Pareto frontier (no method has both fewer bits and lower PPL). "
-             "SEQ bits include the FP16 residual + index table; base group scales are common "
-             "to all methods and excluded from this axis.")
+    L.append("Points from SEQ sweeps + external baselines, sorted by **weight-only bits/param** — "
+             "quantized linear weights plus their inline overhead (group scales/zeros, FP16/INT8 "
+             "protection residual, channel index), divided by the quantized-linear parameter count. "
+             "Embeddings, lm_head, norms and biases are FP16 in every method, common to the axis, "
+             "and excluded — so this axis is directly comparable to GPTQ-4 = 4.0. "
+             "★ = on the Pareto frontier (no method has both fewer bits and lower PPL).")
     L.append("")
     for model, rows in per_model.items():
         fp16 = next((r["ppl"] for r in rows if "fp16" in r["method"].lower()), None)
@@ -145,12 +184,18 @@ def main() -> int:
         front = set(pareto_frontier(pts))
         L.append(f"## {model}" + (f"  (FP16 PPL {fp16})" if fp16 else ""))
         L.append("")
-        L.append("| method | actual bits | nominal bits | PPL | Δ vs FP16 | frontier |")
-        L.append("|---|---|---|---|---|---|")
+        L.append("Axis = **weight-only bits/param** (quantized linear weights + inline overhead; "
+                 "FP16 embeddings/lm_head/norms excluded, common to all methods — so it is comparable "
+                 "to GPTQ-4 = 4.0). *full-model bits* is the deployment average including FP16 "
+                 "embeddings, shown for reference only, not the frontier axis.")
+        L.append("")
+        L.append("| method | weight bits | nominal bits | full-model bits | PPL | Δ vs FP16 | frontier |")
+        L.append("|---|---|---|---|---|---|---|")
         for i, r in enumerate(rows):
             d = f"{r['ppl']-fp16:+.3f}" if fp16 else "—"
             star = "★" if i in front else ""
-            L.append(f"| {r['method']} | {r['bits']:.2f} | {r['nominal_bits']:.2f} | "
+            mb = f"{r['model_bits']:.2f}" if r.get("model_bits") is not None else "—"
+            L.append(f"| {r['method']} | {r['bits']:.2f} | {r['nominal_bits']:.2f} | {mb} | "
                      f"{r['ppl']:.3f} | {d} | {star} |")
         L.append("")
         # verdict: is any SEQ point on the frontier, and does SEQ beat baselines near its bits?
@@ -178,7 +223,7 @@ def main() -> int:
         handle.write("\n".join(L).rstrip() + "\n")
     for path in (args.csv, args.json):
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    fields = ["model", "method", "bits", "nominal_bits", "ppl", "source"]
+    fields = ["model", "method", "bits", "nominal_bits", "model_bits", "ppl", "source"]
     with open(args.csv, "w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields); writer.writeheader()
         writer.writerows({k: row.get(k) for k in fields} for row in all_rows)

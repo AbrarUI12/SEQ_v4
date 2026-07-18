@@ -1,3 +1,16 @@
+> ⚠️ **SUPERSEDED — regenerate before use.** This table mixed two bit axes: HQQ
+> rows used weight-only bits (~4–6) while `gptq_llmc`/`tier_alloc` rows used a
+> full-model average that counts FP16 embeddings/lm_head (~8–10), so the GPTQ-base
+> and tiered points are charged ~2× and pushed off the frontier by a bookkeeping
+> artifact, not real cost. Also, a greedy-ordering bug (`sorted()` on the selection
+> order) made every greedy point below k=0.20 protect the wrong channels — so the
+> `greedy` rows here (including the k=0.10 GPTQ blow-up to 77.99) are invalid.
+> Both are fixed in `analysis/build_comparison.py` / `seq_core/greedy_select.py`.
+> **Regenerate on the machine with the final runs:**
+> `python analysis/build_comparison.py --sweeps runs/final_* --baselines <baselines.json> --signals act_max,residual_rms,residual_max,greedy,tier_alloc,random,act_scale --out docs/COMPARISON.md`
+> (CPU-only; recomputes the weight-only axis from each row's saved `storage`). Then
+> re-run only the `--select greedy` sweeps on GPU to replace the invalid greedy rows.
+
 # SEQ vs baselines — actual-bits comparison
 
 Points from SEQ sweeps + external baselines, sorted by actual bits. ★ = on the Pareto frontier (no method has both fewer bits and lower PPL). SEQ bits include the FP16 residual + index table; base group scales are common to all methods and excluded from this axis.

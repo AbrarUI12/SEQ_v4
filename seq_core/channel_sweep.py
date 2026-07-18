@@ -438,7 +438,11 @@ def main() -> int:
             "k_frac": value if kind == "frac" else None,
             "tiers": label if kind in ("tiers", "tier_alloc") else None,
             "effective_bits": info["effective_bits"],
-            "actual_effective_bits": storage["actual_model_bits_per_parameter"],
+            # comparison axis: weight-only bits/param (comparable to GPTQ-4 = 4.0).
+            # Embeddings/lm_head/norms are FP16 in every method and excluded here;
+            # the full-model average is kept separately for the deployment-size note.
+            "actual_effective_bits": storage["actual_weight_bits_per_param"],
+            "actual_model_bits_per_param": storage["actual_model_bits_per_parameter"],
             "storage": storage,
             "ppl": ppl,
             "delta_ppl_vs_fp16": (ppl - baseline_fp16_ppl) if ppl == ppl else None,

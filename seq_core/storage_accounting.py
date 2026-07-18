@@ -101,14 +101,32 @@ def account_storage(
                      + int8_values * 8 + unquantized_parameter_values * 16
                      + embedding_values * 16 + lm_head_values * 16 + bias_values * 16)
                     / total_params if total_params else 0.0)
+    # Weight-only bits/param: the axis quantization papers report (GPTQ-4 = 4.0).
+    # It counts ONLY the quantized linear weights plus their inline overhead
+    # (group scales/zeros, FP16/INT8 protection residual, channel index) and
+    # divides by the quantized-linear parameter count. Embeddings, lm_head, norms,
+    # and biases are FP16 in *every* method (base, AWQ, GPTQ, HQQ, SEQ), so they
+    # are common to the axis and excluded — otherwise a pure 4-bit base measures
+    # ~7 bits on a 1B model purely from FP16 embeddings, which is not comparable
+    # to the 4.0 the baselines are quoted at.
+    weight_only_bytes = (b.dense_quantized_weight_bytes + b.quantization_scale_bytes
+                         + b.zero_point_bytes + b.group_metadata_bytes
+                         + b.fp16_residual_bytes + b.int8_tier_bytes + b.channel_index_bytes)
+    quantized_params = int(quantized_values)
     report = asdict(b)
     report.update({
         "estimated_total_bytes": b.estimated_bytes,
         "actual_total_bytes": b.actual_bytes,
         "total_parameters": total_params,
+        "quantized_linear_parameters": quantized_params,
         "nominal_weight_bits": float(nominal_bits),
         "quantized_linear_bits": (float(quantized_values * quantized_bits / quantized_values)
                                    if quantized_values else 0.0),
+        # the comparison axis (weight-only, comparable to GPTQ-4 = 4.0)
+        "actual_weight_bits_per_param": float(weight_only_bytes * 8 / quantized_params)
+        if quantized_params else 0.0,
+        # full-model deployment average (FP16 embeddings/lm_head included) — a
+        # SEPARATE, larger number; never use it as the Pareto/comparison axis.
         "actual_model_bits_per_parameter": float(b.actual_bytes * 8 / total_params)
         if total_params else 0.0,
         "serialized_checkpoint_bits_per_parameter": (
