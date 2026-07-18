@@ -23,6 +23,63 @@ from typing import Any, Dict, Optional, Sequence
 
 import torch
 
+
+def _load_state_tensors(model_path: str) -> Optional[Dict[str, torch.Tensor]]:
+    """Load raw LLMC tensors, including GPTQ qparam buffers.
+
+    ``transformers.from_pretrained`` intentionally drops the unexpected
+    ``buf_*`` tensors written by LLMC.  Those buffers are required to reproduce
+    the fake-quant forward pass, so read the safetensors checkpoint directly
+    when available.
+    """
+    try:
+        from safetensors.torch import load_file
+        import glob, json, os
+        files = sorted(glob.glob(os.path.join(model_path, "*.safetensors")))
+        index = os.path.join(model_path, "model.safetensors.index.json")
+        if os.path.isfile(index):
+            mapping = json.load(open(index, encoding="utf-8")).get("weight_map", {})
+            files = sorted({os.path.join(model_path, f) for f in mapping.values()})
+        if not files:
+            return None
+        out: Dict[str, torch.Tensor] = {}
+        for f in files:
+            out.update(load_file(f, device="cpu"))
+        return out
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.warning("could not read raw safetensors from %s: %s", model_path, exc)
+        return None
+
+
+def _dequantize_llmc_gptq(weight: torch.Tensor, state: Dict[str, torch.Tensor], name: str) -> torch.Tensor:
+    """Reproduce LLMC GPTQ ``w_qdq`` for one [out,in] linear weight."""
+    prefix = name + "."
+    scales = state.get(prefix + "buf_scales")
+    zeros = state.get(prefix + "buf_zeros")
+    qmin = state.get(prefix + "buf_qmin")
+    qmax = state.get(prefix + "buf_qmax")
+    perm = state.get(prefix + "buf_perm")
+    invperm = state.get(prefix + "buf_invperm")
+    if scales is None or qmin is None or qmax is None:
+        return weight
+    groups = int(weight.shape[1] // 128)
+    if groups <= 0 or int(weight.shape[1]) % 128:
+        return weight
+    wp = weight
+    if perm is not None:
+        wp = wp.index_select(1, perm.to(torch.long))
+    flat = wp.reshape(-1, 128).float()
+    sc = scales.reshape(-1, 1).float()
+    ze = zeros.reshape(-1, 1).float() if zeros is not None else torch.zeros_like(sc)
+    if sc.shape[0] != flat.shape[0]:
+        return weight
+    q = torch.round(flat / sc.clamp_min(1e-9) + ze)
+    q = q.clamp(float(qmin.item()), float(qmax.item()))
+    out = ((q - ze) * sc).reshape_as(wp).to(weight.dtype)
+    if invperm is not None:
+        out = out.index_select(1, invperm.to(torch.long))
+    return out
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -45,6 +102,8 @@ def load_llmc_fake_quant_base(
     is freed before returning.
     """
     from transformers import AutoModelForCausalLM
+
+    raw_state = _load_state_tensors(model_path)
 
     skip_set = set(skip or [])
     try:
@@ -73,6 +132,9 @@ def load_llmc_fake_quant_base(
             LOGGER.warning("llmc base: in_features mismatch for %s (%d vs %d); skipping",
                            name, int(w.shape[1]), int(in_features[name]))
             continue
+        if raw_state is not None and name + ".weight" in raw_state:
+            raw_w = raw_state[name + ".weight"]
+            w = _dequantize_llmc_gptq(raw_w, raw_state, name)
         base[name] = w.detach().to(device=device, dtype=dtype).contiguous()
 
     matched = len(base)

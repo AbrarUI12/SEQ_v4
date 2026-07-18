@@ -148,6 +148,50 @@ class ChannelProtectedLinear(nn.Module):
             y = y + self.bias.to(y.dtype)
         return y
 
+    def materialized_weight(self) -> torch.Tensor:
+        """Return the dense fake-quant weight represented by this module.
+
+        This is intended for evaluation checkpoint export.  It preserves the
+        exact base-plus-correction computation, but it is not a compact packed
+        representation of the low-bit base.
+        """
+        base_weight = getattr(self.q_full, "weight", None)
+        if base_weight is None:
+            raise TypeError(
+                "cannot materialize a backend-native q_full without a dense weight; "
+                "export a precomputed fake-quant base instead"
+            )
+        weight = base_weight.detach().clone()
+        for iname, wname in self._corr_names:
+            idx = getattr(self, iname).to(weight.device)
+            corr = getattr(self, wname).to(device=weight.device, dtype=weight.dtype)
+            weight.index_add_(1, idx, corr)
+        return weight
+
+    def to_dense_linear(self) -> nn.Linear:
+        """Materialize this module as a standard frozen ``nn.Linear``."""
+        weight = self.materialized_weight()
+        dense = nn.Linear(self.in_features, self.out_features, bias=self.bias is not None)
+        dense.weight = nn.Parameter(weight.contiguous(), requires_grad=False)
+        if self.bias is not None:
+            dense.bias = nn.Parameter(
+                self.bias.detach().to(device=weight.device, dtype=weight.dtype).clone(),
+                requires_grad=False,
+            )
+        return dense.to(weight.device)
+
+
+def materialize_channel_protection(model: nn.Module) -> int:
+    """Replace all protected linears with reloadable dense fake-quant linears."""
+    protected = [
+        (name, module)
+        for name, module in model.named_modules()
+        if name and isinstance(module, ChannelProtectedLinear)
+    ]
+    for name, module in protected:
+        set_module_by_name(model, name, module.to_dense_linear())
+    return len(protected)
+
 
 def apply_channel_protection(
     model: nn.Module,
@@ -231,7 +275,9 @@ def apply_channel_protection(
         params = in_f * out_f + (out_f if module.bias is not None else 0)
         total_params += params
         weighted_bits += eff * params
-        per_layer[name] = {"in_features": in_f, "num_protected": new_module.num_protected,
+        per_layer[name] = {"in_features": in_f, "out_features": out_f,
+                           "has_bias": module.bias is not None,
+                           "num_protected": new_module.num_protected,
                            "tier_counts": dict(new_module.tier_counts), "effective_bits": eff}
 
     effective_bits = weighted_bits / total_params if total_params else float(base_bits)

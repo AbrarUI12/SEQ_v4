@@ -34,4 +34,5 @@ check(len(pareto_frontier(pts3)) == 2, "identical points both kept")
 check(pareto_frontier([]) == [], "empty -> empty")
 
 print("\n%d checks, %d failures" % (CHECKS, len(FAILS)))
-sys.exit(1 if FAILS else 0)
+if __name__ == "__main__":
+    sys.exit(1 if FAILS else 0)

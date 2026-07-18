@@ -91,6 +91,12 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--ppl_seq_len", type=int, default=2048)
     p.add_argument("--ppl_max_examples", type=int, default=64)
     p.add_argument("--out_dir", default="runs/channel")
+    p.add_argument("--save_model_path", default="",
+                   help="optional Hugging Face directory for one selected fake-quant evaluation checkpoint")
+    p.add_argument("--save_signal", default="",
+                   help="signal label to export (required with --save_model_path)")
+    p.add_argument("--save_k_frac", type=float, default=None,
+                   help="protection fraction to export (required with --save_model_path)")
     return p.parse_args()
 
 
@@ -107,6 +113,9 @@ def _in_channel_scores(signals: Dict[str, Any], signal_name: str) -> Dict[str, L
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
     args = parse_args()
+
+    if args.save_model_path and (not args.save_signal or args.save_k_frac is None):
+        raise ValueError("--save_model_path requires --save_signal and --save_k_frac")
 
     import torch  # noqa: F401
 
@@ -144,6 +153,12 @@ def main() -> int:
         return_channels=True,
     )
     in_features = {n: m.in_features for n, m in model.named_modules() if isinstance(m, torch.nn.Linear)}
+    model_parameter_count = sum(int(p.numel()) for p in model.parameters())
+    linear_weight_ids = {id(m.weight) for m in model.modules() if isinstance(m, torch.nn.Linear)}
+    tied_embedding_extra_count = sum(
+        int(m.weight.numel()) for m in model.modules()
+        if isinstance(m, torch.nn.Embedding) and id(m.weight) in linear_weight_ids
+    )
 
     channel_entropy: Dict[str, List[float]] = {}
     if args.channel_entropy or "act_entropy" in signal_names:
@@ -390,18 +405,83 @@ def main() -> int:
             explicit_protected=explicit_protected, explicit_tiers=explicit_tiers,
         )
         ppl = ppl_fn(model, tokenizer)
-        unload_model(model, tokenizer)
+        # Authoritative storage estimate: ChannelProtectedLinear retains the
+        # complete low-bit base and stores sparse correction columns on top.
+        from seq_core.storage_accounting import account_storage
+        import math as _storage_math
+        qvals = scales = residual16 = tier8 = indices = bias_values = 0
+        for layer in info["per_layer"].values():
+            in_f = int(layer["in_features"]); out_f = int(layer["out_features"])
+            qvals += in_f * out_f
+            scales += _storage_math.ceil(in_f / max(1, int(args.group_size))) * out_f
+            tiers = {int(k): int(v) for k, v in layer.get("tier_counts", {}).items()}
+            residual16 += tiers.get(16, 0) * out_f
+            tier8 += tiers.get(8, 0) * out_f
+            indices += sum(tiers.values())
+            bias_values += out_f if layer.get("has_bias") else 0
+        unquantized = max(0, model_parameter_count - qvals - bias_values)
+        storage = account_storage(
+            quantized_values=qvals, quantized_bits=args.base_bits,
+            scale_values=scales, zero_point_values=scales,
+            # ChannelProtectedLinear currently keeps every correction tensor in
+            # compute_dtype (FP16), including a logically INT8 target tier.
+            fp16_residual_values=residual16 + tier8, int8_values=0,
+            channel_index_values=indices,
+            bias_values=bias_values, unquantized_parameter_values=unquantized,
+            embedding_values=tied_embedding_extra_count,
+            parameter_count=model_parameter_count,
+        )
+        storage["representation"] = "runtime_fake_quant_fp16_corrections"
+        storage["logical_int8_tier_values"] = tier8
         row = {
             "signal": sig_label,
             "k_frac": value if kind == "frac" else None,
             "tiers": label if kind in ("tiers", "tier_alloc") else None,
             "effective_bits": info["effective_bits"],
+            "actual_effective_bits": storage["actual_model_bits_per_parameter"],
+            "storage": storage,
             "ppl": ppl,
             "delta_ppl_vs_fp16": (ppl - baseline_fp16_ppl) if ppl == ppl else None,
             "num_layers": info["num_layers"],
             "errors": len(info["errors"]),
         }
         results.append(row)
+
+        should_save = (
+            bool(args.save_model_path)
+            and sig_label == args.save_signal
+            and kind == "frac"
+            and args.save_k_frac is not None
+            and abs(float(value) - float(args.save_k_frac)) < 1e-12
+        )
+        if should_save:
+            from seq_core.channel_protect import materialize_channel_protection
+
+            save_path = Path(args.save_model_path)
+            save_path.mkdir(parents=True, exist_ok=True)
+            replaced = materialize_channel_protection(model)
+            model.save_pretrained(save_path, safe_serialization=True)
+            tokenizer.save_pretrained(save_path)
+            manifest = {
+                "format": "dense_fake_quant_evaluation_checkpoint",
+                "compact_low_bit_checkpoint": False,
+                "source_model": args.model,
+                "base_quantizer": args.base_quantizer,
+                "base_model_path": args.gptq_model_path or None,
+                "signal": sig_label,
+                "k_frac": float(value),
+                "base_bits": int(args.base_bits),
+                "group_size": int(args.group_size),
+                "materialized_layers": replaced,
+                "measured_ppl_before_save": float(ppl),
+                "storage_estimate": storage,
+            }
+            (save_path / "seq_export_manifest.json").write_text(
+                json.dumps(manifest, indent=2), encoding="utf-8"
+            )
+            LOGGER.info("saved reloadable dense fake-quant checkpoint to %s", save_path)
+
+        unload_model(model, tokenizer)
         LOGGER.info("%-13s %-16s eff=%.2f ppl=%.4f (Δ%+.4f) errs=%d",
                     sig_label, f"{kind}={label}", info["effective_bits"], ppl,
                     row["delta_ppl_vs_fp16"] or 0.0, len(info["errors"]))
@@ -426,6 +506,14 @@ def main() -> int:
                 continue
             for kind, label, value in configs:
                 _protect_and_eval(s, kind, label, value, scores=scores)
+
+    # A precomputed LLMC base is evaluated in pass 2.  Record its k=0 PPL as
+    # the base baseline without mutating the FP16 reference used by selectors.
+    if baseline_base_ppl is None and args.base_quantizer == "gptq_llmc":
+        k0 = next((r for r in results if float(r.get("k_frac") or 0.0) == 0.0
+                   and r.get("ppl") is not None), None)
+        if k0 is not None:
+            baseline_base_ppl = float(k0["ppl"])
 
     payload = {
         "model": args.model, "backend": backend.name, "base_quantizer": args.base_quantizer,

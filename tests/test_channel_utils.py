@@ -130,4 +130,5 @@ check(greedy_bit_alloc_by_value([], [4, 16], 5.0) == [], "empty channels -> empt
 check(greedy_bit_alloc_by_value([[1.0]], [4], 5.0) == [0], "single tier -> no upgrade possible")
 
 print("\n%d checks, %d failures" % (CHECKS, len(FAILS)))
-sys.exit(1 if FAILS else 0)
+if __name__ == "__main__":
+    sys.exit(1 if FAILS else 0)

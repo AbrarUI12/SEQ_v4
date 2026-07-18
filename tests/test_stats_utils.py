@@ -126,4 +126,5 @@ check(bits_to_tier(5) == "int8" and bits_to_tier(8) == "int8", "tier int8")
 check(bits_to_tier(16) == "fp16", "tier fp16")
 
 print("\n%d checks, %d failures" % (CHECKS, len(FAILS)))
-sys.exit(1 if FAILS else 0)
+if __name__ == "__main__":
+    sys.exit(1 if FAILS else 0)

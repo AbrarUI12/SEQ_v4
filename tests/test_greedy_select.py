@@ -106,4 +106,5 @@ check(greedy_select_reference([], [], 3) == [], "empty weight -> none")
 check(greedy_select_reference([[0.0, 0.0]], eye(2), 2) == [], "zero ΔW -> no protection needed")
 
 print("\n%d checks, %d failures" % (CHECKS, len(FAILS)))
-sys.exit(1 if FAILS else 0)
+if __name__ == "__main__":
+    sys.exit(1 if FAILS else 0)

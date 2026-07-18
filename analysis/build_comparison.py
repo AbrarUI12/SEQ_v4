@@ -34,6 +34,7 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import csv
 import glob
 import json
 import os
@@ -87,8 +88,11 @@ def load_sweep_points(
                 continue
             k = r.get("k_frac") or 0.0
             eff = r.get("effective_bits", bb)
-            # actual bits ~= nominal effective + channel-index table (only when protected)
-            actual = eff + (index_overhead if (k and k > 0) or r.get("tiers") else 0.0)
+            # Prefer authoritative byte accounting from new runs. Historical
+            # rows retain the documented approximation for backward compatibility.
+            actual = r.get("actual_effective_bits")
+            if actual is None:
+                actual = eff + (index_overhead if (k and k > 0) or r.get("tiers") else 0.0)
             name = f"SEQ:{r['signal']}({base}-{bb}b {_cfg_label(r)})"
             out.setdefault(model, []).append(
                 {"method": name, "bits": round(actual, 3), "nominal_bits": round(eff, 3),
@@ -105,6 +109,8 @@ def main() -> int:
     ap.add_argument("--index_overhead", type=float, default=0.1,
                     help="extra bits/param for the protected-channel index table")
     ap.add_argument("--out", default="docs/COMPARISON.md")
+    ap.add_argument("--csv", default="results/final_comparison.csv")
+    ap.add_argument("--json", default="results/final_comparison.json")
     args = ap.parse_args()
 
     signals = [s.strip() for s in args.signals.split(",") if s.strip()]
@@ -124,6 +130,7 @@ def main() -> int:
         print("no points found — check --sweeps / --baselines", file=sys.stderr)
         return 1
 
+    all_rows: List[Dict[str, Any]] = []
     L: List[str] = ["# SEQ vs baselines — actual-bits comparison", ""]
     L.append("Points from SEQ sweeps + external baselines, sorted by actual bits. "
              "★ = on the Pareto frontier (no method has both fewer bits and lower PPL). "
@@ -133,6 +140,7 @@ def main() -> int:
     for model, rows in per_model.items():
         fp16 = next((r["ppl"] for r in rows if "fp16" in r["method"].lower()), None)
         rows = sorted(rows, key=lambda r: (r["bits"], r["ppl"]))
+        all_rows.extend({"model": model, **r} for r in rows)
         pts = [(r["bits"], r["ppl"]) for r in rows]
         front = set(pareto_frontier(pts))
         L.append(f"## {model}" + (f"  (FP16 PPL {fp16})" if fp16 else ""))
@@ -166,7 +174,16 @@ def main() -> int:
         L.append("")
 
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
-    open(args.out, "w").write("\n".join(L) + "\n")
+    with open(args.out, "w", encoding="utf-8") as handle:
+        handle.write("\n".join(L).rstrip() + "\n")
+    for path in (args.csv, args.json):
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    fields = ["model", "method", "bits", "nominal_bits", "ppl", "source"]
+    with open(args.csv, "w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields); writer.writeheader()
+        writer.writerows({k: row.get(k) for k in fields} for row in all_rows)
+    with open(args.json, "w", encoding="utf-8") as handle:
+        json.dump(all_rows, handle, indent=2); handle.write("\n")
     print("wrote", args.out)
     for model, rows in per_model.items():
         print(f"  {model}: {len(rows)} points")

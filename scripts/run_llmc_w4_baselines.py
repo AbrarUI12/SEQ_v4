@@ -26,8 +26,9 @@ MODEL = "meta-llama/Llama-3.2-1B"
 METHOD_CONFIGS = {
     "awq": Path("configs/quantization/methods/Awq/awq_w_only.yml"),
     "gptq": Path("configs/quantization/methods/GPTQ/gptq_w_only.yml"),
+    "rtn": Path("configs/quantization/methods/RTN/rtn_w_only.yml"),
 }
-METHOD_LABELS = {"awq": "AWQ-4 g128", "gptq": "GPTQ-4 g128"}
+METHOD_LABELS = {"awq": "AWQ-4 g128", "gptq": "GPTQ-4 g128", "rtn": "RTN-4 g128"}
 PPL_RE = re.compile(r"EVAL:\s+ppl\s+on\s+(?P<dataset>\S+)\s+is\s+(?P<ppl>[0-9.eE+-]+)")
 
 
@@ -41,13 +42,14 @@ def parse_args() -> argparse.Namespace:
         default=Path(os.environ.get("LLMC_REPO", "/mnt/d/LightCompress")),
     )
     parser.add_argument("--llmc-venv", type=Path, default=None)
-    parser.add_argument("--methods", default="awq,gptq", help="Comma-separated: awq,gptq")
+    parser.add_argument("--methods", default="rtn,awq,gptq", help="Comma-separated: rtn,awq,gptq")
     parser.add_argument(
         "--out-dir",
         type=Path,
         default=Path("runs/llmc_w4_baselines/Llama-3.2-1B"),
     )
     parser.add_argument("--eval-seq-len", type=int, default=2048)
+    parser.add_argument("--calib-seq-len", type=int, default=2048)
     parser.add_argument("--fp16-ppl", type=float, default=None)
     parser.add_argument("--hqq-ppl", type=float, default=None)
     parser.add_argument("--force", action="store_true", help="Rerun methods with completed summaries")
@@ -78,7 +80,8 @@ def _git_commit(repo: Path) -> str | None:
 
 
 def render_config(
-    *, method: str, model: str, model_type: str, llmc_repo: Path, out_path: Path, eval_seq_len: int
+    *, method: str, model: str, model_type: str, llmc_repo: Path, out_path: Path,
+    eval_seq_len: int, calib_seq_len: int | None = None
 ) -> dict[str, Any]:
     source_path = llmc_repo / METHOD_CONFIGS[method]
     if not source_path.is_file():
@@ -86,7 +89,7 @@ def render_config(
     config = _read_yaml(source_path)
 
     weight = config.get("quant", {}).get("weight", {})
-    expected_method = {"awq": "Awq", "gptq": "GPTQ"}[method]
+    expected_method = {"awq": "Awq", "gptq": "GPTQ", "rtn": "RTN"}[method]
     if config.get("quant", {}).get("method") != expected_method:
         raise ValueError(f"Unexpected method in {source_path}: {config.get('quant', {}).get('method')}")
     if weight.get("bit") != 4 or weight.get("group_size") != 128:
@@ -99,8 +102,11 @@ def render_config(
     # Retain native calibration dataset, sample count, sequence length, batch
     # size, and preprocessor. Only switch from a pre-downloaded path to the
     # datasets-backed loader so this run is self-contained.
-    config.setdefault("calib", {})["download"] = True
-    config["calib"].pop("path", None)
+    if "calib" in config:
+        config["calib"]["download"] = True
+        config["calib"].pop("path", None)
+        if calib_seq_len is not None:
+            config["calib"]["seq_len"] = int(calib_seq_len)
     config.setdefault("eval", {}).update(
         {
             "eval_pos": ["fake_quant"],
@@ -114,7 +120,7 @@ def render_config(
     config["eval"].pop("path", None)
     config["save"] = {
         "save_trans": False,
-        "save_fake": False,
+        "save_fake": True,
         "save_vllm": False,
         "save_path": str((out_path.parent / "artifacts").resolve()),
     }
@@ -152,6 +158,7 @@ def run_method(
         llmc_repo=args.llmc_repo,
         out_path=config_path,
         eval_seq_len=args.eval_seq_len,
+        calib_seq_len=args.calib_seq_len,
     )
     torchrun = llmc_venv / "bin" / "torchrun"
     if not torchrun.is_file():
@@ -174,7 +181,7 @@ def run_method(
     method_dir.mkdir(parents=True, exist_ok=True)
     (method_dir / "command.txt").write_text(" ".join(command) + "\n", encoding="utf-8")
 
-    calib = config["calib"]
+    calib = config.get("calib", {})
     result: dict[str, Any] = {
         "model": args.model,
         "method": METHOD_LABELS[method],

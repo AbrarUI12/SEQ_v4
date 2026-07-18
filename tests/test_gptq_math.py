@@ -58,4 +58,5 @@ err2 = sum(abs(w - q(w, s2b, z2b, 3.0)) for w in r)
 check(err4 < err2, "4-bit reconstructs better than 2-bit")
 
 print("\n%d checks, %d failures" % (CHECKS, len(FAILS)))
-sys.exit(1 if FAILS else 0)
+if __name__ == "__main__":
+    sys.exit(1 if FAILS else 0)
