@@ -296,8 +296,14 @@ def main() -> int:
         weights = {n: m.weight.detach() for n, m in linear_items}
         k_by_layer = {n: int(_math.ceil(max_frac * in_features[n])) for n in weights if n in in_features}
         greedy_mode = "greedy" if args.select == "greedy" else "independent"
-        greedy_order = greedy_protected_map(weights, base_weights, hessians, k_by_layer,
-                                            mode=greedy_mode, device=device, logger=LOGGER)
+        # Final comparison cells are fixed-cardinality budgets.  Do not let the
+        # greedy objective stop early on non-positive late gains: doing so
+        # underspends GPTQ cells and makes their actual storage incomparable to
+        # scalar/random selectors at the same declared fraction.
+        greedy_order = greedy_protected_map(
+            weights, base_weights, hessians, k_by_layer,
+            mode=greedy_mode, device=device, logger=LOGGER, exact_k=True,
+        )
         del hessians
 
     # value-based tier maps per budget (needs FP16 W -> precompute before unload)
@@ -438,6 +444,7 @@ def main() -> int:
         storage["logical_int8_tier_values"] = tier8
         row = {
             "signal": sig_label,
+            "seed": args.seed,
             "k_frac": value if kind == "frac" else None,
             "tiers": label if kind in ("tiers", "tier_alloc") else None,
             "effective_bits": info["effective_bits"],
@@ -530,6 +537,7 @@ def main() -> int:
         "base_bits": args.base_bits, "protect_bits": args.protect_bits, "protect_fracs": fracs,
         "baseline_fp16_ppl": baseline_fp16_ppl, "baseline_base_ppl": baseline_base_ppl,
         "select": args.select, "ppl_mode": args.ppl_mode,
+        "seed": args.seed,
         "skip_lm_head": bool(args.skip_lm_head), "results": results,
     }
     (out_dir / "channel_pareto.json").write_text(json.dumps(payload, indent=2))

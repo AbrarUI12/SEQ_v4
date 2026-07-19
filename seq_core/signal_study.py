@@ -16,7 +16,7 @@ Run on a GPU box (needs torch + a loadable model). Example::
         --backend hqq --sensitivity_bits 3 \
         --sensitivity_ppl_mode proxy --sensitivity_max_examples 32 \
         --calibration_prompts calibration_prompts.json \
-        --target_bits 6.0 --out_dir /mnt/d/Abrar/SEQ/seq_v4/results
+        --target_bits 6.0 --out_dir results
 """
 from __future__ import annotations
 
@@ -69,8 +69,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--alloc_levels", default="3,4,8", help="comma-separated bit levels for allocation")
     p.add_argument(
         "--out_dir",
-        default="/mnt/d/Abrar/SEQ/seq_v4/results",
-        help="directory for signal-study reports (WSL path)",
+        default=str(Path(__file__).resolve().parents[1] / "results"),
+        help="directory for signal-study reports (defaults to this checkout's results directory)",
     )
     return p.parse_args()
 

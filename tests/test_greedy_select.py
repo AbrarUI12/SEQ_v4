@@ -106,6 +106,22 @@ check(greedy_select_reference([], [], 3) == [], "empty weight -> none")
 # zero error weight -> no channel reduces residual -> stop early (nothing to protect)
 check(greedy_select_reference([[0.0, 0.0]], eye(2), 2) == [], "zero ΔW -> no protection needed")
 
+# Torch selectors retain early-stop by default, while fixed-budget sweeps can
+# request an exact cardinality for matched-storage comparisons.
+try:
+    import torch
+    from seq_core.greedy_select import greedy_independent_order, greedy_select_channels
+    zero = torch.zeros((1, 2), dtype=torch.float32)
+    eye2 = torch.eye(2, dtype=torch.float32)
+    check(greedy_select_channels(zero, eye2, 2) == [], "torch greedy default stops early")
+    check(len(greedy_select_channels(zero, eye2, 2, exact_k=True)) == 2,
+          "torch greedy exact_k spends budget")
+    check(greedy_independent_order(zero, eye2, 2) == [], "independent default stops early")
+    check(len(greedy_independent_order(zero, eye2, 2, exact_k=True)) == 2,
+          "independent exact_k spends budget")
+except ImportError:
+    pass
+
 # --- selection-order regression guards -------------------------------------- #
 # The first implementation accidentally sorted the selected IDs before
 # returning them.  This synthetic diagonal case has priority [2, 1, 0], which

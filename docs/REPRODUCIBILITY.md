@@ -2,26 +2,62 @@
 
 ## Environment
 
-Use WSL at `/mnt/d/Abrar/SEQ/seq_v4`:
+Run the final workflow inside WSL from the repository checkout. The checkout
+may contain spaces; the external LightCompress checkout and venv must not.
 
 ```bash
-cd /mnt/d/Abrar/SEQ/seq_v4
+cd "/path/to/SEQ-clean-v4"
+bash scripts/bootstrap_final_environment.sh --llmc-repo /mnt/e/LightCompress
 source .venv-seq/bin/activate
-python scripts/audit_final_environment.py --output results/wsl_environment_audit.json
-python -m compileall seq_core analysis scripts
-python -m pytest -q
+export HF_TOKEN="$(cat /path/to/private/token)"  # never written to run reports
 ```
 
-Observed environment: Python 3.12.13, PyTorch 2.13.0, CUDA 13.0, transformers 5.13.1, datasets 5.0.0, accelerate 1.14.0, HQQ 0.2.8.post1, RTX 5090 31.84 GiB. Hugging Face cache is under `~/.cache/huggingface` and contains Llama-3.2-1B/3B and WikiText-2.
+The bootstrap pins LightCompress to
+`86f564ddb1d6548b228c67a10509a4ed7264345c`, creates its Python 3.11 venv at
+`/mnt/e/LightCompress/.venv-llmc`, and installs the missing SEQ test/HQQ
+dependencies. The final preflight records both dependency freezes, Git state,
+GPU details, matrix digest, and resolved Hugging Face model revisions.
 
-## Commands
+## Inspect and run
 
-Use `scripts/run_final_seq_pipeline.sh --dry-run` to inspect phase commands. Uniform HQQ runs use `scripts/run_uniform_hqq_sweep.sh`; LLMC baselines use `scripts/run_final_baselines.sh` after passing `--llmc-repo` and `--llmc-venv`. Every completed sweep writes `channel_pareto.json` and Markdown beneath its output directory.
+Dry-run the complete gate-first matrix from any working directory:
 
-## Missing components
+```bash
+bash "/path/to/SEQ-clean-v4/scripts/run_final_seq_pipeline.sh" \
+  --llmc-repo /mnt/e/LightCompress \
+  --llmc-venv /mnt/e/LightCompress/.venv-llmc \
+  --output-root "/path/to/SEQ-clean-v4/runs/final" \
+  --dry-run
+```
 
-LightCompress is installed at `/mnt/d/LightCompress` with Python 3.11 environment `/mnt/d/LightCompress/.venv-llmc`; its commit and every command are recorded in the LLMC summaries. `lm_eval==0.4.12` is installed in `.venv-seq`; the saved SEQ checkpoint has a bounded 10-example smoke result, while full downstream evaluation remains pending. The GPTQ fake-quant path must be validated with `scripts/validate_gptq_llmc_base.py` before any GPTQ-SEQ row is admissible.
+Run or resume without publication first:
 
-## Determinism and resources
+```bash
+bash scripts/run_final_seq_pipeline.sh \
+  --llmc-repo /mnt/e/LightCompress \
+  --llmc-venv /mnt/e/LightCompress/.venv-llmc \
+  --output-root runs/final --resume
+```
 
-Default seed is 1234. Canonical PPL uses the full WikiText-2 token stream in non-overlapping 2048-token chunks. A 1B scalar HQQ sweep uses roughly nine minutes; 3B residual/greedy sweeps take 13-16 minutes on the observed GPU. LLMC AWQ/GPTQ 3B runs can take 10-16 minutes. Allow extra disk for model cache and fake-quant checkpoints. Resume markers are stored under the master output root.
+The pipeline generates the GPTQ bases, runs the early gate, writes
+`runs/final/reports/GATE_SUMMARY.md`, and then completes the remaining matrix.
+Inspect staged outputs under `runs/final/staging`; publish only validated results:
+
+```bash
+bash scripts/run_final_seq_pipeline.sh \
+  --llmc-repo /mnt/e/LightCompress \
+  --llmc-venv /mnt/e/LightCompress/.venv-llmc \
+  --output-root runs/final --resume --publish
+```
+
+Publication requires PASS reports for the gate and full manifest-derived matrix.
+The nominal 152-cell expansion is diagnostic only; missing cells and random seed
+replicates are validated by their explicit identities.
+
+## Protocol
+
+The authoritative matrix is `configs/final_comparison_matrix.json`. Canonical
+PPL uses the full WikiText-2 token stream in non-overlapping 2048-token chunks.
+Deterministic selectors use seed 1234; random uses seeds 1234, 2345, and 3456.
+The comparison axis is actual weight-only bits reconstructed from each saved
+storage breakdown.

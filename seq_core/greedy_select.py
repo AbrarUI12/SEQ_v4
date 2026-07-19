@@ -145,6 +145,8 @@ def greedy_select_channels(
     delta_w: "Any",
     H: "Any",
     k: int,
+    *,
+    exact_k: bool = False,
 ) -> List[int]:
     """OMP residual-reduction selection on a real layer.
 
@@ -183,7 +185,7 @@ def greedy_select_channels(
         G = 2.0 * dot - nrm * Hdiag                          # [in]
         G = torch.where(avail & torch.isfinite(G), G, neg_inf)
         gmax, jstar = torch.max(G, dim=0)
-        if not bool(torch.isfinite(gmax)) or float(gmax) <= 0.0:
+        if not bool(torch.isfinite(gmax)) or (not exact_k and float(gmax) <= 0.0):
             break
         j = int(jstar)
         col = A[:, j].clone()                                # [out]
@@ -200,6 +202,8 @@ def greedy_independent_order(
     delta_w: "Any",
     H: "Any",
     k: int,
+    *,
+    exact_k: bool = False,
 ) -> List[int]:
     """Independent (first-step) column ranking — the interaction-free ablation.
 
@@ -235,8 +239,13 @@ def greedy_independent_order(
     G = 2.0 * dot - nrm * Hdiag                              # [in]
     G = torch.where(torch.isfinite(G), G, torch.full_like(G, float("-inf")))
     vals, idx = torch.sort(G, descending=True)
-    # keep only positive-gain columns (mirrors greedy's "protect only if it helps")
-    order = [int(j) for v, j in zip(vals.tolist(), idx.tolist()) if v > 0.0][:k]
+    # A fixed-budget comparison must spend the requested cardinality even when
+    # late marginal gains are non-positive.  The exploratory/default behavior
+    # retains the historical early-stop semantics.
+    if exact_k:
+        order = [int(j) for v, j in zip(vals.tolist(), idx.tolist()) if v != float("-inf")][:k]
+    else:
+        order = [int(j) for v, j in zip(vals.tolist(), idx.tolist()) if v > 0.0][:k]
     return order
 
 
@@ -249,6 +258,7 @@ def greedy_protected_map(
     mode: str = "greedy",
     device: str = "cuda",
     logger: "Any" = None,
+    exact_k: bool = False,
 ) -> dict:
     """Run greedy selection for many layers -> ``{layer: [protected idx]}``.
 
@@ -279,7 +289,7 @@ def greedy_protected_map(
                 logger.warning("greedy: base/weight shape mismatch for %s; skipping", name)
             continue
         try:
-            order = select(wf - wqf, H.to(device), k)
+            order = select(wf - wqf, H.to(device), k, exact_k=exact_k)
         except Exception as exc:  # noqa: BLE001
             if logger is not None:
                 logger.warning("greedy: selection failed for %s: %s", name, exc)

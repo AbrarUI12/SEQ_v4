@@ -97,7 +97,11 @@ def _load_text_dataset(dataset_name: str, split: str):
         raise RuntimeError("datasets is not available")
     name_lower = dataset_name.lower()
     if name_lower in {"wikitext2", "wikitext-2", "wikitext"}:
-        ds = load_dataset("wikitext", "wikitext-2-raw-v1", split=split)
+        # Use the canonical, namespaced repository ID. Recent huggingface_hub
+        # releases reject the legacy ``wikitext`` alias when datasets builds
+        # an hf:// URI from it, even though the Hub redirects the HTTP request
+        # to Salesforce/wikitext.
+        ds = load_dataset("Salesforce/wikitext", "wikitext-2-raw-v1", split=split)
     else:
         ds = load_dataset(dataset_name, split=split)
     if "text" in ds.column_names:

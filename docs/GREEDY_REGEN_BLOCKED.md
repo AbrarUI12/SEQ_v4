@@ -30,8 +30,9 @@ on the GPTQ base (`gptq_llmc`) and the data-free HQQ base, at fractions
 ## Run the gate
 
 ```bash
-cd /mnt/d/Abrar/SEQ/seq_v4 && source .venv-seq/bin/activate
-scripts/run_fixed_greedy_sweeps.sh          # 1B + 3B, greedy & greedy_indep, both bases
+cd "/path/to/SEQ-clean-v4" && source .venv-seq/bin/activate
+bash scripts/run_fixed_greedy_sweeps.sh \
+  --gptq-root runs/final/llmc --output-root runs/final/sweeps --resume
 # then regenerate the table on CPU with the new selectors included:
 python analysis/build_comparison.py \
   --sweeps runs/final_greedy_fixed runs/final_hqq_residual_accounted runs/final_gptqbase \

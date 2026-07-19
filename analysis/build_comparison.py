@@ -38,6 +38,7 @@ import csv
 import glob
 import json
 import os
+import statistics
 import sys
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -139,9 +140,45 @@ def load_sweep_points(
                 {"method": name, "bits": round(actual, 3), "nominal_bits": round(eff, 3),
                  "model_bits": round(float(model_bits), 3) if isinstance(model_bits, (int, float)) else None,
                  "ppl": round(r["ppl"], 4), "source": "sweep",
+                 "seed": r.get("seed", p.get("seed")),
                  "accounting_status": "recomputed_from_storage_breakdown"}
             )
     return out
+
+
+def aggregate_random_replicates(
+    per_model: Dict[str, List[Dict[str, Any]]]
+) -> Tuple[Dict[str, List[Dict[str, Any]]], List[Dict[str, Any]]]:
+    """Collapse random seed replicates while retaining raw observations."""
+    aggregated: Dict[str, List[Dict[str, Any]]] = {}
+    raw: List[Dict[str, Any]] = []
+    for model, rows in per_model.items():
+        groups: Dict[Tuple[Any, ...], List[Dict[str, Any]]] = {}
+        fixed: List[Dict[str, Any]] = []
+        for row in rows:
+            if row.get("source") == "sweep" and str(row.get("method", "")).startswith("SEQ:random("):
+                key = (row.get("method"), row.get("bits"), row.get("nominal_bits"), row.get("model_bits"))
+                groups.setdefault(key, []).append(row)
+                raw.append({"model": model, **row})
+            else:
+                fixed.append({**row, "ppl_ci_low": None, "ppl_ci_high": None, "n_seeds": 1})
+        for seed_rows in groups.values():
+            values = [float(row["ppl"]) for row in seed_rows]
+            mean = statistics.fmean(values)
+            low = high = None
+            if len(values) >= 2:
+                stddev = statistics.stdev(values)
+                critical = 4.3026527297 if len(values) == 3 else 1.9599639845
+                half = critical * stddev / (len(values) ** 0.5)
+                low, high = mean - half, mean + half
+            fixed.append({
+                **seed_rows[0], "ppl": round(mean, 4), "seed": None,
+                "ppl_ci_low": round(low, 4) if low is not None else None,
+                "ppl_ci_high": round(high, 4) if high is not None else None,
+                "n_seeds": len(values),
+            })
+        aggregated[model] = fixed
+    return aggregated, raw
 
 
 def main() -> int:
@@ -154,10 +191,18 @@ def main() -> int:
     ap.add_argument("--out", default="docs/COMPARISON.md")
     ap.add_argument("--csv", default="results/final_comparison.csv")
     ap.add_argument("--json", default="results/final_comparison.json")
+    ap.add_argument("--random-replicates", default="results/final_random_replicates.json")
+    ap.add_argument("--require-sweep-points", action="store_true",
+                    help="fail before writing outputs when no admissible sweep rows were loaded")
     args = ap.parse_args()
 
     signals = [s.strip() for s in args.signals.split(",") if s.strip()]
     per_model = load_sweep_points(args.sweeps, signals, args.index_overhead)
+    sweep_count = sum(len(rows) for rows in per_model.values())
+    if args.require_sweep_points and sweep_count == 0:
+        print("no admissible sweep points found; refusing to publish baseline-only outputs", file=sys.stderr)
+        return 2
+    per_model, random_replicates = aggregate_random_replicates(per_model)
 
     if args.baselines and os.path.isfile(args.baselines):
         base = json.load(open(args.baselines))
@@ -171,6 +216,7 @@ def main() -> int:
                      "nominal_bits": round(float(r.get("nominal_bits", r["bits"])), 3),
                      "model_bits": (round(float(r["model_bits"]), 3) if r.get("model_bits") is not None else None),
                      "ppl": round(float(r["ppl"]), 4), "source": "baseline",
+                     "ppl_ci_low": None, "ppl_ci_high": None, "n_seeds": 1,
                      "accounting_status": r.get("accounting_status", "declared_external")}
                 )
 
@@ -206,8 +252,11 @@ def main() -> int:
             d = f"{r['ppl']-fp16:+.3f}" if fp16 else "—"
             star = "★" if i in front else ""
             mb = f"{r['model_bits']:.2f}" if r.get("model_bits") is not None else "—"
+            ppl_cell = f"{r['ppl']:.3f}"
+            if r.get("n_seeds", 1) > 1 and r.get("ppl_ci_low") is not None:
+                ppl_cell += f" [{r['ppl_ci_low']:.3f}, {r['ppl_ci_high']:.3f}]"
             L.append(f"| {r['method']} | {r['bits']:.2f} | {r['nominal_bits']:.2f} | {mb} | "
-                     f"{r['ppl']:.3f} | {d} | {star} |")
+                     f"{ppl_cell} | {d} | {star} |")
         L.append("")
         # verdict: is any SEQ point on the frontier, and does SEQ beat baselines near its bits?
         seq_front = [rows[i] for i in front if rows[i]["source"] == "sweep" and rows[i]["method"].startswith("SEQ:")]
@@ -232,14 +281,17 @@ def main() -> int:
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     with open(args.out, "w", encoding="utf-8") as handle:
         handle.write("\n".join(L).rstrip() + "\n")
-    for path in (args.csv, args.json):
+    for path in (args.csv, args.json, args.random_replicates):
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    fields = ["model", "method", "bits", "nominal_bits", "model_bits", "ppl", "source", "accounting_status"]
+    fields = ["model", "method", "bits", "nominal_bits", "model_bits", "ppl",
+              "ppl_ci_low", "ppl_ci_high", "n_seeds", "source", "accounting_status"]
     with open(args.csv, "w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields, lineterminator="\n"); writer.writeheader()
         writer.writerows({k: row.get(k) for k in fields} for row in all_rows)
     with open(args.json, "w", encoding="utf-8") as handle:
         json.dump(all_rows, handle, indent=2); handle.write("\n")
+    with open(args.random_replicates, "w", encoding="utf-8") as handle:
+        json.dump(random_replicates, handle, indent=2); handle.write("\n")
     print("wrote", args.out)
     for model, rows in per_model.items():
         print(f"  {model}: {len(rows)} points")

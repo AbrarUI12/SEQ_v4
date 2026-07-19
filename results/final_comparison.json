@@ -7,6 +7,9 @@
     "model_bits": null,
     "ppl": 11.2776,
     "source": "baseline",
+    "ppl_ci_low": null,
+    "ppl_ci_high": null,
+    "n_seeds": 1,
     "accounting_status": "declared_external"
   },
   {
@@ -17,6 +20,9 @@
     "model_bits": null,
     "ppl": 11.7099,
     "source": "baseline",
+    "ppl_ci_low": null,
+    "ppl_ci_high": null,
+    "n_seeds": 1,
     "accounting_status": "declared_external"
   },
   {
@@ -27,107 +33,10 @@
     "model_bits": 6.782,
     "ppl": 10.3627,
     "source": "baseline",
+    "ppl_ci_low": null,
+    "ppl_ci_high": null,
+    "n_seeds": 1,
     "accounting_status": "recomputed_from_safetensors_metadata"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:act_scale(gptq_llmc-4b k=0.0)",
-    "bits": 4.5,
-    "nominal_bits": 4.0,
-    "model_bits": 7.901,
-    "ppl": 10.5572,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:act_max(gptq_llmc-4b k=0.0)",
-    "bits": 4.5,
-    "nominal_bits": 4.0,
-    "model_bits": 7.901,
-    "ppl": 10.5572,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:residual_rms(gptq_llmc-4b k=0.0)",
-    "bits": 4.5,
-    "nominal_bits": 4.0,
-    "model_bits": 7.901,
-    "ppl": 10.5572,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:residual_max(gptq_llmc-4b k=0.0)",
-    "bits": 4.5,
-    "nominal_bits": 4.0,
-    "model_bits": 7.901,
-    "ppl": 10.5572,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:random(gptq_llmc-4b k=0.0)",
-    "bits": 4.5,
-    "nominal_bits": 4.0,
-    "model_bits": 7.901,
-    "ppl": 10.5572,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:act_max(hqq-4b k=0.0)",
-    "bits": 4.5,
-    "nominal_bits": 4.0,
-    "model_bits": 7.901,
-    "ppl": 11.187,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:residual_rms(hqq-4b k=0.0)",
-    "bits": 4.5,
-    "nominal_bits": 4.0,
-    "model_bits": 7.901,
-    "ppl": 11.187,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:residual_max(hqq-4b k=0.0)",
-    "bits": 4.5,
-    "nominal_bits": 4.0,
-    "model_bits": 7.901,
-    "ppl": 11.187,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:random(hqq-4b k=0.0)",
-    "bits": 4.5,
-    "nominal_bits": 4.0,
-    "model_bits": 7.901,
-    "ppl": 11.187,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:act_max(hqq-4b k=0.0)",
-    "bits": 4.5,
-    "nominal_bits": 4.0,
-    "model_bits": 4.501,
-    "ppl": 11.187,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
   },
   {
     "model": "meta-llama/Llama-3.2-1B",
@@ -137,107 +46,10 @@
     "model_bits": null,
     "ppl": 11.187,
     "source": "baseline",
+    "ppl_ci_low": null,
+    "ppl_ci_high": null,
+    "n_seeds": 1,
     "accounting_status": "declared_external"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:tier_alloc(hqq-4b [budget=0.25])",
-    "bits": 4.757,
-    "nominal_bits": 4.066,
-    "model_bits": 8.158,
-    "ppl": 10.6306,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:random(gptq_llmc-4b k=0.02)",
-    "bits": 4.82,
-    "nominal_bits": 4.24,
-    "model_bits": 8.222,
-    "ppl": 10.4116,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:residual_max(gptq_llmc-4b k=0.02)",
-    "bits": 4.82,
-    "nominal_bits": 4.24,
-    "model_bits": 8.222,
-    "ppl": 10.4229,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:residual_rms(gptq_llmc-4b k=0.02)",
-    "bits": 4.82,
-    "nominal_bits": 4.24,
-    "model_bits": 8.222,
-    "ppl": 10.4344,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:act_max(hqq-4b k=0.02)",
-    "bits": 4.82,
-    "nominal_bits": 4.24,
-    "model_bits": 8.222,
-    "ppl": 10.5157,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:residual_max(hqq-4b k=0.02)",
-    "bits": 4.82,
-    "nominal_bits": 4.24,
-    "model_bits": 8.222,
-    "ppl": 10.5228,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:residual_rms(hqq-4b k=0.02)",
-    "bits": 4.82,
-    "nominal_bits": 4.24,
-    "model_bits": 8.222,
-    "ppl": 10.6153,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:act_max(gptq_llmc-4b k=0.02)",
-    "bits": 4.82,
-    "nominal_bits": 4.24,
-    "model_bits": 8.222,
-    "ppl": 10.7112,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:act_scale(gptq_llmc-4b k=0.02)",
-    "bits": 4.82,
-    "nominal_bits": 4.24,
-    "model_bits": 8.222,
-    "ppl": 10.9296,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:random(hqq-4b k=0.02)",
-    "bits": 4.82,
-    "nominal_bits": 4.24,
-    "model_bits": 8.222,
-    "ppl": 11.1599,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
   },
   {
     "model": "meta-llama/Llama-3.2-1B",
@@ -247,117 +59,10 @@
     "model_bits": null,
     "ppl": 10.0636,
     "source": "baseline",
+    "ppl_ci_low": null,
+    "ppl_ci_high": null,
+    "n_seeds": 1,
     "accounting_status": "declared_external"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:tier_alloc(hqq-4b [budget=0.5])",
-    "bits": 5.012,
-    "nominal_bits": 4.134,
-    "model_bits": 8.414,
-    "ppl": 10.5917,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:random(gptq_llmc-4b k=0.05)",
-    "bits": 5.304,
-    "nominal_bits": 4.603,
-    "model_bits": 8.705,
-    "ppl": 10.4131,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:residual_max(hqq-4b k=0.05)",
-    "bits": 5.304,
-    "nominal_bits": 4.603,
-    "model_bits": 8.705,
-    "ppl": 10.4218,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:act_max(hqq-4b k=0.05)",
-    "bits": 5.304,
-    "nominal_bits": 4.603,
-    "model_bits": 8.705,
-    "ppl": 10.4222,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:residual_max(gptq_llmc-4b k=0.05)",
-    "bits": 5.304,
-    "nominal_bits": 4.603,
-    "model_bits": 8.705,
-    "ppl": 10.4356,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:residual_rms(gptq_llmc-4b k=0.05)",
-    "bits": 5.304,
-    "nominal_bits": 4.603,
-    "model_bits": 8.705,
-    "ppl": 10.4361,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:act_scale(gptq_llmc-4b k=0.05)",
-    "bits": 5.304,
-    "nominal_bits": 4.603,
-    "model_bits": 8.705,
-    "ppl": 10.476,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:residual_rms(hqq-4b k=0.05)",
-    "bits": 5.304,
-    "nominal_bits": 4.603,
-    "model_bits": 8.705,
-    "ppl": 10.5675,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:act_max(gptq_llmc-4b k=0.05)",
-    "bits": 5.304,
-    "nominal_bits": 4.603,
-    "model_bits": 8.705,
-    "ppl": 10.6867,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:random(hqq-4b k=0.05)",
-    "bits": 5.304,
-    "nominal_bits": 4.603,
-    "model_bits": 8.705,
-    "ppl": 11.1323,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:tier_alloc(hqq-4b [budget=1.0])",
-    "bits": 5.526,
-    "nominal_bits": 4.27,
-    "model_bits": 8.927,
-    "ppl": 10.5553,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
   },
   {
     "model": "meta-llama/Llama-3.2-1B",
@@ -367,147 +72,10 @@
     "model_bits": null,
     "ppl": 9.8294,
     "source": "baseline",
+    "ppl_ci_low": null,
+    "ppl_ci_high": null,
+    "n_seeds": 1,
     "accounting_status": "declared_external"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:act_max(hqq-4b k=0.1)",
-    "bits": 6.102,
-    "nominal_bits": 5.201,
-    "model_bits": 9.503,
-    "ppl": 10.3247,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:residual_max(hqq-4b k=0.1)",
-    "bits": 6.102,
-    "nominal_bits": 5.201,
-    "model_bits": 9.503,
-    "ppl": 10.3373,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:residual_max(gptq_llmc-4b k=0.1)",
-    "bits": 6.102,
-    "nominal_bits": 5.201,
-    "model_bits": 9.503,
-    "ppl": 10.4128,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:random(gptq_llmc-4b k=0.1)",
-    "bits": 6.102,
-    "nominal_bits": 5.201,
-    "model_bits": 9.503,
-    "ppl": 10.4322,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:residual_rms(gptq_llmc-4b k=0.1)",
-    "bits": 6.102,
-    "nominal_bits": 5.201,
-    "model_bits": 9.503,
-    "ppl": 10.4409,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:act_scale(gptq_llmc-4b k=0.1)",
-    "bits": 6.102,
-    "nominal_bits": 5.201,
-    "model_bits": 9.503,
-    "ppl": 10.4839,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:residual_rms(hqq-4b k=0.1)",
-    "bits": 6.102,
-    "nominal_bits": 5.201,
-    "model_bits": 9.503,
-    "ppl": 10.5,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:act_max(gptq_llmc-4b k=0.1)",
-    "bits": 6.102,
-    "nominal_bits": 5.201,
-    "model_bits": 9.503,
-    "ppl": 10.6455,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:random(hqq-4b k=0.1)",
-    "bits": 6.102,
-    "nominal_bits": 5.201,
-    "model_bits": 9.503,
-    "ppl": 11.0891,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:tier_alloc(hqq-4b [budget=2.0])",
-    "bits": 6.557,
-    "nominal_bits": 4.535,
-    "model_bits": 9.958,
-    "ppl": 10.4785,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:act_max(hqq-4b k=0.2)",
-    "bits": 7.704,
-    "nominal_bits": 6.402,
-    "model_bits": 11.105,
-    "ppl": 10.2381,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:residual_max(hqq-4b k=0.2)",
-    "bits": 7.704,
-    "nominal_bits": 6.402,
-    "model_bits": 11.105,
-    "ppl": 10.2435,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:residual_rms(hqq-4b k=0.2)",
-    "bits": 7.704,
-    "nominal_bits": 6.402,
-    "model_bits": 11.105,
-    "ppl": 10.3945,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-1B",
-    "method": "SEQ:random(hqq-4b k=0.2)",
-    "bits": 7.704,
-    "nominal_bits": 6.402,
-    "model_bits": 11.105,
-    "ppl": 10.9931,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
   },
   {
     "model": "meta-llama/Llama-3.2-1B",
@@ -517,6 +85,9 @@
     "model_bits": null,
     "ppl": 9.7618,
     "source": "baseline",
+    "ppl_ci_low": null,
+    "ppl_ci_high": null,
+    "n_seeds": 1,
     "accounting_status": "declared_external"
   },
   {
@@ -527,6 +98,9 @@
     "model_bits": null,
     "ppl": 9.7572,
     "source": "baseline",
+    "ppl_ci_low": null,
+    "ppl_ci_high": null,
+    "n_seeds": 1,
     "accounting_status": "declared_external"
   },
   {
@@ -537,6 +111,9 @@
     "model_bits": null,
     "ppl": 8.387,
     "source": "baseline",
+    "ppl_ci_low": null,
+    "ppl_ci_high": null,
+    "n_seeds": 1,
     "accounting_status": "declared_external"
   },
   {
@@ -547,6 +124,9 @@
     "model_bits": null,
     "ppl": 8.405,
     "source": "baseline",
+    "ppl_ci_low": null,
+    "ppl_ci_high": null,
+    "n_seeds": 1,
     "accounting_status": "declared_external"
   },
   {
@@ -557,6 +137,9 @@
     "model_bits": null,
     "ppl": 8.4982,
     "source": "baseline",
+    "ppl_ci_low": null,
+    "ppl_ci_high": null,
+    "n_seeds": 1,
     "accounting_status": "declared_external"
   },
   {
@@ -567,127 +150,10 @@
     "model_bits": 5.721,
     "ppl": 8.3041,
     "source": "baseline",
+    "ppl_ci_low": null,
+    "ppl_ci_high": null,
+    "n_seeds": 1,
     "accounting_status": "recomputed_from_safetensors_metadata"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-3B",
-    "method": "SEQ:act_scale(gptq_llmc-4b k=0.0)",
-    "bits": 4.5,
-    "nominal_bits": 4.0,
-    "model_bits": 6.463,
-    "ppl": 8.1715,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-3B",
-    "method": "SEQ:residual_max(gptq_llmc-4b k=0.0)",
-    "bits": 4.5,
-    "nominal_bits": 4.0,
-    "model_bits": 6.463,
-    "ppl": 8.1715,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-3B",
-    "method": "SEQ:random(gptq_llmc-4b k=0.0)",
-    "bits": 4.5,
-    "nominal_bits": 4.0,
-    "model_bits": 6.463,
-    "ppl": 8.1715,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-3B",
-    "method": "SEQ:residual_max(gptq_llmc-4b k=0.02)",
-    "bits": 4.822,
-    "nominal_bits": 4.242,
-    "model_bits": 6.785,
-    "ppl": 8.0998,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-3B",
-    "method": "SEQ:random(gptq_llmc-4b k=0.02)",
-    "bits": 4.822,
-    "nominal_bits": 4.242,
-    "model_bits": 6.785,
-    "ppl": 8.1807,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-3B",
-    "method": "SEQ:act_scale(gptq_llmc-4b k=0.02)",
-    "bits": 4.822,
-    "nominal_bits": 4.242,
-    "model_bits": 6.785,
-    "ppl": 8.5861,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-3B",
-    "method": "SEQ:residual_max(gptq_llmc-4b k=0.05)",
-    "bits": 5.302,
-    "nominal_bits": 4.601,
-    "model_bits": 7.265,
-    "ppl": 8.0998,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-3B",
-    "method": "SEQ:random(gptq_llmc-4b k=0.05)",
-    "bits": 5.302,
-    "nominal_bits": 4.601,
-    "model_bits": 7.265,
-    "ppl": 8.2205,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-3B",
-    "method": "SEQ:act_max(hqq-5b k=0.0)",
-    "bits": 5.5,
-    "nominal_bits": 5.0,
-    "model_bits": 7.463,
-    "ppl": 7.9565,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-3B",
-    "method": "SEQ:residual_max(gptq_llmc-4b k=0.1)",
-    "bits": 6.104,
-    "nominal_bits": 5.203,
-    "model_bits": 8.067,
-    "ppl": 8.1008,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-3B",
-    "method": "SEQ:random(gptq_llmc-4b k=0.1)",
-    "bits": 6.104,
-    "nominal_bits": 5.203,
-    "model_bits": 8.067,
-    "ppl": 9.0476,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-3B",
-    "method": "SEQ:act_max(hqq-6b k=0.0)",
-    "bits": 6.5,
-    "nominal_bits": 6.0,
-    "model_bits": 8.463,
-    "ppl": 7.8448,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
   },
   {
     "model": "meta-llama/Llama-3.2-3B",
@@ -697,6 +163,9 @@
     "model_bits": null,
     "ppl": 7.9565,
     "source": "baseline",
+    "ppl_ci_low": null,
+    "ppl_ci_high": null,
+    "n_seeds": 1,
     "accounting_status": "declared_external"
   },
   {
@@ -707,17 +176,10 @@
     "model_bits": null,
     "ppl": 7.8448,
     "source": "baseline",
+    "ppl_ci_low": null,
+    "ppl_ci_high": null,
+    "n_seeds": 1,
     "accounting_status": "declared_external"
-  },
-  {
-    "model": "meta-llama/Llama-3.2-3B",
-    "method": "SEQ:act_max(hqq-8b k=0.0)",
-    "bits": 8.5,
-    "nominal_bits": 8.0,
-    "model_bits": 10.463,
-    "ppl": 7.8197,
-    "source": "sweep",
-    "accounting_status": "recomputed_from_storage_breakdown"
   },
   {
     "model": "meta-llama/Llama-3.2-3B",
@@ -727,6 +189,9 @@
     "model_bits": null,
     "ppl": 7.8197,
     "source": "baseline",
+    "ppl_ci_low": null,
+    "ppl_ci_high": null,
+    "n_seeds": 1,
     "accounting_status": "declared_external"
   },
   {
@@ -737,6 +202,9 @@
     "model_bits": null,
     "ppl": 7.8167,
     "source": "baseline",
+    "ppl_ci_low": null,
+    "ppl_ci_high": null,
+    "n_seeds": 1,
     "accounting_status": "declared_external"
   }
 ]

@@ -7,10 +7,17 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
-import matplotlib
+try:
+    import matplotlib
 
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+except ImportError as exc:  # Plot generation is optional for benchmark runs.
+    matplotlib = None
+    plt = None
+    _MATPLOTLIB_IMPORT_ERROR: Optional[ImportError] = exc
+else:
+    _MATPLOTLIB_IMPORT_ERROR = None
 
 from seq_core.entropy_metrics import parse_block_index
 
@@ -280,6 +287,13 @@ def plot_run_baseline_vs_quant(
     effective_bits: Dict[str, Any],
     thresholds: Dict[str, Any],
 ) -> List[Path]:
+    if plt is None:
+        LOGGER.warning(
+            "Skipping report figures because matplotlib is unavailable: %s",
+            _MATPLOTLIB_IMPORT_ERROR,
+        )
+        return []
+
     run_dir = Path(run_dir)
     fig_dir = run_dir / "report" / "figures"
     fig_dir.mkdir(parents=True, exist_ok=True)
