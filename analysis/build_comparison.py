@@ -97,8 +97,15 @@ def load_sweep_points(
     sweep_dirs: List[str],
     signals: List[str],
     index_overhead: float,
+    problems: Optional[List[Dict[str, str]]] = None,
 ) -> Dict[str, List[Dict[str, Any]]]:
-    """Extract SEQ/control points per model from channel_sweep JSONs."""
+    """Extract SEQ/control points per model from channel_sweep JSONs.
+
+    Unreadable files are reported to ``problems`` (``{"file", "kind"}``) and
+    printed, never silently skipped: an unmaterialized **Git LFS pointer** or a
+    corrupt JSON must not degrade into a baseline-only table (the exact bug that
+    once published a comparison with zero SEQ rows). Callers gate publication on it.
+    """
     out: Dict[str, List[Dict[str, Any]]] = {}
     files: List[str] = []
     for d in sweep_dirs:
@@ -107,8 +114,25 @@ def load_sweep_points(
             files.append(os.path.join(d, "channel_pareto.json"))
     for f in sorted(set(files)):
         try:
-            p = json.load(open(f))
-        except Exception:  # noqa: BLE001
+            text = open(f, encoding="utf-8", errors="replace").read()
+        except OSError as exc:
+            print(f"WARNING: cannot read sweep file {f}: {exc}", file=sys.stderr)
+            if problems is not None:
+                problems.append({"file": f, "kind": "unreadable"})
+            continue
+        if text.lstrip().startswith("version https://git-lfs.github.com"):
+            print(f"ERROR: {f} is an UNMATERIALIZED Git LFS pointer, not JSON. "
+                  f"Run `git lfs pull`, or stop tracking runs/final/**/*.json in LFS.",
+                  file=sys.stderr)
+            if problems is not None:
+                problems.append({"file": f, "kind": "lfs_pointer"})
+            continue
+        try:
+            p = json.loads(text)
+        except Exception as exc:  # noqa: BLE001
+            print(f"WARNING: cannot parse sweep JSON {f}: {exc}", file=sys.stderr)
+            if problems is not None:
+                problems.append({"file": f, "kind": "parse_error"})
             continue
         model = p.get("model", f)
         base = p.get("base_quantizer", "hqq")
@@ -197,10 +221,16 @@ def main() -> int:
     args = ap.parse_args()
 
     signals = [s.strip() for s in args.signals.split(",") if s.strip()]
-    per_model = load_sweep_points(args.sweeps, signals, args.index_overhead)
+    problems: List[Dict[str, str]] = []
+    per_model = load_sweep_points(args.sweeps, signals, args.index_overhead, problems=problems)
     sweep_count = sum(len(rows) for rows in per_model.values())
-    if args.require_sweep_points and sweep_count == 0:
-        print("no admissible sweep points found; refusing to publish baseline-only outputs", file=sys.stderr)
+    lfs_pointers = [p for p in problems if p["kind"] == "lfs_pointer"]
+    if lfs_pointers:
+        print(f"ERROR: {len(lfs_pointers)} sweep file(s) are unmaterialized Git LFS pointers; "
+              f"run `git lfs pull` (or stop LFS-tracking runs/final/**/*.json) before building the table.",
+              file=sys.stderr)
+    if args.require_sweep_points and (sweep_count == 0 or lfs_pointers):
+        print("refusing to publish: unreadable sweep inputs or zero sweep points", file=sys.stderr)
         return 2
     per_model, random_replicates = aggregate_random_replicates(per_model)
 
