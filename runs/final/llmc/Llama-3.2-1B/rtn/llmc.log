@@ -1,0 +1,8 @@
+2026-07-19 13:48:34.207 | WARNING  | llmc.utils.visualizer:<module>:13 - Can not import matplotlib. If you need it, please install.
+2026-07-19 13:49:08.040 | INFO     | llmc.compression.quantization.module_utils:<module>:16 - Successfully imported Triton kernel.
+2026-07-19 13:49:08.041 | WARNING  | llmc.compression.quantization.module_utils:<module>:35 - fast_hadamard_transform not installed. If you need it, please install it firstly.
+2026-07-19 13:49:08.041 | INFO     | llmc.compression.quantization.auto_clip:<module>:13 - Successfully imported Triton kernel.
+2026-07-19 13:49:08.042 | INFO     | llmc.compression.quantization.base_blockwise_quantization:<module>:24 - Successfully imported Triton kernel.
+2026-07-19 13:49:08.066 | WARNING  | llmc.compression.quantization.hadamard_utils:<module>:9 - fast_hadamard_transform not installed.If you need it, please install it firstly.
+2026-07-19 13:49:08.796 | WARNING  | llmc.compression.quantization.quant:<module>:13 - qtorch not found, please install qtorch.Please install qtorch (pip install qtorch).
+2026-07-19 13:49:08.804 | INFO     | llmc.compression.quantization.awq:<module>:16 - Successfully imported Triton kernel.
