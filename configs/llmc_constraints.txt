@@ -1,0 +1,5 @@
+# The pinned LightCompress commit leaves these unbounded. Transformers 5.x
+# resolves huggingface-hub 1.x, which is incompatible with datasets 2.16.x's
+# legacy single-component dataset URI handling (for example, "wikitext").
+transformers==4.57.6
+huggingface-hub==0.36.2

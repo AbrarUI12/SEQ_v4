@@ -1,0 +1,16 @@
+WARNING: excluding sweep row with missing storage breakdown: runs/final_hqq_uniform/Llama-3.2-1B/b5/channel_pareto.json signal=act_max k=0.0
+WARNING: excluding sweep row with missing storage breakdown: runs/final_hqq_uniform/Llama-3.2-1B/b6/channel_pareto.json signal=act_max k=0.0
+WARNING: excluding sweep row with missing storage breakdown: runs/final_hqq_uniform/Llama-3.2-1B/b8/channel_pareto.json signal=act_max k=0.0
+WARNING: excluding sweep row with missing storage breakdown: runs/final_hqq_uniform/Llama-3.2-3B/b4/channel_pareto.json signal=act_max k=0.0
+WARNING: baseline has no storage breakdown; using declared bits for meta-llama/Llama-3.2-1B AWQ-4 g128
+WARNING: baseline has no storage breakdown; using declared bits for meta-llama/Llama-3.2-1B RTN-4 g128
+WARNING: baseline has no storage breakdown; using declared bits for meta-llama/Llama-3.2-1B HQQ-4 uniform
+WARNING: baseline has no storage breakdown; using declared bits for meta-llama/Llama-3.2-1B HQQ-5 uniform
+WARNING: baseline has no storage breakdown; using declared bits for meta-llama/Llama-3.2-1B HQQ-6 uniform
+WARNING: baseline has no storage breakdown; using declared bits for meta-llama/Llama-3.2-1B HQQ-8 uniform
+WARNING: baseline has no storage breakdown; using declared bits for meta-llama/Llama-3.2-3B AWQ-4 g128
+WARNING: baseline has no storage breakdown; using declared bits for meta-llama/Llama-3.2-3B RTN-4 g128
+WARNING: baseline has no storage breakdown; using declared bits for meta-llama/Llama-3.2-3B HQQ-4 uniform
+WARNING: baseline has no storage breakdown; using declared bits for meta-llama/Llama-3.2-3B HQQ-5 uniform
+WARNING: baseline has no storage breakdown; using declared bits for meta-llama/Llama-3.2-3B HQQ-6 uniform
+WARNING: baseline has no storage breakdown; using declared bits for meta-llama/Llama-3.2-3B HQQ-8 uniform

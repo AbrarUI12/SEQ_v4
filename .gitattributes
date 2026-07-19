@@ -1,0 +1,13 @@
+/.gitattributes text eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.txt text eol=lf
+runs/final/**/*.safetensors filter=lfs diff=lfs merge=lfs -text
+runs/final/**/*.bin filter=lfs diff=lfs merge=lfs -text
+runs/final/**/*.pt filter=lfs diff=lfs merge=lfs -text
+runs/final/**/*.pth filter=lfs diff=lfs merge=lfs -text
+runs/final/**/*.json filter=lfs diff=lfs merge=lfs -text

@@ -1,0 +1,75 @@
+{
+  "model": "meta-llama/Llama-3.1-8B",
+  "device": "cuda",
+  "signals": [
+    "act_scale",
+    "entropy",
+    "hessian_diag",
+    "kurtosis",
+    "magnitude",
+    "outlier_frac",
+    "salience"
+  ],
+  "num_modules": 225,
+  "baseline_ppl": 6.921339317803182,
+  "sensitivity_bits": 3,
+  "signal_ranking": [
+    {
+      "signal": "entropy",
+      "n": 225,
+      "spearman": 0.1878793162345504,
+      "kendall_tau": 0.11766106472682585,
+      "pearson": 0.04093892196413322
+    },
+    {
+      "signal": "salience",
+      "n": 225,
+      "spearman": 0.0868889591234724,
+      "kendall_tau": 0.056666666666666664,
+      "pearson": 0.23880755091651273
+    },
+    {
+      "signal": "hessian_diag",
+      "n": 225,
+      "spearman": 0.03811630847029077,
+      "kendall_tau": 0.019523809523809523,
+      "pearson": 0.2619728850929172
+    },
+    {
+      "signal": "act_scale",
+      "n": 225,
+      "spearman": -0.05579775806716378,
+      "kendall_tau": -0.050525306995755366,
+      "pearson": 0.08239711506001912
+    },
+    {
+      "signal": "magnitude",
+      "n": 225,
+      "spearman": -0.10221871049304677,
+      "kendall_tau": -0.07166666666666667,
+      "pearson": -0.0465941613877153
+    },
+    {
+      "signal": "kurtosis",
+      "n": 225,
+      "spearman": -0.1378118415507796,
+      "kendall_tau": -0.08841269841269842,
+      "pearson": -0.042564304627083265
+    },
+    {
+      "signal": "outlier_frac",
+      "n": 225,
+      "spearman": -0.1803213232195533,
+      "kendall_tau": -0.1073015873015873,
+      "pearson": -0.07545406095645835
+    }
+  ],
+  "best_signal": "entropy",
+  "allocation_target_bits": 6.0,
+  "allocation_effective_bits": 6.022495458991197,
+  "allocation_params_by_bits": {
+    "8": 3925868544,
+    "4": 3053453312,
+    "3": 525336576
+  }
+}

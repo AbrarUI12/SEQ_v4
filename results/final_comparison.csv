@@ -1,0 +1,17 @@
+model,method,bits,nominal_bits,model_bits,ppl,ppl_ci_low,ppl_ci_high,n_seeds,source,accounting_status
+meta-llama/Llama-3.2-1B,AWQ-4 g128,4.0,4.0,,11.2776,,,1,baseline,declared_external
+meta-llama/Llama-3.2-1B,RTN-4 g128,4.0,4.0,,11.7099,,,1,baseline,declared_external
+meta-llama/Llama-3.2-1B,GPTQ-4 g128,4.293,4.0,6.782,10.3627,,,1,baseline,recomputed_from_safetensors_metadata
+meta-llama/Llama-3.2-1B,HQQ-4 uniform,4.501,4.0,,11.187,,,1,baseline,declared_external
+meta-llama/Llama-3.2-1B,HQQ-5 uniform,5.0,5.0,,10.0636,,,1,baseline,declared_external
+meta-llama/Llama-3.2-1B,HQQ-6 uniform,6.0,6.0,,9.8294,,,1,baseline,declared_external
+meta-llama/Llama-3.2-1B,HQQ-8 uniform,8.0,8.0,,9.7618,,,1,baseline,declared_external
+meta-llama/Llama-3.2-1B,FP16,16.0,16.0,,9.7572,,,1,baseline,declared_external
+meta-llama/Llama-3.2-3B,HQQ-4 uniform,4.0,4.0,,8.387,,,1,baseline,declared_external
+meta-llama/Llama-3.2-3B,AWQ-4 g128,4.0,4.0,,8.405,,,1,baseline,declared_external
+meta-llama/Llama-3.2-3B,RTN-4 g128,4.0,4.0,,8.4982,,,1,baseline,declared_external
+meta-llama/Llama-3.2-3B,GPTQ-4 g128,4.284,4.0,5.721,8.3041,,,1,baseline,recomputed_from_safetensors_metadata
+meta-llama/Llama-3.2-3B,HQQ-5 uniform,7.463,5.0,,7.9565,,,1,baseline,declared_external
+meta-llama/Llama-3.2-3B,HQQ-6 uniform,8.463,6.0,,7.8448,,,1,baseline,declared_external
+meta-llama/Llama-3.2-3B,HQQ-8 uniform,10.463,8.0,,7.8197,,,1,baseline,declared_external
+meta-llama/Llama-3.2-3B,FP16,16.0,16.0,,7.8167,,,1,baseline,declared_external
