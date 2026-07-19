@@ -1,8 +1,0 @@
-{
-  "meta-llama/Llama-3.2-1B": [
-    {"method": "FP16", "bits": 16.0, "ppl": 9.757328887480368},
-    {"method": "HQQ-4 uniform", "bits": 4.0, "ppl": 11.19},
-    {"method": "AWQ-4 g128", "bits": 4.0, "ppl": 11.281956672668457},
-    {"method": "GPTQ-4 g128", "bits": 4.0, "ppl": 10.393136978149414}
-  ]
-}
