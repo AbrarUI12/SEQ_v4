@@ -1,0 +1,22 @@
+{
+  "model": "meta-llama/Llama-3.2-3B",
+  "point": "fp16",
+  "kind": "hf",
+  "nominal_bits": 16.0,
+  "note": "FP16 reference",
+  "base_quantizer": null,
+  "base_bits": null,
+  "signal": null,
+  "k_frac": null,
+  "checkpoint": "meta-llama/Llama-3.2-3B",
+  "expected_ppl": 7.817,
+  "tasks": [
+    "hellaswag",
+    "arc_easy",
+    "arc_challenge",
+    "piqa",
+    "winogrande",
+    "lambada_openai"
+  ],
+  "limit": null
+}

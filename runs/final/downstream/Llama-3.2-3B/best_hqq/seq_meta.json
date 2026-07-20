@@ -1,0 +1,22 @@
+{
+  "model": "meta-llama/Llama-3.2-3B",
+  "point": "best_hqq",
+  "kind": "export",
+  "nominal_bits": 7.7,
+  "note": "best SEQ point on the data-free HQQ base (F1)",
+  "base_quantizer": "hqq",
+  "base_bits": 4,
+  "signal": "greedy",
+  "k_frac": 0.2,
+  "checkpoint": "/mnt/d/Abrar/SEQ/seq_v4/runs/final/downstream/checkpoints/Llama-3.2-3B/best_hqq",
+  "expected_ppl": 8.028,
+  "tasks": [
+    "hellaswag",
+    "arc_easy",
+    "arc_challenge",
+    "piqa",
+    "winogrande",
+    "lambada_openai"
+  ],
+  "limit": null
+}
