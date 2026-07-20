@@ -1,3 +1,607 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:060fd325d5ccb6d00c064b44446951024116bc7b4aa3d751012ff2a1b6535459
-size 16414
+{
+  "cells": [
+    {
+      "actual_weight_bits": 4.82039796734544,
+      "base": "hqq",
+      "base_bits": 4,
+      "delta_vs_greedy_indep": -0.010328287984830098,
+      "delta_vs_residual_max": -0.038058616519361266,
+      "fraction": 0.02,
+      "greedy_indep_ppl": 10.505696410269403,
+      "greedy_ppl": 10.495368122284573,
+      "model": "meta-llama/Llama-3.2-1B",
+      "random": {
+        "ci_high": 11.173757429789669,
+        "ci_low": 11.155167008920492,
+        "mean": 11.16446221935508,
+        "n": 3,
+        "seeds": [
+          1234,
+          2345,
+          3456
+        ],
+        "stddev": 0.0037418257412737952,
+        "values": [
+          11.160147213048496,
+          11.166811556573819,
+          11.166427888442925
+        ]
+      },
+      "residual_max_ppl": 10.533426738803934,
+      "wins": {
+        "greedy_vs_greedy_indep": true,
+        "greedy_vs_random_ci": true,
+        "greedy_vs_residual_max": true
+      }
+    },
+    {
+      "actual_weight_bits": 5.304053260049023,
+      "base": "hqq",
+      "base_bits": 4,
+      "delta_vs_greedy_indep": -0.023942560355378006,
+      "delta_vs_residual_max": -0.04686516229482329,
+      "fraction": 0.05,
+      "greedy_indep_ppl": 10.405370219252514,
+      "greedy_ppl": 10.381427658897136,
+      "model": "meta-llama/Llama-3.2-1B",
+      "random": {
+        "ci_high": 11.14339492624895,
+        "ci_low": 11.122810852783187,
+        "mean": 11.133102889516069,
+        "n": 3,
+        "seeds": [
+          1234,
+          2345,
+          3456
+        ],
+        "stddev": 0.004143102326540642,
+        "values": [
+          11.132500813968766,
+          11.137514088559634,
+          11.129293766019808
+        ]
+      },
+      "residual_max_ppl": 10.42829282119196,
+      "wins": {
+        "greedy_vs_greedy_indep": true,
+        "greedy_vs_random_ci": true,
+        "greedy_vs_residual_max": true
+      }
+    },
+    {
+      "actual_weight_bits": 6.101989836727202,
+      "base": "hqq",
+      "base_bits": 4,
+      "delta_vs_greedy_indep": -0.02385337656825648,
+      "delta_vs_residual_max": -0.03795523856097738,
+      "fraction": 0.1,
+      "greedy_indep_ppl": 10.322797857248794,
+      "greedy_ppl": 10.298944480680538,
+      "model": "meta-llama/Llama-3.2-1B",
+      "random": {
+        "ci_high": 11.124439702020128,
+        "ci_low": 11.03506982982003,
+        "mean": 11.079754765920079,
+        "n": 3,
+        "seeds": [
+          1234,
+          2345,
+          3456
+        ],
+        "stddev": 0.017988107458453893,
+        "values": [
+          11.089054061098645,
+          11.091189717854045,
+          11.059020518807547
+        ]
+      },
+      "residual_max_ppl": 10.336899719241515,
+      "wins": {
+        "greedy_vs_greedy_indep": true,
+        "greedy_vs_random_ci": true,
+        "greedy_vs_residual_max": true
+      }
+    },
+    {
+      "actual_weight_bits": 7.703555198154765,
+      "base": "hqq",
+      "base_bits": 4,
+      "delta_vs_greedy_indep": -0.023160754846365705,
+      "delta_vs_residual_max": -0.025320294039374858,
+      "fraction": 0.2,
+      "greedy_indep_ppl": 10.229828260167007,
+      "greedy_ppl": 10.206667505320642,
+      "model": "meta-llama/Llama-3.2-1B",
+      "random": {
+        "ci_high": 11.017534636995231,
+        "ci_low": 10.931719989090675,
+        "mean": 10.974627313042953,
+        "n": 3,
+        "seeds": [
+          1234,
+          2345,
+          3456
+        ],
+        "stddev": 0.017272522271938658,
+        "values": [
+          10.99312968543122,
+          10.97182490096791,
+          10.95892735272973
+        ]
+      },
+      "residual_max_ppl": 10.231987799360017,
+      "wins": {
+        "greedy_vs_greedy_indep": true,
+        "greedy_vs_random_ci": true,
+        "greedy_vs_residual_max": true
+      }
+    },
+    {
+      "actual_weight_bits": 4.82039796734544,
+      "base": "gptq_llmc",
+      "base_bits": 4,
+      "delta_vs_greedy_indep": 88.524329555396,
+      "delta_vs_residual_max": 93.7728506692956,
+      "fraction": 0.02,
+      "greedy_indep_ppl": 15.639172208873559,
+      "greedy_ppl": 104.16350176426955,
+      "model": "meta-llama/Llama-3.2-1B",
+      "random": {
+        "ci_high": 10.95179804882649,
+        "ci_low": 10.40882882329866,
+        "mean": 10.680313436062574,
+        "n": 3,
+        "seeds": [
+          1234,
+          2345,
+          3456
+        ],
+        "stddev": 0.10928726353731327,
+        "values": [
+          10.595756326167773,
+          10.641466918768693,
+          10.803717063251256
+        ]
+      },
+      "residual_max_ppl": 10.390651094973963,
+      "wins": {
+        "greedy_vs_greedy_indep": false,
+        "greedy_vs_random_ci": false,
+        "greedy_vs_residual_max": false
+      }
+    },
+    {
+      "actual_weight_bits": 5.304053260049023,
+      "base": "gptq_llmc",
+      "base_bits": 4,
+      "delta_vs_greedy_indep": 83.5258683573843,
+      "delta_vs_residual_max": 88.00937484784193,
+      "fraction": 0.05,
+      "greedy_indep_ppl": 14.883910237218942,
+      "greedy_ppl": 98.40977859460324,
+      "model": "meta-llama/Llama-3.2-1B",
+      "random": {
+        "ci_high": 11.096632001717435,
+        "ci_low": 10.281791078271201,
+        "mean": 10.689211539994318,
+        "n": 3,
+        "seeds": [
+          1234,
+          2345,
+          3456
+        ],
+        "stddev": 0.16400880667792367,
+        "values": [
+          10.499990764541527,
+          10.790568206005835,
+          10.777075649435588
+        ]
+      },
+      "residual_max_ppl": 10.400403746761311,
+      "wins": {
+        "greedy_vs_greedy_indep": false,
+        "greedy_vs_random_ci": false,
+        "greedy_vs_residual_max": false
+      }
+    },
+    {
+      "actual_weight_bits": 6.101989836727202,
+      "base": "gptq_llmc",
+      "base_bits": 4,
+      "delta_vs_greedy_indep": 88.66765132461367,
+      "delta_vs_residual_max": 93.14068319553613,
+      "fraction": 0.1,
+      "greedy_indep_ppl": 14.86397287837426,
+      "greedy_ppl": 103.53162420298793,
+      "model": "meta-llama/Llama-3.2-1B",
+      "random": {
+        "ci_high": 11.074917548007122,
+        "ci_low": 10.130091765644604,
+        "mean": 10.602504656825863,
+        "n": 3,
+        "seeds": [
+          1234,
+          2345,
+          3456
+        ],
+        "stddev": 0.19017178031318796,
+        "values": [
+          10.490421327913893,
+          10.495012527946963,
+          10.822080114616728
+        ]
+      },
+      "residual_max_ppl": 10.390941007451808,
+      "wins": {
+        "greedy_vs_greedy_indep": false,
+        "greedy_vs_random_ci": false,
+        "greedy_vs_residual_max": false
+      }
+    },
+    {
+      "actual_weight_bits": 7.703555198154765,
+      "base": "gptq_llmc",
+      "base_bits": 4,
+      "delta_vs_greedy_indep": 91.21632306260635,
+      "delta_vs_residual_max": 96.4741217118578,
+      "fraction": 0.2,
+      "greedy_indep_ppl": 15.607295291322725,
+      "greedy_ppl": 106.82361835392908,
+      "model": "meta-llama/Llama-3.2-1B",
+      "random": {
+        "ci_high": 11.048075533698562,
+        "ci_low": 10.250948455452733,
+        "mean": 10.649511994575647,
+        "n": 3,
+        "seeds": [
+          1234,
+          2345,
+          3456
+        ],
+        "stddev": 0.16044341553297667,
+        "values": [
+          10.827586659931846,
+          10.516212378217244,
+          10.604736945577852
+        ]
+      },
+      "residual_max_ppl": 10.349496642071271,
+      "wins": {
+        "greedy_vs_greedy_indep": false,
+        "greedy_vs_random_ci": false,
+        "greedy_vs_residual_max": false
+      }
+    },
+    {
+      "actual_weight_bits": 4.822420526299852,
+      "base": "hqq",
+      "base_bits": 4,
+      "delta_vs_greedy_indep": -0.0017159836706248655,
+      "delta_vs_residual_max": -0.01128195919149455,
+      "fraction": 0.02,
+      "greedy_indep_ppl": 8.151001669433544,
+      "greedy_ppl": 8.14928568576292,
+      "model": "meta-llama/Llama-3.2-3B",
+      "random": {
+        "ci_high": 8.381640126405737,
+        "ci_low": 8.37038377661967,
+        "mean": 8.376011951512703,
+        "n": 3,
+        "seeds": [
+          1234,
+          2345,
+          3456
+        ],
+        "stddev": 0.0022656452846695914,
+        "values": [
+          8.375440649231198,
+          8.374086639326466,
+          8.37850856598045
+        ]
+      },
+      "residual_max_ppl": 8.160567644954414,
+      "wins": {
+        "greedy_vs_greedy_indep": true,
+        "greedy_vs_random_ci": true,
+        "greedy_vs_residual_max": true
+      }
+    },
+    {
+      "actual_weight_bits": 5.301984531584685,
+      "base": "hqq",
+      "base_bits": 4,
+      "delta_vs_greedy_indep": 0.0012537243172303647,
+      "delta_vs_residual_max": -0.014266715895335125,
+      "fraction": 0.05,
+      "greedy_indep_ppl": 8.110792608855554,
+      "greedy_ppl": 8.112046333172785,
+      "model": "meta-llama/Llama-3.2-3B",
+      "random": {
+        "ci_high": 8.370792224720832,
+        "ci_low": 8.351033324961309,
+        "mean": 8.36091277484107,
+        "n": 3,
+        "seeds": [
+          1234,
+          2345,
+          3456
+        ],
+        "stddev": 0.003977013767451121,
+        "values": [
+          8.357971428235237,
+          8.359329270903755,
+          8.36543762538422
+        ]
+      },
+      "residual_max_ppl": 8.12631304906812,
+      "wins": {
+        "greedy_vs_greedy_indep": false,
+        "greedy_vs_random_ci": true,
+        "greedy_vs_residual_max": true
+      }
+    },
+    {
+      "actual_weight_bits": 6.1039690631693695,
+      "base": "hqq",
+      "base_bits": 4,
+      "delta_vs_greedy_indep": -0.00328524869098068,
+      "delta_vs_residual_max": -0.02142949168445263,
+      "fraction": 0.1,
+      "greedy_indep_ppl": 8.076443028759378,
+      "greedy_ppl": 8.073157780068398,
+      "model": "meta-llama/Llama-3.2-3B",
+      "random": {
+        "ci_high": 8.341958628981116,
+        "ci_low": 8.322656952170371,
+        "mean": 8.332307790575744,
+        "n": 3,
+        "seeds": [
+          1234,
+          2345,
+          3456
+        ],
+        "stddev": 0.003884985264639006,
+        "values": [
+          8.328950393346258,
+          8.331409858951387,
+          8.336563119429586
+        ]
+      },
+      "residual_max_ppl": 8.09458727175285,
+      "wins": {
+        "greedy_vs_greedy_indep": true,
+        "greedy_vs_random_ci": true,
+        "greedy_vs_residual_max": true
+      }
+    },
+    {
+      "actual_weight_bits": 7.703442806148957,
+      "base": "hqq",
+      "base_bits": 4,
+      "delta_vs_greedy_indep": -0.009225926887356906,
+      "delta_vs_residual_max": -0.020469628142752327,
+      "fraction": 0.2,
+      "greedy_indep_ppl": 8.037072700941234,
+      "greedy_ppl": 8.027846774053877,
+      "model": "meta-llama/Llama-3.2-3B",
+      "random": {
+        "ci_high": 8.462161422503407,
+        "ci_low": 8.02463477800902,
+        "mean": 8.243398100256213,
+        "n": 3,
+        "seeds": [
+          1234,
+          2345,
+          3456
+        ],
+        "stddev": 0.08806408807970886,
+        "values": [
+          8.292515311475185,
+          8.141729778781189,
+          8.295949210512262
+        ]
+      },
+      "residual_max_ppl": 8.04831640219663,
+      "wins": {
+        "greedy_vs_greedy_indep": true,
+        "greedy_vs_random_ci": false,
+        "greedy_vs_residual_max": true
+      }
+    },
+    {
+      "actual_weight_bits": 4.822420526299852,
+      "base": "gptq_llmc",
+      "base_bits": 4,
+      "delta_vs_greedy_indep": 10.466690941930622,
+      "delta_vs_residual_max": 47.24633921106762,
+      "fraction": 0.02,
+      "greedy_indep_ppl": 44.87814776367887,
+      "greedy_ppl": 55.34483870560949,
+      "model": "meta-llama/Llama-3.2-3B",
+      "random": {
+        "ci_high": 8.193034343228108,
+        "ci_low": 8.128386316185425,
+        "mean": 8.160710329706767,
+        "n": 3,
+        "seeds": [
+          1234,
+          2345,
+          3456
+        ],
+        "stddev": 0.013012166503014427,
+        "values": [
+          8.165671181227557,
+          8.170512368733363,
+          8.14594743915938
+        ]
+      },
+      "residual_max_ppl": 8.098499494541871,
+      "wins": {
+        "greedy_vs_greedy_indep": false,
+        "greedy_vs_random_ci": false,
+        "greedy_vs_residual_max": false
+      }
+    },
+    {
+      "actual_weight_bits": 5.301984531584685,
+      "base": "gptq_llmc",
+      "base_bits": 4,
+      "delta_vs_greedy_indep": 1.59589205640588,
+      "delta_vs_residual_max": 39.095108581808496,
+      "fraction": 0.05,
+      "greedy_indep_ppl": 45.59721315633188,
+      "greedy_ppl": 47.19310521273776,
+      "model": "meta-llama/Llama-3.2-3B",
+      "random": {
+        "ci_high": 8.28625709512436,
+        "ci_low": 8.099323380186972,
+        "mean": 8.192790237655666,
+        "n": 3,
+        "seeds": [
+          1234,
+          2345,
+          3456
+        ],
+        "stddev": 0.03762547342993825,
+        "values": [
+          8.19790688828156,
+          8.152868278076145,
+          8.227595546609296
+        ]
+      },
+      "residual_max_ppl": 8.097996630929268,
+      "wins": {
+        "greedy_vs_greedy_indep": false,
+        "greedy_vs_random_ci": false,
+        "greedy_vs_residual_max": false
+      }
+    },
+    {
+      "actual_weight_bits": 6.1039690631693695,
+      "base": "gptq_llmc",
+      "base_bits": 4,
+      "delta_vs_greedy_indep": -0.7507148747663592,
+      "delta_vs_residual_max": 37.933318464979365,
+      "fraction": 0.1,
+      "greedy_indep_ppl": 46.77763321991474,
+      "greedy_ppl": 46.02691834514838,
+      "model": "meta-llama/Llama-3.2-3B",
+      "random": {
+        "ci_high": 9.530421982734365,
+        "ci_low": 7.337084459650943,
+        "mean": 8.433753221192655,
+        "n": 3,
+        "seeds": [
+          1234,
+          2345,
+          3456
+        ],
+        "stddev": 0.4414685854036661,
+        "values": [
+          8.942835196946026,
+          8.156383120967996,
+          8.20204134566394
+        ]
+      },
+      "residual_max_ppl": 8.093599880169016,
+      "wins": {
+        "greedy_vs_greedy_indep": true,
+        "greedy_vs_random_ci": false,
+        "greedy_vs_residual_max": false
+      }
+    },
+    {
+      "actual_weight_bits": 7.703442806148957,
+      "base": "gptq_llmc",
+      "base_bits": 4,
+      "delta_vs_greedy_indep": -2.2016662082254044,
+      "delta_vs_residual_max": 35.138931819094196,
+      "fraction": 0.2,
+      "greedy_indep_ppl": 45.410303778071096,
+      "greedy_ppl": 43.20863756984569,
+      "model": "meta-llama/Llama-3.2-3B",
+      "random": {
+        "ci_high": 8.77667346116979,
+        "ci_low": 7.9071028775425445,
+        "mean": 8.341888169356167,
+        "n": 3,
+        "seeds": [
+          1234,
+          2345,
+          3456
+        ],
+        "stddev": 0.17502463320049585,
+        "values": [
+          8.412660600794338,
+          8.142559678923648,
+          8.470444228350518
+        ]
+      },
+      "residual_max_ppl": 8.069705750751494,
+      "wins": {
+        "greedy_vs_greedy_indep": true,
+        "greedy_vs_random_ci": false,
+        "greedy_vs_residual_max": false
+      }
+    }
+  ],
+  "criteria": {
+    "matched_bits_tolerance": 1e-06,
+    "nonzero_budgets_per_stratum": 4,
+    "random_rule": "greedy PPL must be below the lower bound of the 95% Student-t CI",
+    "required_wins_per_comparator": 3
+  },
+  "errors": [],
+  "framing": "audit",
+  "status": "PASS",
+  "strata": [
+    {
+      "base": "hqq",
+      "base_bits": 4,
+      "model": "meta-llama/Llama-3.2-1B",
+      "passes": true,
+      "required_wins": 3,
+      "win_counts": {
+        "greedy_vs_greedy_indep": 4,
+        "greedy_vs_random_ci": 4,
+        "greedy_vs_residual_max": 4
+      }
+    },
+    {
+      "base": "gptq_llmc",
+      "base_bits": 4,
+      "model": "meta-llama/Llama-3.2-1B",
+      "passes": false,
+      "required_wins": 3,
+      "win_counts": {
+        "greedy_vs_greedy_indep": 0,
+        "greedy_vs_random_ci": 0,
+        "greedy_vs_residual_max": 0
+      }
+    },
+    {
+      "base": "hqq",
+      "base_bits": 4,
+      "model": "meta-llama/Llama-3.2-3B",
+      "passes": true,
+      "required_wins": 3,
+      "win_counts": {
+        "greedy_vs_greedy_indep": 3,
+        "greedy_vs_random_ci": 3,
+        "greedy_vs_residual_max": 4
+      }
+    },
+    {
+      "base": "gptq_llmc",
+      "base_bits": 4,
+      "model": "meta-llama/Llama-3.2-3B",
+      "passes": false,
+      "required_wins": 3,
+      "win_counts": {
+        "greedy_vs_greedy_indep": 2,
+        "greedy_vs_random_ci": 0,
+        "greedy_vs_residual_max": 0
+      }
+    }
+  ]
+}

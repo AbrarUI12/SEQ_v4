@@ -1,3 +1,14 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:b6db4d3be850d5e78106bc8b4b18b71a0d67d72ed65a50e7aa207d6646e958f7
-size 226
+{
+  "meta-llama/Llama-3.2-1B": [
+    {
+      "method": "RTN-4 g128",
+      "bits": 4.0,
+      "ppl": 11.711246490478516
+    },
+    {
+      "method": "AWQ-4 g128",
+      "bits": 4.0,
+      "ppl": 11.263218879699707
+    }
+  ]
+}

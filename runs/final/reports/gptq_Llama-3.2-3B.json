@@ -1,3 +1,15 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:0977a1743cc4e81aab5f4aebfa3013f87e7ebecece993c8294ca71bdaf2673aa
-size 517
+{
+  "model": "meta-llama/Llama-3.2-3B",
+  "original_fp16_ppl": 7.816627381856085,
+  "llmc_reported_ppl": 8.326171875,
+  "loaded_gptq_base_ppl": 8.161497019522281,
+  "loaded_gptq_llmc_protocol_ppl": 8.328652088579682,
+  "validation_protocol": "llmc_wikitext2_non_overlapping_2048_default_special_tokens",
+  "ppl_difference": 0.0024802135796822,
+  "maximum_sampled_weight_difference": 1.4158935546875,
+  "matched_modules": 197,
+  "missing_modules": 0,
+  "shape_mismatches": 0,
+  "tolerance": 0.25,
+  "status": "PASS"
+}

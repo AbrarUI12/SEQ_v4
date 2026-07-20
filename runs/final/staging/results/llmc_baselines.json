@@ -1,3 +1,108 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:ee082840ef4b5f1c975ab5ba5281093942cf857b0a1ad6bc62d0aa0d476be727
-size 2804
+{
+  "meta-llama/Llama-3.2-1B": [
+    {
+      "bits": 4.0,
+      "calibration": {
+        "bs": -1,
+        "n_samples": 128,
+        "name": "pileval",
+        "preproc": "pileval_awq",
+        "seed": 42,
+        "seq_len": 2048
+      },
+      "method": "AWQ-4 g128",
+      "model_path": "runs/final/llmc/Llama-3.2-1B/awq/artifacts/fake_quant_model",
+      "nominal_bits": 4.0,
+      "ppl": 11.263218879699707,
+      "serialized_checkpoint_bytes": 2471645608,
+      "source": "LLMC"
+    },
+    {
+      "bits": 4.0,
+      "calibration": {
+        "bs": 1,
+        "n_samples": 128,
+        "name": "wikitext2",
+        "preproc": "wikitext2_gptq",
+        "seed": 0,
+        "seq_len": 2048
+      },
+      "method": "GPTQ-4 g128",
+      "model_path": "runs/final/llmc/Llama-3.2-1B/gptq/artifacts/fake_quant_model",
+      "nominal_bits": 4.0,
+      "ppl": 10.404662132263184,
+      "serialized_checkpoint_bytes": 2507371976,
+      "source": "LLMC"
+    },
+    {
+      "bits": 4.0,
+      "calibration": {
+        "bs": null,
+        "n_samples": null,
+        "name": null,
+        "preproc": null,
+        "seed": null,
+        "seq_len": null
+      },
+      "method": "RTN-4 g128",
+      "model_path": "runs/final/llmc/Llama-3.2-1B/rtn/artifacts/fake_quant_model",
+      "nominal_bits": 4.0,
+      "ppl": 11.711246490478516,
+      "serialized_checkpoint_bytes": 2471645608,
+      "source": "LLMC"
+    }
+  ],
+  "meta-llama/Llama-3.2-3B": [
+    {
+      "bits": 4.0,
+      "calibration": {
+        "bs": -1,
+        "n_samples": 128,
+        "name": "pileval",
+        "preproc": "pileval_awq",
+        "seed": 42,
+        "seq_len": 2048
+      },
+      "method": "AWQ-4 g128",
+      "model_path": "runs/final/llmc/Llama-3.2-3B/awq/artifacts/fake_quant_model",
+      "nominal_bits": 4.0,
+      "ppl": 8.409162521362305,
+      "serialized_checkpoint_bytes": 6425529048,
+      "source": "LLMC"
+    },
+    {
+      "bits": 4.0,
+      "calibration": {
+        "bs": 1,
+        "n_samples": 128,
+        "name": "wikitext2",
+        "preproc": "wikitext2_gptq",
+        "seed": 0,
+        "seq_len": 2048
+      },
+      "method": "GPTQ-4 g128",
+      "model_path": "runs/final/llmc/Llama-3.2-3B/gptq/artifacts/fake_quant_model",
+      "nominal_bits": 4.0,
+      "ppl": 8.326171875,
+      "serialized_checkpoint_bytes": 6525668328,
+      "source": "LLMC"
+    },
+    {
+      "bits": 4.0,
+      "calibration": {
+        "bs": null,
+        "n_samples": null,
+        "name": null,
+        "preproc": null,
+        "seed": null,
+        "seq_len": null
+      },
+      "method": "RTN-4 g128",
+      "model_path": "runs/final/llmc/Llama-3.2-3B/rtn/artifacts/fake_quant_model",
+      "nominal_bits": 4.0,
+      "ppl": 8.496744155883789,
+      "serialized_checkpoint_bytes": 6425529048,
+      "source": "LLMC"
+    }
+  ]
+}

@@ -1,3 +1,11 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:4fe659ecafa58508f2460cabdc9f49b2cdebd9e75e0c2af238391ce5b495b528
-size 200
+{
+  "duplicates": [],
+  "files": 35,
+  "inconsistent_anchors": [],
+  "invalid": [],
+  "missing": [],
+  "nominal_expanded_cells": 152,
+  "observations": 158,
+  "parse_errors": [],
+  "status": "PASS"
+}

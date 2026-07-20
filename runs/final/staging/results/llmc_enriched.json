@@ -1,3 +1,162 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:b2967052a8cd0e41d14566bb94a80322238ed7c09c014b970cbbb335d1701749
-size 5048
+{
+  "meta-llama/Llama-3.2-1B": [
+    {
+      "bits": 4.0,
+      "calibration": {
+        "bs": -1,
+        "n_samples": 128,
+        "name": "pileval",
+        "preproc": "pileval_awq",
+        "seed": 42,
+        "seq_len": 2048
+      },
+      "method": "AWQ-4 g128",
+      "model_path": "runs/final/llmc/Llama-3.2-1B/awq/artifacts/fake_quant_model",
+      "nominal_bits": 4.0,
+      "ppl": 11.263218879699707,
+      "serialized_checkpoint_bytes": 2471645608,
+      "source": "LLMC"
+    },
+    {
+      "accounting_status": "recomputed_from_safetensors_metadata",
+      "bits": 4.293112656165814,
+      "calibration": {
+        "bs": 1,
+        "n_samples": 128,
+        "name": "wikitext2",
+        "preproc": "wikitext2_gptq",
+        "seed": 0,
+        "seq_len": 2048
+      },
+      "method": "GPTQ-4 g128",
+      "model_bits": 6.782013299084393,
+      "model_path": "runs/final/llmc/Llama-3.2-1B/gptq/artifacts/fake_quant_model",
+      "nominal_bits": 4.0,
+      "ppl": 10.404662132263184,
+      "serialized_checkpoint_bytes": 2507371976,
+      "source": "LLMC",
+      "storage": {
+        "actual_model_bits_per_parameter": 6.782013299084393,
+        "actual_total_bytes": 1047663712,
+        "actual_weight_bits_per_param": 4.293112656165814,
+        "alignment_padding_bytes": 0,
+        "bias_bytes": 0,
+        "channel_index_bytes": 0,
+        "dense_quantized_weight_bytes": 486539264,
+        "embedding_bytes": 525336576,
+        "estimated_total_bytes": 1047663712,
+        "fp16_residual_bytes": 0,
+        "group_metadata_bytes": 5244000,
+        "int8_tier_bytes": 0,
+        "layer_metadata_bytes": 0,
+        "lm_head_bytes": 0,
+        "nominal_weight_bits": 6.551216804076729,
+        "quantization_scale_bytes": 15204352,
+        "quantized_linear_bits": 4.0,
+        "quantized_linear_parameters": 973078528,
+        "serialized_checkpoint_bits_per_parameter": null,
+        "serialized_checkpoint_bytes": null,
+        "total_parameters": 1235814400,
+        "unquantized_parameter_bytes": 135168,
+        "zero_point_bytes": 15204352
+      }
+    },
+    {
+      "bits": 4.0,
+      "calibration": {
+        "bs": null,
+        "n_samples": null,
+        "name": null,
+        "preproc": null,
+        "seed": null,
+        "seq_len": null
+      },
+      "method": "RTN-4 g128",
+      "model_path": "runs/final/llmc/Llama-3.2-1B/rtn/artifacts/fake_quant_model",
+      "nominal_bits": 4.0,
+      "ppl": 11.711246490478516,
+      "serialized_checkpoint_bytes": 2471645608,
+      "source": "LLMC"
+    }
+  ],
+  "meta-llama/Llama-3.2-3B": [
+    {
+      "bits": 4.0,
+      "calibration": {
+        "bs": -1,
+        "n_samples": 128,
+        "name": "pileval",
+        "preproc": "pileval_awq",
+        "seed": 42,
+        "seq_len": 2048
+      },
+      "method": "AWQ-4 g128",
+      "model_path": "runs/final/llmc/Llama-3.2-3B/awq/artifacts/fake_quant_model",
+      "nominal_bits": 4.0,
+      "ppl": 8.409162521362305,
+      "serialized_checkpoint_bytes": 6425529048,
+      "source": "LLMC"
+    },
+    {
+      "accounting_status": "recomputed_from_safetensors_metadata",
+      "bits": 4.283986820438044,
+      "calibration": {
+        "bs": 1,
+        "n_samples": 128,
+        "name": "wikitext2",
+        "preproc": "wikitext2_gptq",
+        "seed": 0,
+        "seq_len": 2048
+      },
+      "method": "GPTQ-4 g128",
+      "model_bits": 6.162789913889722,
+      "model_path": "runs/final/llmc/Llama-3.2-3B/gptq/artifacts/fake_quant_model",
+      "nominal_bits": 4.0,
+      "ppl": 8.326171875,
+      "serialized_checkpoint_bytes": 6525668328,
+      "source": "LLMC",
+      "storage": {
+        "actual_model_bits_per_parameter": 6.162789913889722,
+        "actual_total_bytes": 1893303722,
+        "actual_weight_bits_per_param": 4.283986820438044,
+        "alignment_padding_bytes": 0,
+        "bias_bytes": 0,
+        "channel_index_bytes": 0,
+        "dense_quantized_weight_bytes": 1031798784,
+        "embedding_bytes": 788004864,
+        "estimated_total_bytes": 1893303722,
+        "fp16_residual_bytes": 0,
+        "group_metadata_bytes": 8766890,
+        "int8_tier_bytes": 0,
+        "layer_metadata_bytes": 0,
+        "lm_head_bytes": 0,
+        "nominal_weight_bits": 5.924343782810859,
+        "quantization_scale_bytes": 32243712,
+        "quantized_linear_bits": 4.0,
+        "quantized_linear_parameters": 2063597568,
+        "serialized_checkpoint_bits_per_parameter": null,
+        "serialized_checkpoint_bytes": null,
+        "total_parameters": 2457722880,
+        "unquantized_parameter_bytes": 245760,
+        "zero_point_bytes": 32243712
+      }
+    },
+    {
+      "bits": 4.0,
+      "calibration": {
+        "bs": null,
+        "n_samples": null,
+        "name": null,
+        "preproc": null,
+        "seed": null,
+        "seq_len": null
+      },
+      "method": "RTN-4 g128",
+      "model_path": "runs/final/llmc/Llama-3.2-3B/rtn/artifacts/fake_quant_model",
+      "nominal_bits": 4.0,
+      "ppl": 8.496744155883789,
+      "serialized_checkpoint_bytes": 6425529048,
+      "source": "LLMC"
+    }
+  ]
+}

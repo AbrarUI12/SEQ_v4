@@ -1,3 +1,44 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:91a2f0443f164899e1bc9ad063db5a0ca0fd9f69e85e4d083913f2e344d64214
-size 1291
+{
+  "device": "cuda",
+  "dtype": "float16",
+  "model_name": "runs/final/llmc/Llama-3.2-1B/gptq/artifacts/fake_quant_model",
+  "perplexity": {
+    "add_special_tokens": false,
+    "avg_loss": 2.3776076837634363,
+    "chunking": "non_overlapping",
+    "dataset_name": "wikitext2",
+    "error": null,
+    "full_corpus": true,
+    "loss_impl": "hf_internal_shift",
+    "max_examples": null,
+    "method": "canonical_full_corpus_continuous_stream",
+    "mode": "canonical",
+    "notes": "paper_style_continuous_stream_non_overlapping_chunks",
+    "num_corpus_tokens": 289076,
+    "num_dataset_rows": 4358,
+    "num_examples": 4358,
+    "num_full_chunks": 141,
+    "num_sequences": 141,
+    "num_supervised_tokens": 288627,
+    "num_tokens": 288627,
+    "ppl": 10.779085013919614,
+    "sample_indices": [],
+    "seq_len": 2048,
+    "split": "test",
+    "stream_mode": "continuous_stream",
+    "stride": null,
+    "tail_dropped": true,
+    "tail_tokens_dropped": 308,
+    "tokenizer_name_or_path": "runs/final/llmc/Llama-3.2-1B/gptq/artifacts/fake_quant_model"
+  },
+  "ppl_config": {
+    "ppl_dataset": "wikitext2",
+    "ppl_full_corpus": true,
+    "ppl_max_examples": null,
+    "ppl_mode": "canonical",
+    "ppl_seq_len": 2048,
+    "ppl_split": "test",
+    "ppl_stride": null
+  },
+  "seed": 1234
+}
