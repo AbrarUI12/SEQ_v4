@@ -474,6 +474,27 @@ def main() -> int:
             save_path = Path(args.save_model_path)
             save_path.mkdir(parents=True, exist_ok=True)
             replaced = materialize_channel_protection(model)
+            # If lm_head was quantized it is now a distinct tensor from the input
+            # embeddings. Saving under tie_word_embeddings=True would drop it from the
+            # state dict and re-tie it to the FP16 embeddings on reload, so the
+            # checkpoint would not reproduce the measured PPL. Persist an explicit
+            # (untied) lm_head in that case.
+            untied_lm_head = False
+            try:
+                if bool(getattr(model.config, "tie_word_embeddings", False)):
+                    in_emb = model.get_input_embeddings()
+                    out_emb = model.get_output_embeddings()
+                    if (out_emb is not None and in_emb is not None
+                            and getattr(out_emb, "weight", None) is not None
+                            and out_emb.weight.data_ptr() != in_emb.weight.data_ptr()):
+                        model.config.tie_word_embeddings = False
+                        if hasattr(model, "_tied_weights_keys"):
+                            model._tied_weights_keys = []
+                        untied_lm_head = True
+                        LOGGER.info("export: lm_head was quantized; saving it untied so the "
+                                    "checkpoint round-trips faithfully")
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.warning("export: tie-check failed (%s); saving as-is", exc)
             model.save_pretrained(save_path, safe_serialization=True)
             tokenizer.save_pretrained(save_path)
             manifest = {
@@ -487,6 +508,7 @@ def main() -> int:
                 "base_bits": int(args.base_bits),
                 "group_size": int(args.group_size),
                 "materialized_layers": replaced,
+                "untied_lm_head": untied_lm_head,
                 "measured_ppl_before_save": float(ppl),
                 "storage_estimate": storage,
             }

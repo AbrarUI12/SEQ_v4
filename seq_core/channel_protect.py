@@ -74,6 +74,10 @@ class ChannelProtectedLinear(nn.Module):
         out_f, in_f = int(weight.shape[0]), int(weight.shape[1])
         self.in_features, self.out_features = in_f, out_f
         self.base_bits = int(base_bits)
+        # Kept only so export can rebuild a dense weight from a backend-native
+        # ``q_full`` (e.g. HQQ deletes the original weight, ``del_orig=True``, and
+        # exposes the dense weight only through ``dequantize_weight``).
+        self._backend = backend
         # tiers: {protect_bits: [channel idx]}. Single-tier FP16 protection is the
         # default (protected_idx -> the 16-bit tier).
         if tiers is None:
@@ -149,23 +153,45 @@ class ChannelProtectedLinear(nn.Module):
         return y
 
     def materialized_weight(self) -> torch.Tensor:
-        """Return the dense fake-quant weight represented by this module.
+        """Return the dense fake-quant weight ``[out_features, in_features]``.
 
-        This is intended for evaluation checkpoint export.  It preserves the
-        exact base-plus-correction computation, but it is not a compact packed
+        Intended for evaluation-checkpoint export. The base weight comes from a
+        plain dense ``q_full`` (precomputed fake-quant base, e.g. GPTQ) when that
+        exposes a usable ``.weight``; otherwise ``q_full`` is a backend-native
+        quantized module (e.g. HQQ) whose ``.weight`` is an empty placeholder, so
+        we dequantize through the backend exactly as the constructor did. This
+        preserves the base-plus-correction computation but is not a compact packed
         representation of the low-bit base.
         """
+        out_f, in_f = self.out_features, self.in_features
         base_weight = getattr(self.q_full, "weight", None)
-        if base_weight is None:
-            raise TypeError(
-                "cannot materialize a backend-native q_full without a dense weight; "
-                "export a precomputed fake-quant base instead"
-            )
-        weight = base_weight.detach().clone()
+        usable = isinstance(base_weight, torch.Tensor) and tuple(base_weight.shape) in {
+            (out_f, in_f), (in_f, out_f),
+        }
+        if not usable:
+            backend = getattr(self, "_backend", None)
+            base_weight = backend.dequantize_weight(self.q_full) if backend is not None else None
+            if not isinstance(base_weight, torch.Tensor):
+                raise TypeError(
+                    "cannot materialize a backend-native q_full without a dense weight; "
+                    "the backend must provide dequantize_weight() (got "
+                    f"{type(getattr(self, '_backend', None)).__name__})"
+                )
+        base_weight = base_weight.detach()
+        # normalize orientation to [out_features, in_features]
+        if tuple(base_weight.shape) == (in_f, out_f) and out_f != in_f:
+            base_weight = base_weight.t()
+        elif tuple(base_weight.shape) != (out_f, in_f):
+            base_weight = base_weight.reshape(out_f, in_f)
+        weight = base_weight.contiguous().clone()
         for iname, wname in self._corr_names:
             idx = getattr(self, iname).to(weight.device)
             corr = getattr(self, wname).to(device=weight.device, dtype=weight.dtype)
             weight.index_add_(1, idx, corr)
+        if weight.numel() != out_f * in_f:  # defensive: never export an empty checkpoint
+            raise RuntimeError(
+                f"materialized weight has {weight.numel()} elements, expected {out_f * in_f}"
+            )
         return weight
 
     def to_dense_linear(self) -> nn.Linear:
