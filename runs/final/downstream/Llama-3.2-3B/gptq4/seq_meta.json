@@ -1,0 +1,22 @@
+{
+  "model": "meta-llama/Llama-3.2-3B",
+  "point": "gptq4",
+  "kind": "hf",
+  "nominal_bits": 4.0,
+  "note": "LightCompress GPTQ-4 base (strong error-compensated base)",
+  "base_quantizer": null,
+  "base_bits": null,
+  "signal": null,
+  "k_frac": null,
+  "checkpoint": "/mnt/d/Abrar/SEQ/seq_v4/runs/final/llmc/Llama-3.2-3B/gptq/artifacts/fake_quant_model",
+  "expected_ppl": 8.304,
+  "tasks": [
+    "hellaswag",
+    "arc_easy",
+    "arc_challenge",
+    "piqa",
+    "winogrande",
+    "lambada_openai"
+  ],
+  "limit": null
+}

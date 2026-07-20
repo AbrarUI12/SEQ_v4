@@ -1,0 +1,22 @@
+{
+  "model": "meta-llama/Llama-3.2-3B",
+  "point": "resmax_gptq",
+  "kind": "export",
+  "nominal_bits": 4.82,
+  "note": "safe activation-magnitude protection on GPTQ (3B Pareto frontier point)",
+  "base_quantizer": "gptq_llmc",
+  "base_bits": 4,
+  "signal": "residual_max",
+  "k_frac": 0.02,
+  "checkpoint": "/mnt/d/Abrar/SEQ/seq_v4/runs/final/downstream/checkpoints/Llama-3.2-3B/resmax_gptq",
+  "expected_ppl": 8.099,
+  "tasks": [
+    "hellaswag",
+    "arc_easy",
+    "arc_challenge",
+    "piqa",
+    "winogrande",
+    "lambada_openai"
+  ],
+  "limit": null
+}
