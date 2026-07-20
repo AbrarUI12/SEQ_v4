@@ -1,0 +1,39 @@
+{
+  "_comment": "Operating points for the W2 downstream lm-eval (F5). Consumed by scripts/run_downstream_eval.sh and analysis/build_downstream_table.py. 'hf' points are loaded straight from an HF dir/hub-id; 'export' points are materialized once with seq_core.channel_sweep (--save_model_path) into a reloadable dense fake-quant checkpoint, then lm-eval'd. expected_ppl values are the WikiText-2 canonical PPLs from docs/PROJECT_STATUS_AND_ROADMAP.md §1 and are used only for a reload sanity check.",
+  "calibration_prompts": "calibration_prompts.json",
+  "deterministic_seed": 1234,
+  "ppl_tolerance": 0.5,
+  "point_defs": {
+    "fp16":        {"kind": "hf",     "source": "model",     "nominal_bits": 16.0, "note": "FP16 reference"},
+    "gptq4":       {"kind": "hf",     "source": "gptq_base", "nominal_bits": 4.0,  "note": "LightCompress GPTQ-4 base (strong error-compensated base)"},
+    "hqq4":        {"kind": "export", "base_quantizer": "hqq",       "base_bits": 4, "mode": "signals", "signal": "act_max",      "k_frac": 0.0,  "nominal_bits": 4.0,  "note": "data-free RTN/HQQ-4 base (frac 0 = no protection)"},
+    "resmax_gptq": {"kind": "export", "base_quantizer": "gptq_llmc", "base_bits": 4, "mode": "signals", "signal": "residual_max", "k_frac": 0.02, "nominal_bits": 4.82, "note": "safe activation-magnitude protection on GPTQ (3B Pareto frontier point)"},
+    "greedy_gptq": {"kind": "export", "base_quantizer": "gptq_llmc", "base_bits": 4, "mode": "select",  "signal": "greedy",       "k_frac": 0.02, "nominal_bits": 4.82, "note": "CATASTROPHIC control: residual-driven greedy on GPTQ (confirms F3 antagonism downstream)"},
+    "best_hqq":    {"kind": "export", "base_quantizer": "hqq",       "base_bits": 4, "mode": "select",  "signal": "greedy",       "k_frac": 0.20, "nominal_bits": 7.70, "note": "best SEQ point on the data-free HQQ base (F1)"}
+  },
+  "models": {
+    "meta-llama/Llama-3.2-3B": {
+      "gptq_base": "runs/final/llmc/Llama-3.2-3B/gptq/artifacts/fake_quant_model",
+      "priority": 1,
+      "points": ["fp16", "gptq4", "hqq4", "resmax_gptq", "greedy_gptq", "best_hqq"],
+      "expected_ppl": {
+        "fp16": 7.817, "gptq4": 8.304, "hqq4": 8.387,
+        "resmax_gptq": 8.099, "greedy_gptq": 55.34, "best_hqq": 8.028
+      }
+    },
+    "meta-llama/Llama-3.2-1B": {
+      "gptq_base": "runs/final/llmc/Llama-3.2-1B/gptq/artifacts/fake_quant_model",
+      "priority": 2,
+      "points": ["fp16", "gptq4", "hqq4", "resmax_gptq", "greedy_gptq", "best_hqq"],
+      "expected_ppl": {
+        "fp16": 9.757, "gptq4": 10.363, "hqq4": 11.187,
+        "resmax_gptq": 10.391, "greedy_gptq": 104.16, "best_hqq": 10.207
+      }
+    }
+  },
+  "paired_contrasts": [
+    {"name": "resmax_gptq_vs_gptq4", "a": "resmax_gptq", "b": "gptq4", "claim": "safe activation-magnitude protection is >= GPTQ-4 (F4)"},
+    {"name": "greedy_gptq_vs_gptq4", "a": "greedy_gptq", "b": "gptq4", "claim": "residual-driven protection is catastrophic on GPTQ (F3)"},
+    {"name": "best_hqq_vs_hqq4",     "a": "best_hqq",     "b": "hqq4",  "claim": "protection helps a data-free base (F1)"}
+  ]
+}
