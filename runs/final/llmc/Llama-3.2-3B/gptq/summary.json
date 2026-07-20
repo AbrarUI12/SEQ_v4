@@ -3,7 +3,7 @@
   "method": "GPTQ-4 g128",
   "bits": 4.0,
   "status": "completed",
-  "ppl": 8.326171875,
+  "ppl": 8.304058074951172,
   "ppl_dataset": "wikitext2",
   "eval_seq_len": 2048,
   "calibration": {
@@ -16,20 +16,20 @@
   },
   "llmc_config_source": "configs/quantization/methods/GPTQ/gptq_w_only.yml",
   "rendered_config": "runs/final/llmc/Llama-3.2-3B/gptq/config.yml",
-  "llmc_repo": "/mnt/e/LightCompress",
+  "llmc_repo": "/mnt/d/LightCompress",
   "llmc_commit": "86f564ddb1d6548b228c67a10509a4ed7264345c",
   "command": [
-    "/mnt/e/LightCompress/.venv-llmc/bin/torchrun",
+    "/mnt/d/LightCompress/.venv-llmc/bin/torchrun",
     "--standalone",
     "--nproc_per_node=1",
     "--module",
     "scripts.llmc_ppl_entrypoint",
     "--config",
-    "/mnt/e/seq v4/SEQ-clean-v4/runs/final/llmc/Llama-3.2-3B/gptq/config.yml",
+    "/mnt/d/Abrar/SEQ/seq_v4/runs/final/llmc/Llama-3.2-3B/gptq/config.yml",
     "--task_id",
     "gptq_w4_g128_llama32_1b"
   ],
   "returncode": 0,
-  "duration_sec": 552.825,
+  "duration_sec": 543.766,
   "log": "runs/final/llmc/Llama-3.2-3B/gptq/llmc.log"
 }

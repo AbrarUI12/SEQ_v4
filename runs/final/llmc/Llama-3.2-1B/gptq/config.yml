@@ -39,4 +39,4 @@ save:
   save_trans: false
   save_fake: true
   save_vllm: false
-  save_path: /mnt/e/seq v4/SEQ-clean-v4/runs/final/llmc/Llama-3.2-1B/gptq/artifacts
+  save_path: /mnt/d/Abrar/SEQ/seq_v4/runs/final/llmc/Llama-3.2-1B/gptq/artifacts
