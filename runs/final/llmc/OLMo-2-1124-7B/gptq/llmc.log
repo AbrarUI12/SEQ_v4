@@ -1,0 +1,194 @@
+2026-07-20 12:48:08.085 | WARNING  | llmc.utils.visualizer:<module>:13 - Can not import matplotlib. If you need it, please install.
+2026-07-20 12:48:17.656 | INFO     | llmc.compression.quantization.module_utils:<module>:16 - Successfully imported Triton kernel.
+2026-07-20 12:48:17.657 | WARNING  | llmc.compression.quantization.module_utils:<module>:35 - fast_hadamard_transform not installed. If you need it, please install it firstly.
+2026-07-20 12:48:17.658 | INFO     | llmc.compression.quantization.auto_clip:<module>:13 - Successfully imported Triton kernel.
+2026-07-20 12:48:17.658 | INFO     | llmc.compression.quantization.base_blockwise_quantization:<module>:24 - Successfully imported Triton kernel.
+2026-07-20 12:48:17.668 | WARNING  | llmc.compression.quantization.hadamard_utils:<module>:9 - fast_hadamard_transform not installed.If you need it, please install it firstly.
+2026-07-20 12:48:18.354 | WARNING  | llmc.compression.quantization.quant:<module>:13 - qtorch not found, please install qtorch.Please install qtorch (pip install qtorch).
+2026-07-20 12:48:18.363 | INFO     | llmc.compression.quantization.awq:<module>:16 - Successfully imported Triton kernel.
+2026-07-20 12:48:18.693 | INFO     | llmc.compression.quantization.osplus:<module>:20 - Successfully imported Triton kernel.
+2026-07-20 12:48:53.670 | WARNING  | llmc.models.internomni:<module>:14 - InternOmni-internvl not installed. If you need it, please install it.
+2026-07-20 12:48:53.677 | WARNING  | llmc.models.internvl2:<module>:22 - InternLM2 conversation.py not be found. If you need it, please copy it from model path to llmc/models.
+2026-07-20 12:48:53.685 | WARNING  | llmc.models.internvl3_5:<module>:21 - InternLM2 conversation.py not be found. If you need it, please copy it from model path to llmc/models.
+2026-07-20 12:48:53.698 | DEBUG    | llmc.models.llava:<module>:30 - LLaVA is not installed. Please install LLaVA to use this model.
+Error: No module named 'llava'
+2026-07-20 12:48:53.714 | DEBUG    | llmc.models.llava_onevision:<module>:27 - LLaVA is not installed. Please install LLaVA to use this model.
+Error: No module named 'llava'
+2026-07-20 12:48:54.380 | WARNING  | llmc.models.vila:<module>:25 - VILA is not installed. Please install VILA to use this model. Error: No module named 'llava'
+2026-07-20 12:49:01.821 | INFO     | llmc.utils.utils:check_config:49 - Tokenizer_mode is set to slow.
+2026-07-20 12:49:01.821 | INFO     | llmc.utils.utils:check_config:49 - Tokenizer_mode is set to slow.
+2026-07-20 12:49:01.821 | INFO     | __main__:<module>:216 - args: Namespace(config='/mnt/d/Abrar/SEQ/seq_v4/runs/final/llmc/OLMo-2-1124-7B/gptq/config.yml', task_id='gptq_w4_g128_llama32_1b')
+2026-07-20 12:49:01.821 | INFO     | __main__:<module>:216 - args: Namespace(config='/mnt/d/Abrar/SEQ/seq_v4/runs/final/llmc/OLMo-2-1124-7B/gptq/config.yml', task_id='gptq_w4_g128_llama32_1b')
+2026-07-20 12:49:01.821 | INFO     | __main__:<module>:217 - config:
+{
+    "base": {
+        "seed": 42
+    },
+    "model": {
+        "type": "Olmo",
+        "path": "allenai/OLMo-2-1124-7B",
+        "torch_dtype": "auto",
+        "tokenizer_mode": "slow"
+    },
+    "calib": {
+        "name": "wikitext2",
+        "download": true,
+        "n_samples": 128,
+        "bs": 1,
+        "seq_len": 2048,
+        "preproc": "wikitext2_gptq",
+        "seed": 0
+    },
+    "eval": {
+        "eval_pos": [
+            "fake_quant"
+        ],
+        "name": "wikitext2",
+        "download": true,
+        "bs": 1,
+        "seq_len": 2048,
+        "inference_per_block": false
+    },
+    "quant": {
+        "method": "GPTQ",
+        "weight": {
+            "bit": 4,
+            "symmetric": false,
+            "granularity": "per_group",
+            "group_size": 128
+        },
+        "special": {
+            "actorder": true,
+            "static_groups": false,
+            "percdamp": 0.01,
+            "blocksize": 128,
+            "true_sequential": true
+        },
+        "quant_out": true
+    },
+    "save": {
+        "save_trans": false,
+        "save_fake": true,
+        "save_vllm": false,
+        "save_path": "/mnt/d/Abrar/SEQ/seq_v4/runs/final/llmc/OLMo-2-1124-7B/gptq/artifacts"
+    }
+}
+2026-07-20 12:49:01.821 | INFO     | __main__:<module>:217 - config:
+{
+    "base": {
+        "seed": 42
+    },
+    "model": {
+        "type": "Olmo",
+        "path": "allenai/OLMo-2-1124-7B",
+        "torch_dtype": "auto",
+        "tokenizer_mode": "slow"
+    },
+    "calib": {
+        "name": "wikitext2",
+        "download": true,
+        "n_samples": 128,
+        "bs": 1,
+        "seq_len": 2048,
+        "preproc": "wikitext2_gptq",
+        "seed": 0
+    },
+    "eval": {
+        "eval_pos": [
+            "fake_quant"
+        ],
+        "name": "wikitext2",
+        "download": true,
+        "bs": 1,
+        "seq_len": 2048,
+        "inference_per_block": false
+    },
+    "quant": {
+        "method": "GPTQ",
+        "weight": {
+            "bit": 4,
+            "symmetric": false,
+            "granularity": "per_group",
+            "group_size": 128
+        },
+        "special": {
+            "actorder": true,
+            "static_groups": false,
+            "percdamp": 0.01,
+            "blocksize": 128,
+            "true_sequential": true
+        },
+        "quant_out": true
+    },
+    "save": {
+        "save_trans": false,
+        "save_fake": true,
+        "save_vllm": false,
+        "save_path": "/mnt/d/Abrar/SEQ/seq_v4/runs/final/llmc/OLMo-2-1124-7B/gptq/artifacts"
+    }
+}
+2026-07-20 12:49:01.824 | INFO     | llmc.utils.utils:print_important_package_version:73 - torch : 2.13.0
+2026-07-20 12:49:01.824 | INFO     | llmc.utils.utils:print_important_package_version:73 - torch : 2.13.0
+2026-07-20 12:49:01.828 | INFO     | llmc.utils.utils:print_important_package_version:74 - transformers : 5.14.1
+2026-07-20 12:49:01.828 | INFO     | llmc.utils.utils:print_important_package_version:74 - transformers : 5.14.1
+2026-07-20 12:49:01.831 | INFO     | llmc.utils.utils:print_important_package_version:75 - tokenizers : 0.22.2
+2026-07-20 12:49:01.831 | INFO     | llmc.utils.utils:print_important_package_version:75 - tokenizers : 0.22.2
+2026-07-20 12:49:01.834 | INFO     | llmc.utils.utils:print_important_package_version:76 - huggingface-hub : 1.24.0
+2026-07-20 12:49:01.834 | INFO     | llmc.utils.utils:print_important_package_version:76 - huggingface-hub : 1.24.0
+2026-07-20 12:49:01.837 | INFO     | llmc.utils.utils:print_important_package_version:77 - datasets : 2.16.1
+2026-07-20 12:49:01.837 | INFO     | llmc.utils.utils:print_important_package_version:77 - datasets : 2.16.1
+2026-07-20 12:49:01.837 | INFO     | __main__:<module>:221 - WORLD_SIZE : 1
+2026-07-20 12:49:01.837 | INFO     | __main__:<module>:221 - WORLD_SIZE : 1
+/mnt/d/LightCompress/.venv-llmc/lib/python3.11/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+[rank0]:[W720 12:49:01.717152293 ProcessGroupNCCL.cpp:5276] Guessing device ID based on global rank. This can cause a hang if rank to GPU mapping is heterogeneous. You can specify device_id in init_process_group()
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "<frozen runpy>", line 198, in _run_module_as_main
+[rank0]:   File "<frozen runpy>", line 88, in _run_code
+[rank0]:   File "/mnt/d/Abrar/SEQ/seq_v4/scripts/llmc_ppl_entrypoint.py", line 69, in <module>
+[rank0]:     runpy.run_module("llmc.__main__", run_name="__main__")
+[rank0]:   File "<frozen runpy>", line 229, in run_module
+[rank0]:   File "<frozen runpy>", line 88, in _run_code
+[rank0]:   File "/mnt/d/LightCompress/llmc/__main__.py", line 285, in <module>
+[rank0]:     main(config)
+[rank0]:   File "/mnt/d/LightCompress/llmc/__main__.py", line 30, in main
+[rank0]:     model = MODEL_REGISTRY[config.model.type](config)
+[rank0]:             ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/mnt/d/LightCompress/llmc/utils/registry_factory.py", line 27, in __getitem__
+[rank0]:     return self._dict[key]
+[rank0]:            ~~~~~~~~~~^^^^^
+[rank0]: KeyError: 'Olmo'
+[rank0]:[W720 12:49:03.868721832 ProcessGroupNCCL.cpp:1624] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+E0720 12:49:05.672000 1214 .venv-llmc/lib/python3.11/site-packages/torch/distributed/elastic/multiprocessing/api.py:1002] failed (exitcode: 1) local_rank: 0 (pid: 1236) of binary: /mnt/d/LightCompress/.venv-llmc/bin/python
+Traceback (most recent call last):
+  File "/mnt/d/LightCompress/.venv-llmc/bin/torchrun", line 10, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/mnt/d/LightCompress/.venv-llmc/lib/python3.11/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 367, in wrapper
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/mnt/d/LightCompress/.venv-llmc/lib/python3.11/site-packages/torch/distributed/run.py", line 1028, in main
+    run(args)
+  File "/mnt/d/LightCompress/.venv-llmc/lib/python3.11/site-packages/torch/distributed/run.py", line 1019, in run
+    elastic_launch(
+  File "/mnt/d/LightCompress/.venv-llmc/lib/python3.11/site-packages/torch/distributed/launcher/api.py", line 194, in __call__
+    return launch_agent(
+           ^^^^^^^^^^^^^
+  File "/mnt/d/LightCompress/.venv-llmc/lib/python3.11/site-packages/torch/distributed/launcher/api.py", line 383, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+scripts.llmc_ppl_entrypoint FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-07-20_12:49:05
+  host      : DESKTOP-H3ERD3U.localdomain
+  rank      : 0 (local_rank: 0)
+  exitcode  : 1 (pid: 1236) 
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================

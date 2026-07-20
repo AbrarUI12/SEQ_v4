@@ -1,0 +1,9 @@
+{
+  "meta-llama/Llama-2-7b-hf": [
+    {
+      "method": "GPTQ-4 g128",
+      "bits": 4.0,
+      "ppl": 5.589639663696289
+    }
+  ]
+}

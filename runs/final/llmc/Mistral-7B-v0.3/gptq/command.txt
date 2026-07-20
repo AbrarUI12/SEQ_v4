@@ -1,0 +1,1 @@
+/mnt/d/LightCompress/.venv-llmc/bin/torchrun --standalone --nproc_per_node=1 --module scripts.llmc_ppl_entrypoint --config /mnt/d/Abrar/SEQ/seq_v4/runs/final/llmc/Mistral-7B-v0.3/gptq/config.yml --task_id gptq_w4_g128_llama32_1b

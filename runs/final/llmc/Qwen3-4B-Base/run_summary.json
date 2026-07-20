@@ -1,0 +1,40 @@
+{
+  "model": "Qwen/Qwen3-4B-Base",
+  "results": [
+    {
+      "model": "Qwen/Qwen3-4B-Base",
+      "method": "GPTQ-4 g128",
+      "bits": 4.0,
+      "status": "completed",
+      "ppl": 8.134419441223145,
+      "ppl_dataset": "wikitext2",
+      "eval_seq_len": 2048,
+      "calibration": {
+        "name": "wikitext2",
+        "n_samples": 128,
+        "bs": 1,
+        "seq_len": 2048,
+        "preproc": "wikitext2_gptq",
+        "seed": 0
+      },
+      "llmc_config_source": "configs/quantization/methods/GPTQ/gptq_w_only.yml",
+      "rendered_config": "runs/final/llmc/Qwen3-4B-Base/gptq/config.yml",
+      "llmc_repo": "/mnt/d/LightCompress",
+      "llmc_commit": "86f564ddb1d6548b228c67a10509a4ed7264345c",
+      "command": [
+        "/mnt/d/LightCompress/.venv-llmc/bin/torchrun",
+        "--standalone",
+        "--nproc_per_node=1",
+        "--module",
+        "scripts.llmc_ppl_entrypoint",
+        "--config",
+        "/mnt/d/Abrar/SEQ/seq_v4/runs/final/llmc/Qwen3-4B-Base/gptq/config.yml",
+        "--task_id",
+        "gptq_w4_g128_llama32_1b"
+      ],
+      "returncode": 0,
+      "duration_sec": 610.897,
+      "log": "runs/final/llmc/Qwen3-4B-Base/gptq/llmc.log"
+    }
+  ]
+}

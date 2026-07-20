@@ -1,0 +1,9 @@
+{
+  "mistralai/Mistral-7B-v0.3": [
+    {
+      "method": "GPTQ-4 g128",
+      "bits": 4.0,
+      "ppl": 5.481876373291016
+    }
+  ]
+}

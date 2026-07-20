@@ -1,0 +1,42 @@
+base:
+  seed: 42
+model:
+  type: Qwen2
+  path: Qwen/Qwen3-4B-Base
+  torch_dtype: auto
+  tokenizer_mode: slow
+calib:
+  name: wikitext2
+  download: true
+  n_samples: 128
+  bs: 1
+  seq_len: 2048
+  preproc: wikitext2_gptq
+  seed: 0
+eval:
+  eval_pos:
+  - fake_quant
+  name: wikitext2
+  download: true
+  bs: 1
+  seq_len: 2048
+  inference_per_block: false
+quant:
+  method: GPTQ
+  weight:
+    bit: 4
+    symmetric: false
+    granularity: per_group
+    group_size: 128
+  special:
+    actorder: true
+    static_groups: false
+    percdamp: 0.01
+    blocksize: 128
+    true_sequential: true
+  quant_out: true
+save:
+  save_trans: false
+  save_fake: true
+  save_vllm: false
+  save_path: /mnt/d/Abrar/SEQ/seq_v4/runs/final/llmc/Qwen3-4B-Base/gptq/artifacts
