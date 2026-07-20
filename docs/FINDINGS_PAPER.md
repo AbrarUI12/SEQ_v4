@@ -3,11 +3,12 @@
 **Working title:** *When Does Outlier Protection Help? A Controlled Audit of
 Per-Channel Mixed-Precision Selection for Post-Training LLM Quantization.*
 
-_Status: draft. F1–F4 tables below are populated from the RTX-4090 final run
+_Status: draft. F1–F4 tables are populated from the RTX-4090 final run
 (`runs/final/reports/GATE_SUMMARY.md`, mirrored in
-`docs/PROJECT_STATUS_AND_ROADMAP.md §1`). F5 (downstream) is being produced now via
-`scripts/run_downstream_eval.sh`; its table auto-fills from `docs/DOWNSTREAM.md`.
-The Pareto claims assume the regenerated `docs/COMPARISON.md` (roadmap §3 W1)._
+`docs/PROJECT_STATUS_AND_ROADMAP.md §1`); the Pareto table is the regenerated
+`docs/COMPARISON.md` (W1 done). F5 downstream: the **HQQ axis (F1) is in**
+(`docs/DOWNSTREAM.md`); the **GPTQ axis (F3/F4) is pending** the saved GPTQ base
+checkpoint on the eval box (see §7)._
 
 ---
 
@@ -140,21 +141,41 @@ antagonism at the task level. Numbers auto-populate from `docs/DOWNSTREAM.md`.
 
 _Table (fills from the downstream run):_
 
-| model | point | bits | hellaswag | arc-e | arc-c | piqa | winogrande | lambada | avg |
+Zero-shot accuracy (acc_norm where reported, else acc), macro-averaged over the six
+tasks (full table in `docs/DOWNSTREAM.md`). **HQQ axis (available now):**
+
+| model | point | bits | arc-c | arc-e | hellaswag | lambada | piqa | winogrande | **avg** |
 |---|---|---|---|---|---|---|---|---|---|
-| 3B | FP16 | 16 | · | · | · | · | · | · | · |
-| 3B | GPTQ-4 | 4.0 | · | · | · | · | · | · | · |
-| 3B | HQQ-4 | 4.0 | · | · | · | · | · | · | · |
-| 3B | residual_max@GPTQ (★) | 4.82 | · | · | · | · | · | · | · |
-| 3B | greedy@GPTQ (catastrophe) | 4.82 | · | · | · | · | · | · | · |
-| 3B | best greedy@HQQ | 7.70 | · | · | · | · | · | · | · |
-| 1B | … | | | | | | | | |
+| 3B | FP16 | 16 | 46.42 | 72.14 | 74.16 | 70.17 | 78.07 | 69.61 | **68.43** |
+| 3B | HQQ-4 (base) | 4.0 | 45.31 | 70.03 | 72.34 | 67.48 | 76.61 | 68.59 | **66.72** |
+| 3B | best greedy@HQQ | 7.70 | 45.99 | 71.63 | 73.34 | 69.63 | 77.86 | 69.14 | **67.93** |
+| 1B | FP16 | 16 | 31.50 | 61.50 | 58.00 | 60.00 | 76.50 | 60.50 | **58.00** |
+| 1B | HQQ-4 (base) | 4.0 | 35.00 | 59.00 | 54.50 | 56.50 | 75.50 | 62.50 | **57.17** |
+| 1B | best greedy@HQQ | 7.70 | 32.00 | 64.00 | 57.50 | 61.00 | 75.00 | 63.50 | **58.83** |
+
+**Result — F1 corroborated:** protection on the data-free HQQ base recovers most of
+the accuracy the 4-bit base loses to FP16 — macro Δ(best@HQQ − HQQ-4) = **+1.21
+[+0.77, +1.63] pts on 3B** (paired bootstrap, CI excludes 0) and **+1.67 [−0.08,
++3.33] pts on 1B** (directional). Note this contrast is not matched-bit (7.70 vs
+4.0 bits); the tight matched-bit signal-vs-random claim is the PPL result in §3 — a
+matched-bit `random@HQQ` downstream point would sharpen it (see §7a).
+
+_GPTQ axis (F3/F4 downstream) — pending:_ the `GPTQ-4`, `residual_max@GPTQ` and
+`greedy@GPTQ` points require the saved GPTQ base checkpoint
+(`runs/final/llmc/<Model>/gptq/artifacts/fake_quant_model`), which was not present
+on the eval box for this run, so those rows are not yet filled.
 
 **Pre-registered downstream expectations** (falsifiable): (i) `residual_max@GPTQ −
 GPTQ-4` macro-Δ CI includes 0 or is positive (safe protection, F4); (ii)
 `greedy@GPTQ − GPTQ-4` macro-Δ CI is strongly negative (F3 antagonism reproduces
 downstream); (iii) `best@HQQ − HQQ-4` macro-Δ CI is positive (protection helps a
-data-free base, F1).
+data-free base, F1) — **confirmed above**.
+
+### 7a. Note on the matched-bit downstream control
+The current HQQ contrast varies budget (4.0 → 7.70 bits). Adding a `random@HQQ`
+point at the same 7.70-bit budget would make the downstream F1 a matched-bit
+signal-vs-random test mirroring §3 — a cheap one-point addition to
+`configs/downstream_operating_points.json`.
 
 ## 8. Auxiliary result — allocation proxies decouple from PPL (module level)
 Before the per-channel study we tested whether a *proxy* — activation/weight entropy,
