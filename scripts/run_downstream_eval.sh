@@ -166,9 +166,28 @@ print("\n".join(json.load(open(sys.argv[1]))["models"][sys.argv[2]]["points"]))'
     esac
 
     # ---- 2. run the lm-eval-harness paper task set ------------------------- #
-    if [[ "$RESUME" == 1 && -n "$(find "$lm_out" -name '*.json' 2>/dev/null | head -1)" ]]; then
-      echo "  reuse lm-eval results under: $lm_out"
+    # Guard resume against a limit change: a `--limit N` smoke run writes partial
+    # results, and a later full `--resume` (or a different N) must NOT silently
+    # reuse them. Compare the limit recorded in the prior run's seq_meta.json
+    # against the current one; only reuse when they match.
+    cur_limit="${LIMIT:-full}"
+    prev_limit="$("$PYTHON" - "$point_out/seq_meta.json" <<'PY'
+import json, sys
+try:
+    v = json.load(open(sys.argv[1])).get("limit")
+except Exception:
+    v = None
+print("full" if v in (None, "") else int(v))
+PY
+)"
+    have_results="$(find "$lm_out" -name '*.json' 2>/dev/null | head -1)"
+    if [[ "$RESUME" == 1 && -n "$have_results" && "$prev_limit" == "$cur_limit" ]]; then
+      echo "  reuse lm-eval results under: $lm_out (limit=$cur_limit)"
     else
+      if [[ "$RESUME" == 1 && -n "$have_results" && "$prev_limit" != "$cur_limit" ]]; then
+        echo "  NOT reusing lm-eval results: limit changed (was $prev_limit, now $cur_limit); re-running"
+        rm -rf "$lm_out"
+      fi
       mkdir -p "$lm_out"
       eval_cmd=("$PYTHON" -m lm_eval --model hf
                 --model_args "pretrained=$pretrained,dtype=float16"
