@@ -99,6 +99,12 @@ def parse_args() -> argparse.Namespace:
                    help="signal label to export (required with --save_model_path)")
     p.add_argument("--save_k_frac", type=float, default=None,
                    help="protection fraction to export (required with --save_model_path)")
+    p.add_argument("--verify_materialized", action="store_true",
+                   help="F3 diagnostic: after each protected config's runtime (forward) PPL is "
+                        "measured, materialize the protected weights to a dense checkpoint in "
+                        "memory and re-measure PPL. Equal PPLs => the export round-trips "
+                        "faithfully (so a healthy downstream implicates the base, not the "
+                        "export); a large gap => materialization loses the protection (export bug).")
     return p.parse_args()
 
 
@@ -516,6 +522,23 @@ def main() -> int:
                 json.dumps(manifest, indent=2), encoding="utf-8"
             )
             LOGGER.info("saved reloadable dense fake-quant checkpoint to %s", save_path)
+
+        if args.verify_materialized:
+            # F3 round-trip check: materialize the protected model to dense weights
+            # (a no-op if the save path above already did so) and re-measure PPL.
+            # runtime_ppl == materialized_ppl means forward and exported weights agree.
+            from seq_core.channel_protect import materialize_channel_protection
+
+            dense_layers = materialize_channel_protection(model)
+            mat_ppl = ppl_fn(model, tokenizer)
+            row["materialized_ppl"] = float(mat_ppl)
+            row["materialized_ppl_delta"] = float(mat_ppl - ppl) if ppl == ppl else None
+            LOGGER.info(
+                "verify_materialized %-13s %-16s runtime_ppl=%.4f materialized_ppl=%.4f "
+                "Δ=%+.4f (dense_layers=%d)",
+                sig_label, f"{kind}={label}", ppl, mat_ppl,
+                (mat_ppl - ppl) if ppl == ppl else float("nan"), dense_layers,
+            )
 
         unload_model(model, tokenizer)
         LOGGER.info("%-13s %-16s eff=%.2f ppl=%.4f (Δ%+.4f) errs=%d",
