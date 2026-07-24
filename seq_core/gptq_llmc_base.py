@@ -101,7 +101,21 @@ def load_llmc_fake_quant_base(
     ``device`` (default CPU, to avoid doubling GPU memory) and the reloaded model
     is freed before returning.
     """
+    import os
+
     from transformers import AutoModelForCausalLM
+
+    # This loader expects a local export directory. If it is missing, transformers
+    # falls back to treating the path as a hub repo id and raises a confusing
+    # "Repo id must be in the form 'namespace/repo'" error. Fail clearly instead.
+    if not os.path.isdir(model_path):
+        raise FileNotFoundError(
+            f"LightCompress fake-quant base directory not found: '{model_path}' "
+            f"(resolved: '{os.path.abspath(model_path)}'). These fake-quant weights are "
+            "gitignored and do not travel with the repo — run on the box where they were "
+            "produced, pass an absolute --gptq_model_path, or rebuild them with "
+            "run_llmc_w4_baselines.py --model <MODEL> --methods gptq --force."
+        )
 
     raw_state = _load_state_tensors(model_path)
 
