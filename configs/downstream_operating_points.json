@@ -8,7 +8,7 @@
     "gptq4":       {"kind": "hf",     "source": "gptq_base", "nominal_bits": 4.0,  "note": "LightCompress GPTQ-4 base (strong error-compensated base)"},
     "hqq4":        {"kind": "export", "base_quantizer": "hqq",       "base_bits": 4, "mode": "signals", "signal": "act_max",      "k_frac": 0.0,  "nominal_bits": 4.0,  "note": "data-free RTN/HQQ-4 base (frac 0 = no protection)"},
     "resmax_gptq": {"kind": "export", "base_quantizer": "gptq_llmc", "base_bits": 4, "mode": "signals", "signal": "residual_max", "k_frac": 0.02, "nominal_bits": 4.82, "note": "safe activation-magnitude protection on GPTQ (3B Pareto frontier point)"},
-    "greedy_gptq": {"kind": "export", "base_quantizer": "gptq_llmc", "base_bits": 4, "mode": "select",  "signal": "greedy",       "k_frac": 0.02, "nominal_bits": 4.82, "note": "CATASTROPHIC control: residual-driven greedy on GPTQ (confirms F3 antagonism downstream)"},
+    "greedy_gptq": {"kind": "export", "base_quantizer": "gptq_llmc", "base_bits": 4, "mode": "select",  "signal": "greedy",       "k_frac": 0.02, "nominal_bits": 4.82, "note": "F3 probe: residual-driven greedy on GPTQ. Catastrophic in original-base PPL (55.34/104.16) but measured HEALTHY downstream - see FINDINGS_PAPER 7.2; base-fragility vs export bug pending verify_materialized"},
     "best_hqq":    {"kind": "export", "base_quantizer": "hqq",       "base_bits": 4, "mode": "select",  "signal": "greedy",       "k_frac": 0.20, "nominal_bits": 7.70, "note": "best SEQ point on the data-free HQQ base (F1)"}
   },
   "models": {
@@ -33,7 +33,7 @@
   },
   "paired_contrasts": [
     {"name": "resmax_gptq_vs_gptq4", "a": "resmax_gptq", "b": "gptq4", "claim": "safe activation-magnitude protection is >= GPTQ-4 (F4)"},
-    {"name": "greedy_gptq_vs_gptq4", "a": "greedy_gptq", "b": "gptq4", "claim": "residual-driven protection is catastrophic on GPTQ (F3)"},
+    {"name": "greedy_gptq_vs_gptq4", "a": "greedy_gptq", "b": "gptq4", "claim": "F3 pre-registration (catastrophic on GPTQ) - FALSIFIED downstream, see FINDINGS_PAPER 7.2"},
     {"name": "best_hqq_vs_hqq4",     "a": "best_hqq",     "b": "hqq4",  "claim": "protection helps a data-free base (F1)"}
   ]
 }

@@ -264,11 +264,15 @@ def render_markdown(points: List[Dict[str, Any]], config: Dict[str, Any]) -> str
                   "| point | bits | " + " | ".join(tasks) + " | avg | note |",
                   "|" + "---|" * (len(tasks) + 4)]
         pts = sorted(by_model[model], key=lambda p: order.index(p["point"]) if p["point"] in order else 99)
+        point_defs = (config or {}).get("point_defs", {})
         for p in pts:
             bits = p["meta"].get("nominal_bits")
             cells = [_fmt(p["results"].get(t, {}).get("value")) for t in tasks]
+            # Prefer the current config's note (presentation, kept in sync) over the
+            # note copied into seq_meta.json at run time on the eval box (historical).
+            note = point_defs.get(p["point"], {}).get("note") or p["meta"].get("note") or ""
             row = [p["point"], (f"{bits:g}" if isinstance(bits, (int, float)) else "—"),
-                   *cells, _fmt(_macro_avg(p["results"])), str(p["meta"].get("note") or "")]
+                   *cells, _fmt(_macro_avg(p["results"])), str(note)]
             lines.append("| " + " | ".join(row) + " |")
         lines.append("")
 
