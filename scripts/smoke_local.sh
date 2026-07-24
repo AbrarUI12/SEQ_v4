@@ -13,7 +13,13 @@
 # Exit non-zero if any run in the active phase fails.
 set -uo pipefail
 cd "$(dirname "$0")/.."
-PY="${PY:-python}"
+# Resolve interpreter: honor $PY if set, else prefer a project venv (this box uses
+# ~/.venvs/seq; the research PC uses .venv-seq), else fall back to system python.
+if [ -z "${PY:-}" ]; then
+  for cand in "$HOME/.venvs/seq/bin/python" ".venv-seq/bin/python" ".venv/bin/python" python3 python; do
+    if command -v "$cand" >/dev/null 2>&1; then PY="$cand"; break; fi
+  done
+fi
 command -v "$PY" >/dev/null 2>&1 || PY=python3
 
 fail=0
@@ -24,7 +30,7 @@ run() {  # run <label> <cmd...>
   else printf '  [FAIL] %s\n' "$label"; fail=$((fail+1)); fi
 }
 
-have() { "$PY" -c "import importlib,sys; sys.exit(0 if importlib.util.find_spec('$1') else 1)" 2>/dev/null; }
+have() { "$PY" -c "import importlib.util,sys; sys.exit(0 if importlib.util.find_spec('$1') else 1)" 2>/dev/null; }
 
 HAS_TORCH=0;  have torch  && HAS_TORCH=1
 HAS_PYTEST=0; have pytest && HAS_PYTEST=1
@@ -55,10 +61,15 @@ if [ "$HAS_TORCH" = 1 ]; then
   if [ "$HAS_PYTEST" = 1 ]; then
     run "pytest (torch suite)" "$PY" -m pytest -q tests/test_channel_export.py tests/test_gptq_sequential.py
   fi
-  # 1B micro-smoke: exercises --verify_materialized end-to-end (tiny ppl budget)
+  # 1B micro-smoke: exercises the protect -> materialize -> reload round-trip via
+  # --verify_materialized end-to-end (tiny ppl budget). Uses the data-free
+  # `magnitude` signal on purpose: it drives the identical export/materialize code
+  # path with no calibration forward pass and no Hessian, so it fits an 8GB laptop
+  # GPU. (The greedy *selection* logic is covered by tests/test_greedy_select.py;
+  # the full greedy+Hessian sweep at 1B is a research-PC job — see the plan.)
   run "channel_sweep 1B micro-smoke (--verify_materialized)" \
     "$PY" -m seq_core.channel_sweep --model meta-llama/Llama-3.2-1B --backend hqq \
-      --base_bits 4 --protect_fracs 0.02 --select greedy --seed 1234 \
+      --base_bits 4 --protect_fracs 0.02 --signals magnitude --seed 1234 \
       --ppl_mode canonical --ppl_max_examples 8 \
       --calibration_prompts calibration_prompts.json \
       --out_dir /tmp/seq_smoke --verify_materialized
