@@ -1,0 +1,3 @@
+=== downstream eval: tasks=[hellaswag,arc_easy,arc_challenge,piqa,winogrande,lambada_openai] device=cuda:0 limit=full resume=1 dry=0 ===
+--- Llama-3.2-3B :: greedy_gptq ---
+  reuse exported checkpoint: /mnt/d/Abrar/SEQ/seq_v4/runs/final/downstream/checkpoints/Llama-3.2-3B/greedy_gptq
