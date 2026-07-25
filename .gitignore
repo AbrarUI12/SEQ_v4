@@ -55,6 +55,7 @@ htmlcov/
 
 # Logs / temp
 *.log
+*.err
 *.tmp
 *.bak
 *.swp

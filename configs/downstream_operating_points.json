@@ -30,6 +30,15 @@
         "fp16": 9.757, "gptq4": 10.363, "hqq4": 11.187,
         "resmax_gptq": 10.391, "greedy_gptq": 104.16, "best_hqq": 10.207, "random_hqq": 10.975
       }
+    },
+    "Qwen/Qwen2.5-3B": {
+      "gptq_base": "runs/final/llmc/Qwen2.5-3B/gptq/artifacts/fake_quant_model",
+      "priority": 3,
+      "points": ["fp16", "gptq4", "hqq4", "resmax_gptq", "greedy_gptq", "best_hqq", "random_hqq"],
+      "_note": "cross-family breadth (paper § cross-family). expected_ppl.gptq4 from runs/final/llmc/Qwen2.5-3B/gptq/summary.json; the other expected_ppl are filled from the Qwen sweep once it lands (reload sanity only, not enforced during eval).",
+      "expected_ppl": {
+        "gptq4": 8.29
+      }
     }
   },
   "paired_contrasts": [

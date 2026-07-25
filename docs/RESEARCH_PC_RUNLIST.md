@@ -20,6 +20,68 @@ local box then pulls and rebuilds `COMPARISON.md`/`DOWNSTREAM.md`/figures and th
 
 ---
 
+## ⭐ NEXT SESSION (2026-07-25) — finish v1.0 + Qwen cross-family breadth
+
+Run in order; commit+push after each step. STEP 1 is the headline (fast); STEPS 2–4 are the
+cross-family breadth for a solid Findings submission. `git pull` first (this includes the
+Qwen entry in `configs/downstream_operating_points.json`).
+
+```
+cd /mnt/d/Abrar/SEQ/seq_v4 && git pull origin main && source .venv-seq/bin/activate
+
+# STEP 1 (HEADLINE, ~30 min) — greedy_gptq downstream on the catastrophic checkpoint.
+# Checkpoint is already exported (catastrophic 51.68/63.82); --resume skips re-export and
+# runs lm-eval fresh (stale eval dirs were deleted). Do NOT delete the checkpoint.
+bash scripts/run_downstream_eval.sh --points greedy_gptq --resume 2>&1 | tee results/greedy_gptq_reeval2.log
+python analysis/build_downstream_table.py --root runs/final/downstream \
+  --config configs/downstream_operating_points.json --out docs/DOWNSTREAM.md \
+  --csv results/downstream.csv --json results/downstream.json
+git add -f runs/final/downstream/Llama-3.2-3B/greedy_gptq/lm_eval/**/*.json \
+           runs/final/downstream/Llama-3.2-1B/greedy_gptq/lm_eval/**/*.json \
+           runs/final/downstream/*/greedy_gptq/seq_meta.json \
+           results/downstream.csv results/downstream.json docs/DOWNSTREAM.md results/greedy_gptq_reeval2.log
+git commit -m "greedy_gptq downstream re-eval on catastrophic checkpoint" && git push origin main
+# If lm-eval ERRORS (it didn't finish last time), paste the last ~30 lines of the log.
+
+# STEP 2 (Qwen sweeps, ~2-4 h) — HQQ+GPTQ axes. --models runs ONLY Qwen (Llama untouched);
+# --llmc-repo/--llmc-venv are required args but unused by these phases.
+bash scripts/run_final_seq_pipeline.sh --models Qwen/Qwen2.5-3B --phase full_matrix \
+  --llmc-repo "$PWD" --llmc-venv "$PWD/.venv-seq" 2>&1 | tee results/qwen_full_matrix.log
+bash scripts/run_final_seq_pipeline.sh --models Qwen/Qwen2.5-3B --phase gate \
+  --llmc-repo "$PWD" --llmc-venv "$PWD/.venv-seq" 2>&1 | tee results/qwen_gate.log
+git add -f runs/final/sweeps/**/Qwen2.5-3B/**/channel_pareto.json results/qwen_*.log
+git commit -m "Qwen2.5-3B sweeps (HQQ+GPTQ axes)" && git push origin main
+
+# STEP 3 (Qwen F3 check, ~10 min) — greedy@GPTQ verify_materialized for the model-dependence table.
+mkdir -p results/f3check_Qwen2.5-3B
+python -m seq_core.channel_sweep --model Qwen/Qwen2.5-3B --backend hqq --base_quantizer gptq_llmc \
+  --gptq_model_path "$PWD/runs/final/llmc/Qwen2.5-3B/gptq/artifacts/fake_quant_model" \
+  --select greedy --protect_fracs 0.02 --base_bits 4 --seed 1234 --ppl_mode canonical \
+  --calibration_prompts calibration_prompts.json \
+  --out_dir results/f3check_Qwen2.5-3B --verify_materialized 2>&1 | tee results/f3check_Qwen2.5-3B/run.log
+git add -f results/f3check_Qwen2.5-3B/channel_pareto.json results/f3check_Qwen2.5-3B/channel_pareto.md \
+           results/f3check_Qwen2.5-3B/run.log
+git commit -m "Qwen2.5-3B greedy@GPTQ verify_materialized (F3 cross-family)" && git push origin main
+
+# STEP 4 (Qwen downstream, ~1-2 h) — all 7 operating points.
+bash scripts/run_downstream_eval.sh --models Qwen/Qwen2.5-3B 2>&1 | tee results/qwen_downstream.log
+python analysis/build_downstream_table.py --root runs/final/downstream \
+  --config configs/downstream_operating_points.json --out docs/DOWNSTREAM.md \
+  --csv results/downstream.csv --json results/downstream.json
+git add -f runs/final/downstream/Qwen2.5-3B/**/lm_eval/**/*.json \
+           runs/final/downstream/Qwen2.5-3B/**/seq_meta.json \
+           results/downstream.csv results/downstream.json docs/DOWNSTREAM.md results/qwen_downstream.log
+git commit -m "Qwen2.5-3B downstream (cross-family breadth)" && git push origin main
+
+# REPORT BACK:
+#  STEP 1: greedy_gptq macro-avg accuracy + lambada acc, 1B and 3B (did accuracy COLLAPSE?).
+#  STEP 3: Qwen greedy@GPTQ FP16 / runtime_ppl / materialized_ppl (catastrophic or healthy?).
+#  STEP 4: Qwen macro-avg accuracy for each of the 7 points.
+#  Also paste Qwen FP16/gptq4/hqq4/resmax/greedy/best_hqq PPLs from the sweeps (to fill expected_ppl).
+```
+
+---
+
 ## 1. F3 A/B diagnostic — greedy@GPTQ `--verify_materialized` (blocking, ~minutes each)
 
 Settles whether greedy-on-GPTQ's catastrophe is real (A) or an export bug (B). The
