@@ -1,0 +1,101 @@
+=== downstream eval: tasks=[hellaswag,arc_easy,arc_challenge,piqa,winogrande,lambada_openai] device=cuda:0 limit=full resume=0 dry=0 ===
+--- Llama-3.2-3B :: greedy_gptq ---
+command: /mnt/d/Abrar/SEQ/seq_v4/.venv-seq/bin/python -m seq_core.channel_sweep --model meta-llama/Llama-3.2-3B --backend hqq --base_bits 4 --protect_fracs 0.02 --seed 1234 --ppl_mode canonical --calibration_prompts /mnt/d/Abrar/SEQ/seq_v4/calibration_prompts.json --base_quantizer gptq_llmc --out_dir /mnt/d/Abrar/SEQ/seq_v4/runs/final/downstream/checkpoints/Llama-3.2-3B/greedy_gptq/_sweep --save_model_path /mnt/d/Abrar/SEQ/seq_v4/runs/final/downstream/checkpoints/Llama-3.2-3B/greedy_gptq --save_signal greedy --save_k_frac 0.02 --gptq_model_path /mnt/d/Abrar/SEQ/seq_v4/runs/final/llmc/Llama-3.2-3B/gptq/artifacts/fake_quant_model --select greedy
+2026-07-25 06:33:24,055 | INFO | HTTP Request: HEAD https://huggingface.co/meta-llama/Llama-3.2-3B/resolve/main/config.json "HTTP/1.1 200 OK"
+Loading weights:   0%|          | 0/254 [00:00<?, ?it/s]Loading weights:   0%|          | 1/254 [00:00<00:57,  4.40it/s]Loading weights:  11%|█▏        | 29/254 [00:00<00:02, 108.01it/s]Loading weights:  18%|█▊        | 45/254 [00:00<00:01, 118.18it/s]Loading weights:  24%|██▎       | 60/254 [00:00<00:01, 116.30it/s]Loading weights:  29%|██▉       | 74/254 [00:00<00:01, 118.51it/s]Loading weights:  34%|███▍      | 87/254 [00:00<00:01, 119.11it/s]Loading weights:  41%|████      | 103/254 [00:00<00:01, 124.79it/s]Loading weights:  46%|████▋     | 118/254 [00:01<00:01, 127.48it/s]Loading weights:  52%|█████▏    | 132/254 [00:01<00:00, 124.38it/s]Loading weights:  58%|█████▊    | 148/254 [00:01<00:00, 118.96it/s]Loading weights:  67%|██████▋   | 171/254 [00:01<00:00, 139.54it/s]Loading weights:  74%|███████▍  | 189/254 [00:01<00:00, 141.30it/s]Loading weights:  81%|████████  | 205/254 [00:01<00:00, 143.27it/s]Loading weights:  87%|████████▋ | 220/254 [00:01<00:00, 131.26it/s]Loading weights:  92%|█████████▏| 234/254 [00:01<00:00, 131.59it/s]Loading weights: 100%|██████████| 254/254 [00:01<00:00, 127.33it/s]
+2026-07-25 06:33:32,017 | INFO | HTTP Request: HEAD https://huggingface.co/meta-llama/Llama-3.2-3B/resolve/main/generation_config.json "HTTP/1.1 200 OK"
+2026-07-25 06:33:33,418 | INFO | HTTP Request: HEAD https://huggingface.co/meta-llama/Llama-3.2-3B/resolve/main/config.json "HTTP/1.1 200 OK"
+2026-07-25 06:33:33,723 | INFO | HTTP Request: HEAD https://huggingface.co/meta-llama/Llama-3.2-3B/resolve/main/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-07-25 06:33:34,025 | INFO | HTTP Request: GET https://huggingface.co/api/models/meta-llama/Llama-3.2-3B/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-07-25 06:33:34,332 | INFO | HTTP Request: GET https://huggingface.co/api/models/meta-llama/Llama-3.2-3B/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-07-25 06:33:35,184 | INFO | HTTP Request: GET https://huggingface.co/api/models/meta-llama/Llama-3.2-3B "HTTP/1.1 200 OK"
+2026-07-25 06:33:53,098 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/main/README.md "HTTP/1.1 307 Temporary Redirect"
+2026-07-25 06:33:53,164 | INFO | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/datasets/Salesforce/wikitext/b08601e04326c79dfdd32d625aee71d232d685c3/README.md "HTTP/1.1 200 OK"
+2026-07-25 06:33:53,475 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py "HTTP/1.1 404 Not Found"
+2026-07-25 06:33:54,368 | INFO | HTTP Request: HEAD https://s3.amazonaws.com/datasets.huggingface.co/datasets/datasets/Salesforce/wikitext/Salesforce/wikitext.py "HTTP/1.1 404 Not Found"
+2026-07-25 06:33:54,690 | INFO | HTTP Request: GET https://huggingface.co/api/datasets/Salesforce/wikitext/revision/b08601e04326c79dfdd32d625aee71d232d685c3 "HTTP/1.1 200 OK"
+2026-07-25 06:33:54,987 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/.huggingface.yaml "HTTP/1.1 404 Not Found"
+2026-07-25 06:33:55,573 | INFO | HTTP Request: GET https://datasets-server.huggingface.co/info?dataset=Salesforce/wikitext "HTTP/1.1 200 OK"
+2026-07-25 06:33:55,883 | INFO | HTTP Request: GET https://huggingface.co/api/datasets/Salesforce/wikitext/tree/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext-103-raw-v1?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-07-25 06:33:56,182 | INFO | HTTP Request: GET https://huggingface.co/api/datasets/Salesforce/wikitext/tree/b08601e04326c79dfdd32d625aee71d232d685c3?recursive=false&expand=false "HTTP/1.1 200 OK"
+2026-07-25 06:33:56,486 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/dataset_infos.json "HTTP/1.1 404 Not Found"
+2026-07-25 06:33:56,795 | INFO | HTTP Request: GET https://huggingface.co/api/datasets/Salesforce/wikitext/tree/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext-2-raw-v1?recursive=true&expand=false "HTTP/1.1 200 OK"
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (289076 > 131072). Running this sequence through the model will result in indexing errors
+2026-07-25 06:34:09,129 | INFO | PPL mode=canonical dataset=wikitext2 split=test tokenizer=meta-llama/Llama-3.2-3B seq_len=2048 stream=continuous_stream chunking=non_overlapping full_chunks=141 supervised_tokens=288627 tail_dropped=True tail_tokens_dropped=308 loss_impl=hf_internal_shift avg_loss=2.056257498179767 ppl=7.816661132121476 error=None
+2026-07-25 06:34:09,131 | INFO | FP16 baseline ppl = 7.8167
+2026-07-25 06:34:09,136 | INFO | loading LightCompress fake-quant base from /mnt/d/Abrar/SEQ/seq_v4/runs/final/llmc/Llama-3.2-3B/gptq/artifacts/fake_quant_model ...
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+Loading weights:   0%|          | 0/254 [00:00<?, ?it/s]Loading weights:   0%|          | 1/254 [01:25<6:00:34, 85.51s/it]Loading weights: 100%|██████████| 254/254 [01:25<00:00,  2.97it/s]
+[transformers] [1mLlamaForCausalLM LOAD REPORT[0m from: /mnt/d/Abrar/SEQ/seq_v4/runs/final/llmc/Llama-3.2-3B/gptq/artifacts/fake_quant_model
+Key                                                | Status     |  | 
+---------------------------------------------------+------------+--+-
+model.layers.{0...27}.mlp.up_proj.buf_qmax         | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.gate_proj.buf_qmin       | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.gate_proj.buf_scales     | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.q_proj.buf_qmin    | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.q_proj.buf_invperm | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.down_proj.buf_zeros      | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.k_proj.buf_zeros   | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.q_proj.buf_zeros   | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.gate_proj.buf_qmax       | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.down_proj.buf_invperm    | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.down_proj.buf_qmax       | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.v_proj.buf_zeros   | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.k_proj.buf_perm    | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.k_proj.buf_invperm | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.up_proj.buf_scales       | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.k_proj.buf_qmax    | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.gate_proj.buf_perm       | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.up_proj.buf_qmin         | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.gate_proj.buf_invperm    | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.q_proj.buf_scales  | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.o_proj.buf_qmin    | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.v_proj.buf_scales  | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.k_proj.buf_scales  | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.v_proj.buf_perm    | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.v_proj.buf_qmin    | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.v_proj.buf_qmax    | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.up_proj.buf_invperm      | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.up_proj.buf_perm         | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.q_proj.buf_perm    | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.down_proj.buf_perm       | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.up_proj.buf_zeros        | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.o_proj.buf_scales  | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.o_proj.buf_zeros   | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.down_proj.buf_scales     | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.o_proj.buf_invperm | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.v_proj.buf_invperm | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.k_proj.buf_qmin    | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.o_proj.buf_perm    | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.down_proj.buf_qmin       | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.o_proj.buf_qmax    | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.q_proj.buf_qmax    | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.gate_proj.buf_zeros      | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+2026-07-25 06:36:01,260 | INFO | llmc base: matched 197/197 target Linear layers (0 shape mismatches)
+2026-07-25 06:36:02,788 | INFO | loaded 197 fake-quant layer weights from LightCompress base
+2026-07-25 06:36:02,799 | INFO | collecting input Hessians for greedy selection ...
+2026-07-25 06:42:03,543 | INFO | HTTP Request: HEAD https://huggingface.co/meta-llama/Llama-3.2-3B/resolve/main/config.json "HTTP/1.1 200 OK"
+Loading weights:   0%|          | 0/254 [00:00<?, ?it/s]Loading weights:   0%|          | 1/254 [00:00<01:05,  3.86it/s]Loading weights:  12%|█▏        | 31/254 [00:00<00:02, 104.58it/s]Loading weights:  19%|█▊        | 47/254 [00:00<00:02, 75.56it/s] Loading weights:  23%|██▎       | 59/254 [00:00<00:02, 79.65it/s]Loading weights:  32%|███▏      | 81/254 [00:00<00:01, 104.92it/s]Loading weights:  37%|███▋      | 94/254 [00:01<00:01, 110.66it/s]Loading weights:  44%|████▍     | 113/254 [00:01<00:01, 128.61it/s]Loading weights:  51%|█████     | 130/254 [00:01<00:00, 134.89it/s]Loading weights:  57%|█████▋    | 145/254 [00:01<00:00, 130.65it/s]Loading weights:  63%|██████▎   | 159/254 [00:01<00:00, 110.16it/s]Loading weights:  69%|██████▉   | 175/254 [00:01<00:00, 118.69it/s]Loading weights:  76%|███████▌  | 193/254 [00:01<00:00, 126.55it/s]Loading weights:  81%|████████▏ | 207/254 [00:01<00:00, 109.52it/s]Loading weights:  90%|████████▉ | 228/254 [00:02<00:00, 126.17it/s]Loading weights:  97%|█████████▋| 247/254 [00:02<00:00, 137.66it/s]Loading weights: 100%|██████████| 254/254 [00:02<00:00, 115.72it/s]
+2026-07-25 06:42:06,267 | INFO | HTTP Request: HEAD https://huggingface.co/meta-llama/Llama-3.2-3B/resolve/main/generation_config.json "HTTP/1.1 200 OK"
+2026-07-25 06:42:07,790 | INFO | HTTP Request: HEAD https://huggingface.co/meta-llama/Llama-3.2-3B/resolve/main/config.json "HTTP/1.1 200 OK"
+2026-07-25 06:42:08,091 | INFO | HTTP Request: HEAD https://huggingface.co/meta-llama/Llama-3.2-3B/resolve/main/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-07-25 06:42:08,401 | INFO | HTTP Request: GET https://huggingface.co/api/models/meta-llama/Llama-3.2-3B/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-07-25 06:42:08,706 | INFO | HTTP Request: GET https://huggingface.co/api/models/meta-llama/Llama-3.2-3B/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-07-25 06:42:09,588 | INFO | HTTP Request: GET https://huggingface.co/api/models/meta-llama/Llama-3.2-3B "HTTP/1.1 200 OK"
+2026-07-25 06:42:20,726 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/main/README.md "HTTP/1.1 307 Temporary Redirect"
+2026-07-25 06:42:20,791 | INFO | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/datasets/Salesforce/wikitext/b08601e04326c79dfdd32d625aee71d232d685c3/README.md "HTTP/1.1 200 OK"
+2026-07-25 06:42:21,090 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py "HTTP/1.1 404 Not Found"
+2026-07-25 06:42:26,032 | INFO | HTTP Request: HEAD https://s3.amazonaws.com/datasets.huggingface.co/datasets/datasets/Salesforce/wikitext/Salesforce/wikitext.py "HTTP/1.1 404 Not Found"
+2026-07-25 06:42:26,345 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/.huggingface.yaml "HTTP/1.1 404 Not Found"
+2026-07-25 06:42:26,876 | INFO | HTTP Request: GET https://datasets-server.huggingface.co/info?dataset=Salesforce/wikitext "HTTP/1.1 200 OK"
+2026-07-25 06:42:27,197 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/dataset_infos.json "HTTP/1.1 404 Not Found"
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (289076 > 131072). Running this sequence through the model will result in indexing errors
+2026-07-25 06:42:40,658 | INFO | PPL mode=canonical dataset=wikitext2 split=test tokenizer=meta-llama/Llama-3.2-3B seq_len=2048 stream=continuous_stream chunking=non_overlapping full_chunks=141 supervised_tokens=288627 tail_dropped=True tail_tokens_dropped=308 loss_impl=hf_internal_shift avg_loss=3.94513160962585 ppl=51.68313966319626 error=None
+2026-07-25 06:42:49,616 | INFO | export: lm_head was quantized; saving it untied so the checkpoint round-trips faithfully
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:48<00:00, 48.38s/it]Writing model shards: 100%|██████████| 1/1 [00:48<00:00, 48.38s/it]
+2026-07-25 06:43:38,249 | INFO | saved reloadable dense fake-quant checkpoint to /mnt/d/Abrar/SEQ/seq_v4/runs/final/downstream/checkpoints/Llama-3.2-3B/greedy_gptq
+2026-07-25 06:43:38,578 | INFO | greedy        frac=0.02        eff=4.24 ppl=51.6831 (Δ+43.8665) errs=0
+2026-07-25 06:43:38,668 | INFO | wrote /mnt/d/Abrar/SEQ/seq_v4/runs/final/downstream/checkpoints/Llama-3.2-3B/greedy_gptq/_sweep/channel_pareto.md

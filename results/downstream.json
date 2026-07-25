@@ -116,44 +116,6 @@
     },
     {
       "model": "meta-llama/Llama-3.2-1B",
-      "point": "greedy_gptq",
-      "nominal_bits": 4.82,
-      "results": {
-        "hellaswag": {
-          "metric": "acc_norm",
-          "value": 0.6196972714598685,
-          "stderr": 0.004844690404713639
-        },
-        "arc_easy": {
-          "metric": "acc_norm",
-          "value": 0.6081649831649831,
-          "stderr": 0.010016835016835016
-        },
-        "arc_challenge": {
-          "metric": "acc_norm",
-          "value": 0.35580204778157,
-          "stderr": 0.01399057113791884
-        },
-        "piqa": {
-          "metric": "acc_norm",
-          "value": 0.73449401523395,
-          "stderr": 0.01030330865302444
-        },
-        "winogrande": {
-          "metric": "acc",
-          "value": 0.611681136543015,
-          "stderr": 0.013697456658457305
-        },
-        "lambada_openai": {
-          "metric": "acc",
-          "value": 0.5901416650494857,
-          "stderr": 0.006851838175155221
-        }
-      },
-      "macro_avg": 0.5866635198721454
-    },
-    {
-      "model": "meta-llama/Llama-3.2-1B",
       "point": "hqq4",
       "nominal_bits": 4.0,
       "results": {
@@ -344,44 +306,6 @@
     },
     {
       "model": "meta-llama/Llama-3.2-3B",
-      "point": "greedy_gptq",
-      "nominal_bits": 4.82,
-      "results": {
-        "hellaswag": {
-          "metric": "acc_norm",
-          "value": 0.7325234017128062,
-          "stderr": 0.004417384102398972
-        },
-        "arc_easy": {
-          "metric": "acc_norm",
-          "value": 0.7146464646464646,
-          "stderr": 0.009266280584997674
-        },
-        "arc_challenge": {
-          "metric": "acc_norm",
-          "value": 0.44795221843003413,
-          "stderr": 0.014532011498211615
-        },
-        "piqa": {
-          "metric": "acc_norm",
-          "value": 0.7725788900979326,
-          "stderr": 0.00977985076784715
-        },
-        "winogrande": {
-          "metric": "acc",
-          "value": 0.6985003946329913,
-          "stderr": 0.01289762807254676
-        },
-        "lambada_openai": {
-          "metric": "acc",
-          "value": 0.6904715699592471,
-          "stderr": 0.00644073225911694
-        }
-      },
-      "macro_avg": 0.6761121565799127
-    },
-    {
-      "model": "meta-llama/Llama-3.2-3B",
       "point": "hqq4",
       "nominal_bits": 4.0,
       "results": {
@@ -552,58 +476,8 @@
         }
       },
       "greedy_gptq_vs_gptq4": {
-        "available": true,
-        "paired": true,
-        "per_task": {
-          "arc_challenge": {
-            "n": 1172,
-            "diff": 0.005972696245733822,
-            "lo": -0.005972696245733789,
-            "hi": 0.01877133105802048,
-            "paired": true
-          },
-          "arc_easy": {
-            "n": 2376,
-            "diff": -0.007996632996633002,
-            "lo": -0.015572390572390573,
-            "hi": -0.00042087542087542086,
-            "paired": true
-          },
-          "hellaswag": {
-            "n": 10042,
-            "diff": -0.0013941445927105889,
-            "lo": -0.0044811790479984065,
-            "hi": 0.001593308105954989,
-            "paired": true
-          },
-          "lambada_openai": {
-            "n": 5153,
-            "diff": 0.009509023869590516,
-            "lo": 0.003299049097613041,
-            "hi": 0.01571899864156802,
-            "paired": true
-          },
-          "piqa": {
-            "n": 1838,
-            "diff": -0.0010881392818280489,
-            "lo": -0.009793253536452665,
-            "hi": 0.007616974972796518,
-            "paired": true
-          },
-          "winogrande": {
-            "n": 1267,
-            "diff": 0.014206787687450761,
-            "lo": 0.0,
-            "hi": 0.028413575374901343,
-            "paired": true
-          }
-        },
-        "macro_avg": {
-          "diff": 0.0032015984886005506,
-          "lo": -0.0006751991947183659,
-          "hi": 0.0072509732146333675,
-          "paired": true
-        }
+        "available": false,
+        "reason": "missing point"
       },
       "best_hqq_vs_hqq4": {
         "available": true,
@@ -720,58 +594,8 @@
         }
       },
       "greedy_gptq_vs_gptq4": {
-        "available": true,
-        "paired": true,
-        "per_task": {
-          "arc_challenge": {
-            "n": 1172,
-            "diff": 0.005972696245733766,
-            "lo": -0.007679180887372013,
-            "hi": 0.01962457337883959,
-            "paired": true
-          },
-          "arc_easy": {
-            "n": 2376,
-            "diff": 0.015572390572390571,
-            "lo": 0.007575757575757576,
-            "hi": 0.02356902356902357,
-            "paired": true
-          },
-          "hellaswag": {
-            "n": 10042,
-            "diff": 9.958175662216906e-05,
-            "lo": -0.0024895439155546706,
-            "hi": 0.0027882891854212307,
-            "paired": true
-          },
-          "lambada_openai": {
-            "n": 5153,
-            "diff": 0.005045604502231793,
-            "lo": 0.0005821851348728896,
-            "hi": 0.009703085581214826,
-            "paired": true
-          },
-          "piqa": {
-            "n": 1838,
-            "diff": 0.0021762785636562088,
-            "lo": -0.003808487486398259,
-            "hi": 0.008705114254624592,
-            "paired": true
-          },
-          "winogrande": {
-            "n": 1267,
-            "diff": 0.0015785319652722452,
-            "lo": -0.010260457774269928,
-            "hi": 0.013417521704814523,
-            "paired": true
-          }
-        },
-        "macro_avg": {
-          "diff": 0.00507418060098445,
-          "lo": 0.001259169300290982,
-          "hi": 0.00861293194558716,
-          "paired": true
-        }
+        "available": false,
+        "reason": "missing point"
       },
       "best_hqq_vs_hqq4": {
         "available": true,
