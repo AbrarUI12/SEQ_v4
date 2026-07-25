@@ -1,0 +1,10 @@
+Loading weights:   0%|          | 0/255 [00:00<?, ?it/s]Loading weights:   4%|▎         | 9/255 [00:00<00:02, 89.65it/s]Loading weights:   9%|▉         | 23/255 [00:00<00:01, 118.98it/s]Loading weights:  14%|█▍        | 36/255 [00:00<00:01, 117.78it/s]Loading weights:  19%|█▉        | 48/255 [00:00<00:01, 107.96it/s]Loading weights:  25%|██▍       | 63/255 [00:00<00:01, 121.62it/s]Loading weights:  31%|███       | 78/255 [00:00<00:01, 129.57it/s]Loading weights:  37%|███▋      | 94/255 [00:00<00:01, 131.96it/s]Loading weights:  42%|████▏     | 108/255 [00:00<00:01, 125.37it/s]Loading weights:  47%|████▋     | 121/255 [00:01<00:01, 120.64it/s]Loading weights:  53%|█████▎    | 134/255 [00:01<00:00, 121.64it/s]Loading weights:  58%|█████▊    | 147/255 [00:01<00:00, 115.67it/s]Loading weights:  62%|██████▏   | 159/255 [00:01<00:00, 111.79it/s]Loading weights:  69%|██████▉   | 176/255 [00:01<00:00, 124.39it/s]Loading weights: 100%|██████████| 255/255 [00:01<00:00, 168.38it/s]
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (289076 > 131072). Running this sequence through the model will result in indexing errors
+{
+  "model_path": "runs/final/downstream/checkpoints/Llama-3.2-3B/greedy_gptq",
+  "reload_ppl": 51.759025173379094,
+  "expected_ppl": 51.68,
+  "absolute_difference": 0.07902517337909387,
+  "tolerance": 0.5,
+  "status": "PASS"
+}

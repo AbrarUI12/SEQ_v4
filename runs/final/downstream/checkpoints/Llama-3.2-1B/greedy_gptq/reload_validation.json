@@ -1,0 +1,8 @@
+{
+  "model_path": "runs/final/downstream/checkpoints/Llama-3.2-1B/greedy_gptq",
+  "reload_ppl": 63.82479845265293,
+  "expected_ppl": 63.95,
+  "absolute_difference": 0.1252015473470749,
+  "tolerance": 0.5,
+  "status": "PASS"
+}
