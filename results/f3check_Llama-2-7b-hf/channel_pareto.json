@@ -1,0 +1,60 @@
+{
+  "model": "meta-llama/Llama-2-7b-hf",
+  "backend": "hqq",
+  "base_quantizer": "gptq_llmc",
+  "base_bits": 4,
+  "protect_bits": 16,
+  "protect_fracs": [
+    0.02
+  ],
+  "baseline_fp16_ppl": 5.4690035356627495,
+  "baseline_base_ppl": null,
+  "select": "greedy",
+  "ppl_mode": "canonical",
+  "seed": 1234,
+  "skip_lm_head": false,
+  "results": [
+    {
+      "signal": "greedy",
+      "seed": 1234,
+      "k_frac": 0.02,
+      "tiers": null,
+      "effective_bits": 4.240383160906999,
+      "actual_effective_bits": 4.820566332050778,
+      "actual_model_bits_per_param": 5.038464310717874,
+      "storage": {
+        "dense_quantized_weight_bytes": 3303538688,
+        "quantization_scale_bytes": 206471168,
+        "zero_point_bytes": 206471168,
+        "group_metadata_bytes": 0,
+        "fp16_residual_bytes": 264705024,
+        "int8_tier_bytes": 0,
+        "channel_index_bytes": 45796,
+        "layer_metadata_bytes": 0,
+        "bias_bytes": 0,
+        "unquantized_parameter_bytes": 262676480,
+        "embedding_bytes": 0,
+        "lm_head_bytes": 0,
+        "alignment_padding_bytes": 0,
+        "serialized_checkpoint_bytes": null,
+        "estimated_total_bytes": 4243908324,
+        "actual_total_bytes": 4243908324,
+        "total_parameters": 6738415616,
+        "quantized_linear_parameters": 6607077376,
+        "nominal_weight_bits": 4.548155424433826,
+        "quantized_linear_bits": 4.0,
+        "actual_weight_bits_per_param": 4.820566332050778,
+        "actual_model_bits_per_parameter": 5.038464310717874,
+        "serialized_checkpoint_bits_per_parameter": null,
+        "representation": "runtime_fake_quant_fp16_corrections",
+        "logical_int8_tier_values": 0
+      },
+      "ppl": 5.571187538908694,
+      "delta_ppl_vs_fp16": 0.10218400324594423,
+      "num_layers": 225,
+      "errors": 0,
+      "materialized_ppl": 5.571214092461831,
+      "materialized_ppl_delta": 2.6553553137631525e-05
+    }
+  ]
+}

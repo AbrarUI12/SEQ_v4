@@ -1,0 +1,100 @@
+2026-07-25 02:03:31,129 | INFO | HTTP Request: HEAD https://huggingface.co/meta-llama/Llama-2-7b-hf/resolve/main/config.json "HTTP/1.1 200 OK"
+Loading weights:   0%|          | 0/291 [00:00<?, ?it/s]Loading weights:   1%|▏         | 4/291 [00:00<00:07, 39.69it/s]Loading weights:   4%|▍         | 11/291 [00:00<00:05, 55.38it/s]Loading weights:   6%|▌         | 18/291 [00:00<00:04, 56.97it/s]Loading weights:  11%|█         | 32/291 [00:00<00:03, 81.41it/s]Loading weights:  14%|█▍        | 42/291 [00:00<00:02, 85.69it/s]Loading weights:  18%|█▊        | 51/291 [00:00<00:02, 85.38it/s]Loading weights:  21%|██        | 60/291 [00:00<00:02, 86.05it/s]Loading weights:  24%|██▍       | 70/291 [00:00<00:02, 87.52it/s]Loading weights:  27%|██▋       | 79/291 [00:00<00:02, 84.36it/s]Loading weights:  30%|███       | 88/291 [00:01<00:02, 82.95it/s]Loading weights:  33%|███▎      | 97/291 [00:01<00:02, 79.88it/s]Loading weights:  36%|███▋      | 106/291 [00:01<00:02, 80.39it/s]Loading weights:  40%|███▉      | 116/291 [00:01<00:02, 83.25it/s]Loading weights:  44%|████▍     | 128/291 [00:01<00:01, 87.89it/s]Loading weights:  47%|████▋     | 137/291 [00:01<00:01, 86.05it/s]Loading weights:  51%|█████     | 147/291 [00:01<00:01, 87.54it/s]Loading weights:  55%|█████▍    | 159/291 [00:01<00:01, 90.82it/s]Loading weights:  58%|█████▊    | 169/291 [00:02<00:01, 85.54it/s]Loading weights:  62%|██████▏   | 180/291 [00:02<00:01, 89.22it/s]Loading weights:  65%|██████▌   | 190/291 [00:02<00:01, 87.00it/s]Loading weights:  69%|██████▊   | 200/291 [00:02<00:01, 87.99it/s]Loading weights:  74%|███████▎  | 214/291 [00:02<00:00, 96.11it/s]Loading weights:  78%|███████▊  | 227/291 [00:02<00:00, 101.80it/s]Loading weights:  82%|████████▏ | 238/291 [00:02<00:00, 97.98it/s] Loading weights: 100%|██████████| 291/291 [00:02<00:00, 103.28it/s]
+2026-07-25 02:03:40,266 | INFO | HTTP Request: HEAD https://huggingface.co/meta-llama/Llama-2-7b-hf/resolve/main/generation_config.json "HTTP/1.1 200 OK"
+2026-07-25 02:03:46,684 | INFO | HTTP Request: HEAD https://huggingface.co/meta-llama/Llama-2-7b-hf/resolve/main/config.json "HTTP/1.1 200 OK"
+2026-07-25 02:03:46,993 | INFO | HTTP Request: HEAD https://huggingface.co/meta-llama/Llama-2-7b-hf/resolve/main/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-07-25 02:03:47,377 | INFO | HTTP Request: GET https://huggingface.co/api/models/meta-llama/Llama-2-7b-hf/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-07-25 02:03:47,709 | INFO | HTTP Request: GET https://huggingface.co/api/models/meta-llama/Llama-2-7b-hf/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-07-25 02:04:22,429 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/main/README.md "HTTP/1.1 307 Temporary Redirect"
+2026-07-25 02:04:22,508 | INFO | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/datasets/Salesforce/wikitext/b08601e04326c79dfdd32d625aee71d232d685c3/README.md "HTTP/1.1 200 OK"
+2026-07-25 02:04:22,840 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py "HTTP/1.1 404 Not Found"
+2026-07-25 02:04:23,730 | INFO | HTTP Request: HEAD https://s3.amazonaws.com/datasets.huggingface.co/datasets/datasets/Salesforce/wikitext/Salesforce/wikitext.py "HTTP/1.1 404 Not Found"
+2026-07-25 02:04:24,083 | INFO | HTTP Request: GET https://huggingface.co/api/datasets/Salesforce/wikitext/revision/b08601e04326c79dfdd32d625aee71d232d685c3 "HTTP/1.1 200 OK"
+2026-07-25 02:04:24,406 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/.huggingface.yaml "HTTP/1.1 404 Not Found"
+2026-07-25 02:04:24,996 | INFO | HTTP Request: GET https://datasets-server.huggingface.co/info?dataset=Salesforce/wikitext "HTTP/1.1 200 OK"
+2026-07-25 02:04:25,324 | INFO | HTTP Request: GET https://huggingface.co/api/datasets/Salesforce/wikitext/tree/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext-103-raw-v1?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-07-25 02:04:25,643 | INFO | HTTP Request: GET https://huggingface.co/api/datasets/Salesforce/wikitext/tree/b08601e04326c79dfdd32d625aee71d232d685c3?recursive=false&expand=false "HTTP/1.1 200 OK"
+2026-07-25 02:04:25,958 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/dataset_infos.json "HTTP/1.1 404 Not Found"
+2026-07-25 02:04:26,288 | INFO | HTTP Request: GET https://huggingface.co/api/datasets/Salesforce/wikitext/tree/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext-2-raw-v1?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-07-25 02:05:04,166 | INFO | PPL mode=canonical dataset=wikitext2 split=test tokenizer=meta-llama/Llama-2-7b-hf seq_len=2048 stream=continuous_stream chunking=non_overlapping full_chunks=166 supervised_tokens=339802 tail_dropped=True tail_tokens_dropped=1500 loss_impl=hf_internal_shift avg_loss=1.6990964308560612 ppl=5.4690035356627495 error=None
+2026-07-25 02:05:04,169 | INFO | FP16 baseline ppl = 5.4690
+2026-07-25 02:05:04,191 | INFO | loading LightCompress fake-quant base from /mnt/d/Abrar/SEQ/seq_v4/runs/final/llmc/Llama-2-7b-hf/gptq/artifacts/fake_quant_model ...
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+Loading weights:   0%|          | 0/291 [00:00<?, ?it/s]Loading weights:  46%|████▌     | 134/291 [00:00<00:00, 1323.91it/s]Loading weights: 100%|██████████| 291/291 [00:00<00:00, 1926.91it/s]
+[transformers] [1mLlamaForCausalLM LOAD REPORT[0m from: /mnt/d/Abrar/SEQ/seq_v4/runs/final/llmc/Llama-2-7b-hf/gptq/artifacts/fake_quant_model
+Key                                                | Status     |  | 
+---------------------------------------------------+------------+--+-
+model.layers.{0...31}.mlp.up_proj.buf_qmin         | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.v_proj.buf_qmin    | UNEXPECTED |  | 
+model.layers.{0...31}.mlp.down_proj.buf_qmin       | UNEXPECTED |  | 
+model.layers.{0...31}.mlp.down_proj.buf_invperm    | UNEXPECTED |  | 
+model.layers.{0...31}.mlp.gate_proj.buf_invperm    | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.v_proj.buf_perm    | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.q_proj.buf_qmin    | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.q_proj.buf_invperm | UNEXPECTED |  | 
+model.layers.{0...31}.mlp.up_proj.buf_scales       | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.q_proj.buf_zeros   | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.v_proj.buf_zeros   | UNEXPECTED |  | 
+model.layers.{0...31}.mlp.up_proj.buf_invperm      | UNEXPECTED |  | 
+model.layers.{0...31}.mlp.down_proj.buf_perm       | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.k_proj.buf_qmax    | UNEXPECTED |  | 
+model.layers.{0...31}.mlp.gate_proj.buf_scales     | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.k_proj.buf_perm    | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.k_proj.buf_qmin    | UNEXPECTED |  | 
+model.layers.{0...31}.mlp.down_proj.buf_zeros      | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.o_proj.buf_invperm | UNEXPECTED |  | 
+model.layers.{0...31}.mlp.gate_proj.buf_qmin       | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.v_proj.buf_invperm | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.o_proj.buf_perm    | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.q_proj.buf_scales  | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.q_proj.buf_perm    | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.o_proj.buf_zeros   | UNEXPECTED |  | 
+model.layers.{0...31}.mlp.up_proj.buf_perm         | UNEXPECTED |  | 
+model.layers.{0...31}.mlp.gate_proj.buf_qmax       | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.k_proj.buf_scales  | UNEXPECTED |  | 
+model.layers.{0...31}.mlp.gate_proj.buf_zeros      | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.v_proj.buf_scales  | UNEXPECTED |  | 
+model.layers.{0...31}.mlp.up_proj.buf_qmax         | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.o_proj.buf_scales  | UNEXPECTED |  | 
+model.layers.{0...31}.mlp.gate_proj.buf_perm       | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.v_proj.buf_qmax    | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.k_proj.buf_zeros   | UNEXPECTED |  | 
+model.layers.{0...31}.mlp.down_proj.buf_scales     | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.k_proj.buf_invperm | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.q_proj.buf_qmax    | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.o_proj.buf_qmin    | UNEXPECTED |  | 
+model.layers.{0...31}.self_attn.o_proj.buf_qmax    | UNEXPECTED |  | 
+model.layers.{0...31}.mlp.down_proj.buf_qmax       | UNEXPECTED |  | 
+model.layers.{0...31}.mlp.up_proj.buf_zeros        | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+2026-07-25 02:08:09,542 | INFO | llmc base: matched 225/225 target Linear layers (0 shape mismatches)
+2026-07-25 02:08:09,953 | INFO | loaded 225 fake-quant layer weights from LightCompress base
+2026-07-25 02:08:10,002 | INFO | collecting input Hessians for greedy selection ...
+2026-07-25 02:25:35,541 | INFO | HTTP Request: HEAD https://huggingface.co/meta-llama/Llama-2-7b-hf/resolve/main/config.json "HTTP/1.1 200 OK"
+Loading weights:   0%|          | 0/291 [00:00<?, ?it/s]Loading weights:   4%|▍         | 11/291 [00:00<00:03, 86.74it/s]Loading weights:  10%|▉         | 28/291 [00:00<00:02, 129.61it/s]Loading weights:  14%|█▍        | 42/291 [00:00<00:02, 122.23it/s]Loading weights:  20%|█▉        | 57/291 [00:00<00:01, 130.99it/s]Loading weights:  24%|██▍       | 71/291 [00:00<00:01, 129.02it/s]Loading weights:  31%|███▏      | 91/291 [00:00<00:01, 144.27it/s]Loading weights:  36%|███▋      | 106/291 [00:00<00:01, 124.94it/s]Loading weights:  42%|████▏     | 122/291 [00:00<00:01, 133.10it/s]Loading weights:  47%|████▋     | 138/291 [00:01<00:01, 136.75it/s]Loading weights:  52%|█████▏    | 152/291 [00:01<00:01, 134.38it/s]Loading weights:  57%|█████▋    | 166/291 [00:01<00:00, 130.43it/s]Loading weights:  63%|██████▎   | 183/291 [00:01<00:00, 141.23it/s]Loading weights:  69%|██████▉   | 201/291 [00:01<00:00, 149.03it/s]Loading weights:  75%|███████▍  | 217/291 [00:01<00:00, 148.25it/s]Loading weights:  81%|████████▏ | 237/291 [00:01<00:00, 156.52it/s]Loading weights:  87%|████████▋ | 253/291 [00:01<00:00, 153.16it/s]Loading weights: 100%|██████████| 291/291 [00:01<00:00, 152.83it/s]
+2026-07-25 02:25:37,858 | INFO | HTTP Request: HEAD https://huggingface.co/meta-llama/Llama-2-7b-hf/resolve/main/generation_config.json "HTTP/1.1 200 OK"
+2026-07-25 02:25:42,247 | INFO | HTTP Request: HEAD https://huggingface.co/meta-llama/Llama-2-7b-hf/resolve/main/config.json "HTTP/1.1 200 OK"
+2026-07-25 02:25:42,551 | INFO | HTTP Request: HEAD https://huggingface.co/meta-llama/Llama-2-7b-hf/resolve/main/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-07-25 02:25:42,859 | INFO | HTTP Request: GET https://huggingface.co/api/models/meta-llama/Llama-2-7b-hf/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-07-25 02:25:43,164 | INFO | HTTP Request: GET https://huggingface.co/api/models/meta-llama/Llama-2-7b-hf/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-07-25 02:26:10,183 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/main/README.md "HTTP/1.1 307 Temporary Redirect"
+2026-07-25 02:26:10,249 | INFO | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/datasets/Salesforce/wikitext/b08601e04326c79dfdd32d625aee71d232d685c3/README.md "HTTP/1.1 200 OK"
+2026-07-25 02:26:10,556 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py "HTTP/1.1 404 Not Found"
+2026-07-25 02:26:11,415 | INFO | HTTP Request: HEAD https://s3.amazonaws.com/datasets.huggingface.co/datasets/datasets/Salesforce/wikitext/Salesforce/wikitext.py "HTTP/1.1 404 Not Found"
+2026-07-25 02:26:11,716 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/.huggingface.yaml "HTTP/1.1 404 Not Found"
+2026-07-25 02:26:12,303 | INFO | HTTP Request: GET https://datasets-server.huggingface.co/info?dataset=Salesforce/wikitext "HTTP/1.1 200 OK"
+2026-07-25 02:26:12,615 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/dataset_infos.json "HTTP/1.1 404 Not Found"
+2026-07-25 02:26:42,333 | INFO | PPL mode=canonical dataset=wikitext2 split=test tokenizer=meta-llama/Llama-2-7b-hf seq_len=2048 stream=continuous_stream chunking=non_overlapping full_chunks=166 supervised_tokens=339802 tail_dropped=True tail_tokens_dropped=1500 loss_impl=hf_internal_shift avg_loss=1.7176082338913377 ppl=5.571187538908694 error=None
+2026-07-25 02:27:03,435 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/main/README.md "HTTP/1.1 307 Temporary Redirect"
+2026-07-25 02:27:03,500 | INFO | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/datasets/Salesforce/wikitext/b08601e04326c79dfdd32d625aee71d232d685c3/README.md "HTTP/1.1 200 OK"
+2026-07-25 02:27:03,796 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py "HTTP/1.1 404 Not Found"
+2026-07-25 02:27:04,683 | INFO | HTTP Request: HEAD https://s3.amazonaws.com/datasets.huggingface.co/datasets/datasets/Salesforce/wikitext/Salesforce/wikitext.py "HTTP/1.1 404 Not Found"
+2026-07-25 02:27:04,987 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/.huggingface.yaml "HTTP/1.1 404 Not Found"
+2026-07-25 02:27:05,425 | INFO | HTTP Request: GET https://datasets-server.huggingface.co/info?dataset=Salesforce/wikitext "HTTP/1.1 200 OK"
+2026-07-25 02:27:05,726 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/dataset_infos.json "HTTP/1.1 404 Not Found"
+2026-07-25 02:49:21,563 | INFO | PPL mode=canonical dataset=wikitext2 split=test tokenizer=meta-llama/Llama-2-7b-hf seq_len=2048 stream=continuous_stream chunking=non_overlapping full_chunks=166 supervised_tokens=339802 tail_dropped=True tail_tokens_dropped=1500 loss_impl=hf_internal_shift avg_loss=1.717613000108535 ppl=5.571214092461831 error=None
+2026-07-25 02:49:21,570 | INFO | verify_materialized greedy        frac=0.02        runtime_ppl=5.5712 materialized_ppl=5.5712 Δ=+0.0000 (dense_layers=225)
+2026-07-25 02:49:22,120 | INFO | greedy        frac=0.02        eff=4.24 ppl=5.5712 (Δ+0.1022) errs=0
+2026-07-25 02:49:22,133 | INFO | wrote /mnt/d/Abrar/SEQ/seq_v4/results/f3check_Llama-2-7b-hf/channel_pareto.md
