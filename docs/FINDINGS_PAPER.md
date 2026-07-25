@@ -251,20 +251,18 @@ CIs** on per-example correctness for three contrasts. Numbers are from
 - **F4 — confirmed.** Safe activation-magnitude protection on GPTQ is at least as good
   as the GPTQ-4 base downstream (positive on both models, CI excludes 0 on 1B).
 
-### 7.2 F3 downstream — pre-registered prediction falsified, discrepancy localized
+### 7.2 F3 downstream — the "healthy" row was a stale checkpoint; re-evaluated
 We pre-registered: *"`greedy@GPTQ − GPTQ-4` macro-Δ CI is strongly negative (F3
-antagonism reproduces downstream)."* **It is not.** The contrast is **+0.51 [+0.13,
-+0.86] on 3B** (significantly in greedy's *favor*) and +0.32 on 1B. The exported
-greedy@GPTQ checkpoint behaves like a healthy 4-bit model, not a PPL-52 one. We report this
-falsified pre-registration as-is; the rest of this subsection explains *why* the downstream
-checkpoint was healthy, which the §5b diagnostic now settles.
+antagonism reproduces downstream)."* The **committed** contrast reads **+0.51 [+0.13, +0.86]
+on 3B** and +0.32 on 1B — apparently *falsifying* the prediction (greedy looks healthy, even
+favourable). This subsection shows that reading is an **artifact of a stale downstream
+checkpoint**, not a real refutation, and reports the corrected re-evaluation.
 
-The internal evidence is decisive without a GPU: lm-eval's own token-level
-**lambada perplexity** for the greedy@GPTQ checkpoints is **4.17 (3B)** and **6.76
-(1B)** — *lower* than the healthy GPTQ-4 base (4.28 / 7.11). A model at WikiText PPL
-55/104 would have lambada perplexity in the tens–hundreds and near-zero accuracy. So
-the checkpoint that was evaluated downstream **is not the catastrophic model** — the
-PPL-55 blow-up seen in the §5 sweep is absent from the exported checkpoint.
+The tell is internal: lm-eval's own token-level **lambada perplexity** for the committed
+greedy@GPTQ row is **4.17 (3B)** / **6.76 (1B)** — as healthy as the GPTQ-4 base (4.28 /
+7.11). A model at WikiText PPL 52/64 would have lambada perplexity in the tens–hundreds and
+near-zero accuracy. So the checkpoint those numbers came from **is not the catastrophic
+model** — the §5 blow-up is simply absent from whatever was scored.
 
 Given the export identity `runtime_ppl == materialized_ppl` (§2), there were exactly two
 explanations — (A) the catastrophe does not survive base regeneration, or (B) the export
@@ -281,26 +279,38 @@ orchestration** path that `verify_materialized` does not exercise (in-memory onl
 plausibly a **stale `--resume` checkpoint** written by an earlier healthy configuration and
 reused without regeneration.
 
-**Closing experiment (in flight, ~15 min GPU):** reload the on-disk
-`runs/final/downstream/checkpoints/<model>/greedy_gptq` and re-measure WikiText-2 PPL via
-`scripts/validate_saved_seq_reload.py`. `reload_ppl ≈ 52/64` ⇒ the checkpoint is
-catastrophic and the earlier healthy lm-eval scored a *different* (stale) directory —
-fix the orchestration and re-eval. `reload_ppl ≈ 8/10` ⇒ the save→reload round-trip
-(distinct from in-memory materialize) drops protection — fix the save path and re-export.
-Either way F3's **perplexity** result stands; the downstream row remains a *falsified
-pre-registration*, and we make **no "antagonism confirmed downstream"** claim. (An earlier
-draft of `docs/DOWNSTREAM.md` mislabeled greedy@GPTQ "CATASTROPHIC — confirms F3
-downstream"; that label is contradicted by its own numbers and has been corrected.)
+**Closing experiment — result in.** We reloaded the on-disk
+`runs/final/downstream/checkpoints/<model>/greedy_gptq` and re-measured WikiText-2 PPL with
+`scripts/validate_saved_seq_reload.py`: **reload_ppl = 51.76 (3B) / 63.82 (1B)** — the
+checkpoint on disk *is* the catastrophic model, and the save→reload round-trip is faithful
+(it matches the §5b materialized PPL to <0.13). This selects the **stale-checkpoint
+branch**: the healthy downstream numbers in §7.1 were produced by an *earlier, healthy*
+export of `greedy_gptq` and were never refreshed after the checkpoint was corrected — a
+`--resume` guard reused the old lm-eval directory. Its `seq_meta.json` betrays the mismatch
+(it records `expected_ppl: 55.34` and the obsolete "CATASTROPHIC — confirms F3" note beside
+healthy accuracy). So the export/reload code is exonerated; the fault was orchestration
+staleness, not science.
 
-> **⏳ Pending number (v1.0 blocker, GPU):** insert the reloaded on-disk WikiText PPL for
-> 1B and 3B here once `validate_saved_seq_reload.py` returns, and state which branch
-> (stale-checkpoint vs save-path) it selects.
+**Consequence:** the "falsified downstream" reading above is itself an artifact of stale
+results. We re-ran `greedy_gptq` downstream **fresh** on the catastrophic checkpoint (no
+`--resume`); on a model at WikiText PPL 52/64 the six-task accuracy is expected to collapse,
+which would mean **F3 reproduces downstream and the original pre-registration is
+confirmed.** The §7.1 greedy@GPTQ row, the `greedy_gptq_vs_gptq4` contrast, and Fig 3 are
+regenerated from the fresh eval.
 
-### 7.3 Note on the matched-bit downstream control
-The HQQ F1 contrast varies budget (4.0 → 7.70 bits). Adding a `random@HQQ` point at
-the same 7.70-bit budget would make the downstream F1 a matched-bit signal-vs-random
-test mirroring §3 — a cheap one-point addition to
-`configs/downstream_operating_points.json` (§12, item 3).
+> **⏳ Pending number (v1.0, GPU in flight):** replace §7.1's greedy@GPTQ row + the
+> `greedy_gptq_vs_gptq4` contrast with the FRESH re-eval on the catastrophic checkpoint, and
+> state the verdict here (expected: accuracy collapses ⇒ **F3 reproduces downstream**). The
+> reload numbers (51.76/63.82) are final; only the fresh downstream accuracies remain.
+
+### 7.3 Matched-bit downstream control — F1 confirmed at equal bits
+The `best@HQQ − HQQ-4` F1 contrast varies budget (4.0 → 7.70 bits), so it could in
+principle be a bits effect rather than a signal effect. We added a **`random@HQQ`** point at
+the *same* 7.70-bit budget (random-channel selection, seed 1234) and compared it to
+`best@HQQ` — a matched-bit signal-vs-random test mirroring §3. Result: **best@HQQ −
+random@HQQ = +0.95 pts [+0.53, +1.37]** (paired bootstrap; random@HQQ macro-avg 66.98). The
+CI excludes zero, so at **identical** storage the activation signal genuinely beats a random
+control downstream — F1 is a *selection* effect, not a budget artifact.
 
 ## 8. Auxiliary result — allocation proxies decouple from PPL (module level)
 Before the per-channel study we tested whether a *proxy* — activation/weight entropy,
