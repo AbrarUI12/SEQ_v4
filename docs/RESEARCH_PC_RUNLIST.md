@@ -20,11 +20,42 @@ local box then pulls and rebuilds `COMPARISON.md`/`DOWNSTREAM.md`/figures and th
 
 ---
 
-## ⭐ NEXT SESSION (2026-07-25) — finish v1.0 + Qwen cross-family breadth
+## ⭐ NEXT SESSION (2026-07-26) — STEP 0: DIAGNOSE lm_eval (blocks ALL downstream)
 
-Run in order; commit+push after each step. STEP 1 is the headline (fast); STEPS 2–4 are the
-cross-family breadth for a solid Findings submission. `git pull` first (this includes the
-Qwen entry in `configs/downstream_operating_points.json`).
+Both lm-eval steps last time died the instant `lm_eval` was invoked (no output, no results),
+so there are **zero** downstream numbers. Nothing else downstream can proceed until this is
+fixed. This diagnosis is independent of the pending local code fixes — run it whenever.
+
+```bash
+cd /mnt/d/Abrar/SEQ/seq_v4 && git pull origin main
+PY="$PWD/.venv-seq/bin/python"
+
+# 1) Is lm_eval importable, and what version?
+"$PY" -c "import lm_eval,sys; print('lm_eval', lm_eval.__version__, '| py', sys.version.split()[0])"; echo "import_exit=$?"
+
+# 2) Minimal DIRECT run (1 task, 4 examples) with full stderr to console — surfaces the real
+#    error the pipeline's tee swallowed. Uses the FP16 base (no custom checkpoint) to isolate
+#    lm_eval itself from any export issue.
+mkdir -p results/lm_eval_diag_out
+"$PY" -m lm_eval --model hf \
+  --model_args pretrained=meta-llama/Llama-3.2-3B,dtype=float16 \
+  --tasks lambada_openai --limit 4 --batch_size 1 --device cuda:0 \
+  --output_path results/lm_eval_diag_out 2>&1 | tee results/lm_eval_diag.log; echo "eval_exit=${PIPESTATUS[0]}"
+```
+
+**Report back:** the `lm_eval <version>` line, `import_exit`/`eval_exit`, and the last ~30
+lines of `results/lm_eval_diag.log`. Likely culprits: an lm_eval API change (task names,
+`--output_path`, `--log_samples`), a dep broken/renamed after a venv rebuild, or OOM. I fix
+from the actual error, then hand back a corrected downstream run list.
+
+---
+
+## (SUPERSEDED 2026-07-26) v1.0 sprint — Steps 2/3 done; Steps 1/4 blocked by broken lm_eval
+
+_Kept for reference only. Steps 2 (Qwen sweeps) and 3 (Qwen verify_materialized) completed.
+Steps 1 and 4 failed at the `lm_eval` call. **Do NOT run the block below as-is** — the
+corrected reruns (with `--skip_lm_head` + fixed group size) come after the local code fixes,
+and downstream needs the STEP 0 lm_eval fix first._
 
 ```
 cd /mnt/d/Abrar/SEQ/seq_v4 && git pull origin main && source .venv-seq/bin/activate
