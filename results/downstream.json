@@ -620,6 +620,10 @@
           "hi": 0.03333333333333333,
           "paired": true
         }
+      },
+      "best_hqq_vs_random_hqq": {
+        "available": false,
+        "reason": "missing point"
       }
     },
     "meta-llama/Llama-3.2-3B": {
@@ -784,6 +788,10 @@
           "hi": 0.01629698030549279,
           "paired": true
         }
+      },
+      "best_hqq_vs_random_hqq": {
+        "available": false,
+        "reason": "missing point"
       }
     }
   }
