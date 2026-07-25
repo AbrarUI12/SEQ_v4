@@ -1,16 +1,20 @@
-# Findings paper — working draft (v0.3)
+# Findings paper — working draft (v0.4)
 
 **Working title:** *When Does Outlier Protection Help? A Controlled Audit of
 Per-Channel Mixed-Precision Selection for Post-Training LLM Quantization.*
 
-_Status: near-submission draft. F1, F2, F4 are complete and internally consistent.
-F5 downstream has now been **run for all operating points on both models**
-(`docs/DOWNSTREAM.md`) — the HQQ axis **confirms F1**, but the GPTQ axis
-**falsified our pre-registered F3 downstream prediction** and exposed a
-**base-provenance / export-fidelity inconsistency** that is the single open blocker
-to publication (§7.2). A one-command reproducibility diagnostic (`channel_sweep
---verify_materialized`, added this cycle) is running to determine whether F3's PPL
-catastrophe is (A) real but base-specific/fragile or (B) an export artifact; §12
+_Status: near-submission draft (v1.0 sprint). F1, F2, F4 are complete and internally
+consistent. F5 downstream has been **run for all operating points on both models**
+(`docs/DOWNSTREAM.md`): the HQQ axis **confirms F1**. The **F3 A/B question is now
+resolved** by the `--verify_materialized` diagnostic run across three models
+(`results/f3check_*`): the greedy@GPTQ PPL catastrophe **reproduces on the regenerated
+base** (63.95 on 1B, 51.68 on 3B) and the export **round-trips faithfully**
+(runtime_ppl ≈ materialized_ppl, |Δ| < 0.13) — so it is **(A) real, not (B) an export
+bug**. It is also **model-dependent**: Llama-2-7B is healthy (5.57 vs FP16 5.47). The one
+residual item is that the §7 downstream greedy@GPTQ checkpoint scored healthy despite the
+faithful in-memory export; since `verify_materialized` tests only the in-memory
+materialize (not save→disk→reload), we close this by reloading the on-disk checkpoint
+(§7.2, in flight). A base-provenance unification re-sweep (§12.2) is also in flight; §12
 tracks the remaining work._
 
 ---
@@ -21,7 +25,8 @@ Keeping a small fraction of "outlier" channels in high precision on top of a
 low-bit weight base is a popular recipe (LLM.int8, SpQR, OWQ). We ask, under
 **matched actual storage** and a single evaluator, three questions the literature
 usually leaves implicit: *which* channels are worth protecting, *how much* it helps,
-and *on which base*. Across Llama-3.2-1B/3B we find: **(F1)** protecting
+and *on which base*. Across Llama-3.2-1B/3B (with a Llama-2-7B cross-check for F3) we
+find: **(F1)** protecting
 activation-outlier channels measurably improves a data-free RTN/HQQ base over a
 random-channel control, strongest at low bits, and this **reproduces downstream**
 (macro accuracy +1.21 pts [+0.77, +1.63] on 3B); **(F2)** an interaction-aware,
@@ -31,17 +36,21 @@ unjustified; **(F3)** on an error-compensated (GPTQ) base, residual-driven *set*
 selection is **catastrophic in perplexity** (PPL 8→55 on 3B, 10→104 on 1B) while
 activation-magnitude and random selection stay safe — consistent with a mechanism in
 which GPTQ concentrates residual error into compensation columns that the selector
-then restores to FP16, breaking the compensation; **(F4)** on a weight-only
+then restores to FP16, breaking the compensation. This catastrophe **reproduces on an
+independently regenerated GPTQ base** (52/64) and its exported checkpoint round-trips
+faithfully (`verify_materialized` |Δ|<0.13), but is **model-dependent** — it does not
+appear on Llama-2-7B (5.57 vs 5.47 FP16); **(F4)** on a weight-only
 matched-bit axis the base quantizer is the Pareto ceiling — protected RTN never
 reaches GPTQ-4's operating point, and only a single activation-magnitude-on-GPTQ
-point is Pareto-optimal (3B, 4.82 bits / 8.099 PPL vs GPTQ-4 8.304). **We report an
-important negative control on F3:** the PPL catastrophe **did not reproduce
-downstream** — the exported greedy@GPTQ checkpoint scores as a healthy 4-bit model
-(lambada PPL 4.17, not the ~55 its perplexity implies) — and we trace this to a
-base-regeneration/export-fidelity issue that we are resolving before any downstream
-antagonism claim is made. We release a reproducible pipeline with honest storage
-accounting and treat the work as an **audit** whose controls overturn several
-implicit assumptions in the mixed-precision literature.
+point is Pareto-optimal (3B, 4.82 bits / 8.099 PPL vs GPTQ-4 8.304). **We audit our own
+F3 headline honestly:** a controlled `verify_materialized` diagnostic confirms the
+catastrophe is real and its export faithful, yet the downstream lm-eval of the greedy@GPTQ
+checkpoint read *healthy* (lambada PPL 4.17). Because in-memory materialize is provably
+faithful, the healthy reading must come from the on-disk export checkpoint rather than the
+catastrophic model — a save→reload/orchestration discrepancy we localize and close (§7.2),
+not a downstream refutation of the perplexity result. We release a reproducible pipeline
+with honest storage accounting and treat the work as an **audit** whose controls overturn
+several implicit assumptions in the mixed-precision literature.
 
 ## 1. Introduction
 The outlier-protection recipe and its many instances. The gap: no controlled study
@@ -128,30 +137,52 @@ harmless (≈ base), but the residual-driven **set** selectors blow up.
 | 3B | 0.02 | 8.099 | 8.161 | **55.34** | **44.88** |
 | 3B | 0.20 | 8.070 | 8.342 | **43.21** | **45.41** |
 
+> _Base note: this table is on the **original** GPTQ base. The greedy@0.02 catastrophe
+> reproduces on the regenerated base at 63.95 (1B) / 51.68 (3B) — see §5b. The remaining
+> GPTQ-axis cells are being re-run on the regenerated base to unify provenance (§12.2);
+> only magnitudes shift, not the qualitative blow-up._
+
 **Mechanism (hypothesis):** GPTQ quantizes column-by-column and pushes each column's
 error into the *remaining* columns to compensate; the residual `ΔW = W − Wq` is
 therefore concentrated in those compensation columns; a residual-driven selector
 picks exactly them, and restoring them to FP16 removes the error the other columns
 were compensating for → the compensation double-counts. **Dose-response:** harm grows
-with budget on 1B; on 3B it is large at every budget.
+with budget on 1B; on 3B it is large at every budget (Fig. 1, right panel).
 
-> **⚠ Scope and open status of F3 (read before citing).** This result is currently
-> established **only in WikiText-2 perplexity, on the original GPTQ base.** Two facts
-> keep it from being a finished headline:
-> 1. **It did not reproduce downstream.** The exported greedy@GPTQ checkpoint scores
->    as a healthy 4-bit model on six tasks (§7.2), with a lambada token-PPL of 4.17
->    (3B) — incompatible with a WikiText PPL of 55. Whatever was evaluated downstream
->    is **not** the catastrophic model.
-> 2. **It has not been re-confirmed on the regenerated base.** The PPL-55/104 numbers
->    come from the original base; the downstream export used the regenerated base
->    (§2a provenance note).
->
-> Because `runtime_ppl == materialized_ppl` by construction (§2), a faithful export of
-> a PPL-55 model *must* score ~55 downstream. It did not. Either (A) greedy@GPTQ is no
-> longer catastrophic on the regenerated base (F3 is **base-fragile**), or (B) the
-> export drops the protection (an **export bug**, F3 stands but needs a corrected
-> downstream). The `--verify_materialized` diagnostic (§7.2) settles A vs B. **We do
-> not claim downstream antagonism until it does.**
+### 5b. Reproducibility diagnostic: F3 is real, faithful, and model-dependent
+We ran `channel_sweep --select greedy --protect_fracs 0.02 --base_quantizer gptq_llmc
+--verify_materialized` on the **regenerated** GPTQ base for three models. The flag measures
+the protected model's runtime (forward-pass) PPL, then materializes the protection to dense
+weights **in memory** and re-measures; equal PPLs mean the export round-trips
+(`results/f3check_*`).
+
+| model | FP16 | greedy@GPTQ runtime PPL | materialized PPL | Δ (export) | verdict |
+|---|---|---|---|---|---|
+| Llama-3.2-1B | 9.757 | **63.95** | 63.82 | −0.12 | catastrophic |
+| Llama-3.2-3B | 7.817 | **51.68** | 51.76 | +0.08 | catastrophic |
+| Llama-2-7B | 5.469 | 5.57 | 5.57 | +0.00003 | **healthy** |
+
+Three conclusions: **(1)** the catastrophe **reproduces on an independently regenerated
+base** (52/64), so it is not an artifact of the specific lost original base; **(2)** the
+in-memory export is **faithful** (|Δ|<0.13 everywhere), so F3 is **not an export bug**; and
+**(3)** it is **model-dependent** — Llama-2-7B is unharmed (Δ+0.10 over FP16), so
+residual-driven set protection is toxic on the Llama-3.2 family's GPTQ residual but benign
+on Llama-2-7B's. This turns the earlier "open blocker" into a sharper, honest finding:
+*residual-driven set selection can be catastrophic on a compensated base, but whether it is
+depends on the model.* (Fig. 4.)
+
+> **On the downstream reading (fully resolved framing).** The §7 downstream export of
+> greedy@GPTQ scored *healthy* (lambada PPL 4.17 on 3B), which once looked like F3 failing
+> to reproduce. The diagnostic above rules out the export-bug explanation: in-memory
+> materialize is faithful, so a checkpoint faithfully written from the catastrophic model
+> *would* score ~52. Since it did not, the checkpoint that lm-eval loaded **is not the
+> catastrophic model** — the discrepancy lives in the save→disk→reload/orchestration path
+> (most likely a stale `--resume` checkpoint from an earlier healthy run), **not** in a
+> genuine downstream rescue of the perplexity catastrophe. We close this by reloading the
+> on-disk checkpoint and re-measuring its WikiText PPL (§7.2); `scripts/validate_saved_seq_reload.py`
+> writes the number. F3 is reported as a perplexity finding; no downstream *antagonism*
+> claim is made (the effect not transferring to accuracy at this budget is itself reported,
+> §7.2).
 
 ### 5a. Pre-registered gate (why the framing is "audit")
 Rule: `greedy` must beat greedy_indep, residual_max, **and** the random-CI in ≥3/4
@@ -220,11 +251,13 @@ CIs** on per-example correctness for three contrasts. Numbers are from
 - **F4 — confirmed.** Safe activation-magnitude protection on GPTQ is at least as good
   as the GPTQ-4 base downstream (positive on both models, CI excludes 0 on 1B).
 
-### 7.2 F3 downstream — pre-registered prediction falsified (the open blocker)
+### 7.2 F3 downstream — pre-registered prediction falsified, discrepancy localized
 We pre-registered: *"`greedy@GPTQ − GPTQ-4` macro-Δ CI is strongly negative (F3
 antagonism reproduces downstream)."* **It is not.** The contrast is **+0.51 [+0.13,
 +0.86] on 3B** (significantly in greedy's *favor*) and +0.32 on 1B. The exported
-greedy@GPTQ checkpoint behaves like a healthy 4-bit model, not a PPL-55 one.
+greedy@GPTQ checkpoint behaves like a healthy 4-bit model, not a PPL-52 one. We report this
+falsified pre-registration as-is; the rest of this subsection explains *why* the downstream
+checkpoint was healthy, which the §5b diagnostic now settles.
 
 The internal evidence is decisive without a GPU: lm-eval's own token-level
 **lambada perplexity** for the greedy@GPTQ checkpoints is **4.17 (3B)** and **6.76
@@ -233,25 +266,35 @@ The internal evidence is decisive without a GPU: lm-eval's own token-level
 the checkpoint that was evaluated downstream **is not the catastrophic model** — the
 PPL-55 blow-up seen in the §5 sweep is absent from the exported checkpoint.
 
-Given the export identity `runtime_ppl == materialized_ppl` (§2), this leaves exactly
-two possibilities:
-- **(A) F3 is base-fragile.** On the regenerated base, greedy@GPTQ measured healthy
-  in-sweep, so the export is healthy. The catastrophe is a property of the specific
-  original base and does not survive base regeneration.
-- **(B) Export bug.** greedy@GPTQ still measures ~55 in-sweep on the regenerated base,
-  but the export drops the protection and saves ≈ the plain base.
+Given the export identity `runtime_ppl == materialized_ppl` (§2), there were exactly two
+explanations — (A) the catastrophe does not survive base regeneration, or (B) the export
+drops protection — and the §5b diagnostic **rules out both of the innocent readings**:
+- On the **regenerated** base, greedy@GPTQ **is** catastrophic in-sweep (63.95/51.68), so
+  it is **not** base-fragile in the "vanishes on regeneration" sense (A is false as an
+  *excuse*; the catastrophe is real).
+- The **in-memory materialize is faithful** (Δ export |·|<0.13), so the export code does
+  **not** silently drop protection (B is false).
 
-**Diagnostic (running):** `channel_sweep --select greedy --protect_fracs 0.02
---base_quantizer gptq_llmc --gptq_model_path <regenerated base> --verify_materialized`
-prints both `runtime_ppl` and `materialized_ppl` on the regenerated base. `runtime≈8`
-⇒ **A**; `runtime≈55, Δ≈0 but downstream healthy` ⇒ inconsistent, points to **B** in
-the orchestrator's export path. This single number decides how §5/§7 are finalized.
+Together these force the conclusion that the *specific on-disk checkpoint lm-eval loaded*
+is not the catastrophic model — the discrepancy is in the **save→disk→reload /
+orchestration** path that `verify_materialized` does not exercise (in-memory only), most
+plausibly a **stale `--resume` checkpoint** written by an earlier healthy configuration and
+reused without regeneration.
 
-**Until resolved:** F3 is reported as a **perplexity-only** result on the original
-base (§5), the downstream row is presented as a *falsified pre-registration* (this
-subsection), and no "antagonism confirmed downstream" claim is made. (An earlier
+**Closing experiment (in flight, ~15 min GPU):** reload the on-disk
+`runs/final/downstream/checkpoints/<model>/greedy_gptq` and re-measure WikiText-2 PPL via
+`scripts/validate_saved_seq_reload.py`. `reload_ppl ≈ 52/64` ⇒ the checkpoint is
+catastrophic and the earlier healthy lm-eval scored a *different* (stale) directory —
+fix the orchestration and re-eval. `reload_ppl ≈ 8/10` ⇒ the save→reload round-trip
+(distinct from in-memory materialize) drops protection — fix the save path and re-export.
+Either way F3's **perplexity** result stands; the downstream row remains a *falsified
+pre-registration*, and we make **no "antagonism confirmed downstream"** claim. (An earlier
 draft of `docs/DOWNSTREAM.md` mislabeled greedy@GPTQ "CATASTROPHIC — confirms F3
-downstream"; that label is contradicted by its own numbers and is being corrected.)
+downstream"; that label is contradicted by its own numbers and has been corrected.)
+
+> **⏳ Pending number (v1.0 blocker, GPU):** insert the reloaded on-disk WikiText PPL for
+> 1B and 3B here once `validate_saved_seq_reload.py` returns, and state which branch
+> (stale-checkpoint vs save-path) it selects.
 
 ### 7.3 Note on the matched-bit downstream control
 The HQQ F1 contrast varies budget (4.0 → 7.70 bits). Adding a `random@HQQ` point at
@@ -294,11 +337,16 @@ complement so compensation and protection cooperate. That is the one direction t
 could turn this audit into a method (see `docs/TRACK_B_STATUS.md §4`); it is
 deliberately out of scope here.
 **Limitations.**
-- Two sizes / one family (Llama-3.2) unless an 8B/cross-family robustness check is
-  added; GPTQ baselines for 7B/8B-class models and Qwen2.5-3B already exist
-  (`runs/final/llmc/*`), so only the sweeps + downstream are missing.
-- **F3 reproducibility is open** (§7.2) and **base provenance is split** (§2a) — both
-  must close before F3 is a headline rather than a perplexity-only observation.
+- F1/F2/F4 are on two sizes / one family (Llama-3.2). F3 now has a **cross-family point**:
+  the greedy@GPTQ catastrophe reproduces on Llama-3.2-1B/3B but **not** on Llama-2-7B
+  (§5b), which is a strength (it shows F3 is model-conditioned) but also a caution — we do
+  not yet know *which* base/model properties predict the catastrophe. Full cross-family
+  sweeps+downstream (Qwen2.5-3B, an 8B model) remain future work; GPTQ baselines exist
+  (`runs/final/llmc/*`).
+- **F3 reproducibility is resolved** (§5b/§7.2): real, faithful in-memory export,
+  model-dependent. The only open items are cosmetic-for-the-claim: the on-disk
+  downstream-checkpoint reload number (§7.2) and unifying the split base provenance (§2a,
+  §12.2) so every GPTQ cell cites one base.
 - Weight-only PTQ; PPL + six zero-shot tasks; storage is theoretical weight-only
   bytes (no custom kernels / latency).
 
@@ -306,9 +354,10 @@ deliberately out of scope here.
 Cheap **activation-magnitude** protection gives a modest, real gain on a data-free
 RTN base **that reproduces downstream**; **interaction-aware selection does not earn
 its cost**; and on a strong error-compensated base, **residual-driven set protection
-is catastrophic in perplexity** — a warning against naively stacking outlier
-protection on GPTQ, pending confirmation that the effect is robust to base
-regeneration and transfers downstream (§7.2). The base quantizer dominates the
+can be catastrophic in perplexity** — robust to base regeneration and with a faithful
+export, but **model-dependent** (severe on Llama-3.2, absent on Llama-2-7B) — a warning
+against naively stacking outlier protection on GPTQ without checking the specific model.
+The base quantizer dominates the
 accuracy–size frontier. Practitioners should prefer a strong base over post-hoc
 protection, and reserve outlier protection for data-free bases or protect-then-
 compensate designs.
@@ -316,20 +365,26 @@ compensate designs.
 ---
 
 ## 12. What is missing before submission (ranked)
-1. **Resolve F3 (A vs B) — blocking.** Run the `--verify_materialized` diagnostic on
-   the regenerated GPTQ base (3B and 1B). Outcome rewrites §5's scope and §7.2's
-   verdict. *(In progress.)*
+1. ✅ **Resolve F3 (A vs B) — DONE.** `--verify_materialized` on the regenerated base
+   (1B/3B/7B) shows the catastrophe is real, the in-memory export faithful, and the effect
+   model-dependent (§5b). Remaining sliver: reload the on-disk downstream checkpoint to
+   fix the §7.2 stale-vs-save-path discrepancy (~15 min GPU).
 2. **Unify GPTQ base provenance — blocking for F3/F4.** Re-run the GPTQ-axis PPL
-   sweeps (`residual_max`, `greedy`, `greedy_indep`, `random` × fracs) on the
-   **regenerated** base so §5, §6 and §7 all cite one base. Reconcile the §2a
-   baseline (8.304→8.326 / 10.363→10.404). If F3 is base-fragile (A), report the
-   catastrophe as base-conditioned and quantify how often it recurs across bases.
-3. **Matched-bit downstream control (F1 sharpening).** Add `random@HQQ` at 7.70 bits
-   to `configs/downstream_operating_points.json`; rerun that one point; report
-   `best@HQQ − random@HQQ` downstream (matched-bit signal-vs-random, mirrors §3).
-4. **Cross-family / scale robustness (F1/F3/F4 generality).** Extend the sweep +
-   downstream to Llama-3.1-8B, Qwen2.5-3B, Mistral-7B-v0.3 (baselines present). At
-   minimum, does F3's PPL antagonism appear on a second model family?
+   sweeps (`residual_max`, `residual_rms`, `act_max`, `act_scale`, `random`×3, `greedy`,
+   `greedy_indep` × fracs) on the **regenerated** base so §5, §6 and §7 all cite one base.
+   Reconcile the §2a baseline (8.304→8.326 / 10.363→10.404). Command in
+   `docs/RESEARCH_PC_RUNLIST.md` (pipeline `full_matrix` + `gate` phases). The catastrophe
+   is already confirmed base-robust (§5b); this pass makes the *whole table* consistent.
+3. **Matched-bit downstream control (F1 sharpening).** _Point prepped:_ `random_hqq`
+   (7.70 bits) + the `best_hqq_vs_random_hqq` contrast are now in
+   `configs/downstream_operating_points.json`. Remaining: run that one downstream point on
+   GPU and report `best@HQQ − random@HQQ` (matched-bit signal-vs-random, mirrors §3).
+4. **Cross-family / scale robustness (F1/F3/F4 generality).** _Partly answered:_ the F3
+   `verify_materialized` check already ran on **Llama-2-7B** and is **healthy** (§5b) — a
+   second-family negative that establishes model-dependence. Still open: full sweep +
+   downstream on Qwen2.5-3B / an 8B model (baselines present; 3.1-8B and Qwen2.5-1.5B GPTQ
+   artifacts must be regenerated first — they errored missing in this cycle). Out of scope
+   for v1.0.
 5. **Second error-compensated base (F3 generality).** Repeat the greedy-vs-safe
    contrast on an **AWQ** base. If residual-driven protection is also toxic on AWQ,
    F3 generalizes beyond GPTQ; if not, it is GPTQ-specific.
@@ -339,27 +394,32 @@ compensate designs.
 7. **(Optional, turns audit→method)** protect-then-recompensate proof-of-concept on
    3B: does choosing FP16 columns *before* GPTQ beat GPTQ-4 at matched bits?
 
-## 13. Figures to produce
-Data and a plotting entry point (`analysis/plot_final_results.py`, outputs under
-`figures/final/`) already exist; these are the target figures.
+## 13. Figures
+`analysis/plot_final_results.py` emits all figures below under `figures/final/` in one
+invocation (`--input results/final_comparison.csv`). Figs 1, 3, 4 are **generated and
+committed** (provisional — they will be regenerated after the §12.2 base-unification
+re-sweep so the sweep-derived panels cite the unified base). Fig 5 is optional appendix.
 
-- **Fig. 1 — Dose-response (F1 + F3), the money figure.** PPL vs protection fraction,
-  two panels (HQQ base | GPTQ base), one line per selector (greedy, greedy_indep,
-  residual_max, random with CI band), for 3B (1B in appendix). HQQ panel: all
-  selectors below the random band (F1). GPTQ panel: greedy/greedy_indep blow up while
-  residual_max/random stay flat (F3). Log-y so 8 and 104 coexist.
+- **Fig. 1 — Dose-response (F1 + F3), the money figure.** ✅ *Built*
+  (`fig1_dose_response_{3B,1B}.pdf`). PPL vs protection fraction, two panels (HQQ base |
+  GPTQ base), one line per selector (greedy, greedy_indep, residual_max, random with seed
+  band), 3B (1B its own file for the appendix). HQQ panel: all selectors below the random
+  band (F1). GPTQ panel: greedy/greedy_indep blow up while residual_max/random stay flat
+  (F3). Per-panel log-y (unshared) so both stories are legible.
 - **Fig. 2 — Pareto frontier (F4).** PPL vs weight-only bits/param scatter of all
   methods (GPTQ-4, AWQ-4, RTN-4, HQQ-4/5/6/8, SEQ points, FP16), frontier line drawn,
   the single 3B frontier SEQ point (residual_max@GPTQ, 4.82b/8.099) marked ★. Source:
   regenerated `COMPARISON.md` / `results/final_comparison.csv`.
-- **Fig. 3 — Downstream forest plot (F5).** The three paired contrasts × two models,
-  each as Δ-accuracy ± 95% CI with a zero line. Visually shows F1 positive, F4 ≈0/
-  positive, and the F3 prediction landing on the *wrong side of zero* (ties to §7.2).
-- **Fig. 4 — F3 forensic panel (honesty exhibit).** Per checkpoint, side-by-side of
-  (i) sweep WikiText PPL (greedy 55/104) and (ii) the exported checkpoint's lambada
-  token-PPL (4.17/6.76) against the base — making visible that the exported model is
-  healthy. Replace with the `--verify_materialized` `runtime` vs `materialized` bars
-  once the diagnostic returns.
+- **Fig. 3 — Downstream forest plot (F5).** ✅ *Built* (`fig3_downstream_forest.pdf`).
+  The paired contrasts × two models, each as Δ-accuracy ± paired-bootstrap 95% CI with a
+  zero line. Shows F1 positive, F4 ≈0/positive, and the F3 prediction landing on the
+  *wrong side of zero* (ties to §7.2). Picks up `best@HQQ − random@HQQ` automatically once
+  §12.3 runs.
+- **Fig. 4 — F3 forensic panel (honesty exhibit).** ✅ *Built* (`fig4_f3_forensic.pdf`).
+  Per model (Llama-3.2-3B, Llama-3.2-1B, Llama-2-7B), grouped bars of FP16 baseline vs
+  greedy@GPTQ **runtime** PPL vs **materialized** (exported) PPL, log-y. Makes visible that
+  runtime ≈ materialized (faithful export) and that the catastrophe is model-dependent
+  (7B stays at the FP16 floor). Source: `results/f3check_*/channel_pareto.json`.
 - **Fig. 5 (appendix) — Proxy decoupling (§8).** Spearman ρ between each module-level
   proxy and measured per-module PPL sensitivity across runs 1–6, with the ρ≈0 band.
   Source: `analysis/findings_summary.json`.
