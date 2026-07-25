@@ -10,7 +10,7 @@
     0.1,
     0.2
   ],
-  "baseline_fp16_ppl": 9.757103797171887,
+  "baseline_fp16_ppl": 9.757198217989133,
   "baseline_base_ppl": null,
   "select": "topk",
   "ppl_mode": "canonical",
@@ -52,8 +52,8 @@
         "representation": "runtime_fake_quant_fp16_corrections",
         "logical_int8_tier_values": 0
       },
-      "ppl": 10.595756326167773,
-      "delta_ppl_vs_fp16": 0.8386525289958868,
+      "ppl": 10.41164073447146,
+      "delta_ppl_vs_fp16": 0.6544425164823267,
       "num_layers": 113,
       "errors": 0
     },
@@ -92,8 +92,8 @@
         "representation": "runtime_fake_quant_fp16_corrections",
         "logical_int8_tier_values": 0
       },
-      "ppl": 10.499990764541527,
-      "delta_ppl_vs_fp16": 0.7428869673696408,
+      "ppl": 10.413073233433392,
+      "delta_ppl_vs_fp16": 0.6558750154442592,
       "num_layers": 113,
       "errors": 0
     },
@@ -132,8 +132,8 @@
         "representation": "runtime_fake_quant_fp16_corrections",
         "logical_int8_tier_values": 0
       },
-      "ppl": 10.490421327913893,
-      "delta_ppl_vs_fp16": 0.7333175307420063,
+      "ppl": 10.432227990199356,
+      "delta_ppl_vs_fp16": 0.6750297722102232,
       "num_layers": 113,
       "errors": 0
     },
@@ -172,8 +172,8 @@
         "representation": "runtime_fake_quant_fp16_corrections",
         "logical_int8_tier_values": 0
       },
-      "ppl": 10.827586659931846,
-      "delta_ppl_vs_fp16": 1.0704828627599596,
+      "ppl": 10.584847765733178,
+      "delta_ppl_vs_fp16": 0.8276495477440449,
       "num_layers": 113,
       "errors": 0
     }

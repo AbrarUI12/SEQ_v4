@@ -7,7 +7,7 @@
   "protect_fracs": [
     0.0
   ],
-  "baseline_fp16_ppl": 7.816627381856085,
+  "baseline_fp16_ppl": 7.816661132121476,
   "baseline_base_ppl": null,
   "select": "topk",
   "ppl_mode": "canonical",
@@ -49,8 +49,8 @@
         "representation": "runtime_fake_quant_fp16_corrections",
         "logical_int8_tier_values": 0
       },
-      "ppl": 7.844876694034395,
-      "delta_ppl_vs_fp16": 0.028249312178309616,
+      "ppl": 7.844835241033218,
+      "delta_ppl_vs_fp16": 0.02817410891174177,
       "num_layers": 197,
       "errors": 0
     }
