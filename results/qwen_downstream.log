@@ -1,0 +1,2 @@
+=== downstream eval: tasks=[hellaswag,arc_easy,arc_challenge,piqa,winogrande,lambada_openai] device=cuda:0 limit=full resume=0 dry=0 ===
+--- Qwen2.5-3B :: fp16 ---
