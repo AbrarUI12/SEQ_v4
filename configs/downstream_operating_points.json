@@ -8,32 +8,34 @@
     "gptq4":       {"kind": "hf",     "source": "gptq_base", "nominal_bits": 4.0,  "note": "LightCompress GPTQ-4 base (strong error-compensated base)"},
     "hqq4":        {"kind": "export", "base_quantizer": "hqq",       "base_bits": 4, "mode": "signals", "signal": "act_max",      "k_frac": 0.0,  "nominal_bits": 4.0,  "note": "data-free RTN/HQQ-4 base (frac 0 = no protection)"},
     "resmax_gptq": {"kind": "export", "base_quantizer": "gptq_llmc", "base_bits": 4, "mode": "signals", "signal": "residual_max", "k_frac": 0.02, "nominal_bits": 4.82, "note": "safe activation-magnitude protection on GPTQ (3B Pareto frontier point)"},
-    "greedy_gptq": {"kind": "export", "base_quantizer": "gptq_llmc", "base_bits": 4, "mode": "select",  "signal": "greedy",       "k_frac": 0.02, "nominal_bits": 4.82, "note": "F3 probe: residual-driven greedy on GPTQ. Catastrophic in original-base PPL (55.34/104.16) but measured HEALTHY downstream - see FINDINGS_PAPER 7.2; base-fragility vs export bug pending verify_materialized"},
-    "best_hqq":    {"kind": "export", "base_quantizer": "hqq",       "base_bits": 4, "mode": "select",  "signal": "greedy",       "k_frac": 0.20, "nominal_bits": 7.70, "note": "best SEQ point on the data-free HQQ base (F1)"}
+    "greedy_gptq": {"kind": "export", "base_quantizer": "gptq_llmc", "base_bits": 4, "mode": "select",  "signal": "greedy",       "k_frac": 0.02, "nominal_bits": 4.82, "note": "F3 probe: residual-driven greedy on GPTQ. Catastrophic in PPL and REPRODUCES on the regenerated base (63.95 on 1B / 51.68 on 3B) with verify_materialized delta~0 => not an export bug; but Llama-2-7B is healthy => F3 is model-dependent. Downstream-healthy is being closed by reloading the on-disk checkpoint - see FINDINGS_PAPER 7.2"},
+    "best_hqq":    {"kind": "export", "base_quantizer": "hqq",       "base_bits": 4, "mode": "select",  "signal": "greedy",       "k_frac": 0.20, "nominal_bits": 7.70, "note": "best SEQ point on the data-free HQQ base (F1)"},
+    "random_hqq":  {"kind": "export", "base_quantizer": "hqq",       "base_bits": 4, "mode": "signals", "signal": "random",       "k_frac": 0.20, "nominal_bits": 7.70, "note": "matched-bit random-channel control on HQQ (7.70 bits, single seed 1234). Pairs with best_hqq to make the downstream F1 a matched-bit signal-vs-random test mirroring paper 3"}
   },
   "models": {
     "meta-llama/Llama-3.2-3B": {
       "gptq_base": "runs/final/llmc/Llama-3.2-3B/gptq/artifacts/fake_quant_model",
       "priority": 1,
-      "points": ["fp16", "gptq4", "hqq4", "resmax_gptq", "greedy_gptq", "best_hqq"],
+      "points": ["fp16", "gptq4", "hqq4", "resmax_gptq", "greedy_gptq", "best_hqq", "random_hqq"],
       "expected_ppl": {
         "fp16": 7.817, "gptq4": 8.304, "hqq4": 8.387,
-        "resmax_gptq": 8.099, "greedy_gptq": 55.34, "best_hqq": 8.028
+        "resmax_gptq": 8.099, "greedy_gptq": 55.34, "best_hqq": 8.028, "random_hqq": 8.243
       }
     },
     "meta-llama/Llama-3.2-1B": {
       "gptq_base": "runs/final/llmc/Llama-3.2-1B/gptq/artifacts/fake_quant_model",
       "priority": 2,
-      "points": ["fp16", "gptq4", "hqq4", "resmax_gptq", "greedy_gptq", "best_hqq"],
+      "points": ["fp16", "gptq4", "hqq4", "resmax_gptq", "greedy_gptq", "best_hqq", "random_hqq"],
       "expected_ppl": {
         "fp16": 9.757, "gptq4": 10.363, "hqq4": 11.187,
-        "resmax_gptq": 10.391, "greedy_gptq": 104.16, "best_hqq": 10.207
+        "resmax_gptq": 10.391, "greedy_gptq": 104.16, "best_hqq": 10.207, "random_hqq": 10.975
       }
     }
   },
   "paired_contrasts": [
     {"name": "resmax_gptq_vs_gptq4", "a": "resmax_gptq", "b": "gptq4", "claim": "safe activation-magnitude protection is >= GPTQ-4 (F4)"},
     {"name": "greedy_gptq_vs_gptq4", "a": "greedy_gptq", "b": "gptq4", "claim": "F3 pre-registration (catastrophic on GPTQ) - FALSIFIED downstream, see FINDINGS_PAPER 7.2"},
-    {"name": "best_hqq_vs_hqq4",     "a": "best_hqq",     "b": "hqq4",  "claim": "protection helps a data-free base (F1)"}
+    {"name": "best_hqq_vs_hqq4",     "a": "best_hqq",     "b": "hqq4",  "claim": "protection helps a data-free base (F1)"},
+    {"name": "best_hqq_vs_random_hqq", "a": "best_hqq",   "b": "random_hqq", "claim": "matched-bit (7.70) activation-signal protection beats a random-channel control downstream (F1 sharpening, mirrors paper 3)"}
   ]
 }

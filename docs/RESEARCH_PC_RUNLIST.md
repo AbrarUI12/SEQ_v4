@@ -53,31 +53,98 @@ git commit -m "F3 A/B diagnostic: greedy@GPTQ verify_materialized (1B+3B) result
 git push origin main
 ```
 
-**Result so far (1B, regenerated base):** greedy@GPTQ frac=0.02 → runtime_ppl=63.9462,
-materialized_ppl=63.8248, Δ=−0.1214; FP16 baseline 9.7572 (Δ +54.19). ⇒ catastrophe
-**reproduces** and the export **round-trips faithfully** ⇒ **(A) F3 is real, not an
-export bug.** 3B still to run. (Original base reported 104.16 for 1B; regenerated ≈64 —
-same phenomenon, magnitude differs with base provenance, cf. item 2.)
+**Result — DONE (`0de596e`), regenerated base, verify_materialized Δ≈0 everywhere:**
 
-## 2. Unify GPTQ base provenance (paper §12.2)
+| model | FP16 | greedy@GPTQ runtime | materialized | Δ export | verdict |
+|---|---|---|---|---|---|
+| Llama-3.2-1B | 9.76 | 63.95 | 63.82 | −0.12 | catastrophe reproduces |
+| Llama-3.2-3B | 7.82 | 51.68 | 51.76 | +0.08 | catastrophe reproduces |
+| Llama-2-7B | 5.47 | 5.57 | 5.57 | ~0 | **healthy** (Δ+0.10) |
 
-Re-run the GPTQ-axis sweeps (`greedy`, `greedy_indep`, `residual_max`, `random` × fracs)
-on the regenerated base via the pipeline sweep phase, so every GPTQ number shares one
-base. Commit updated `runs/final/sweeps/gptq_llmc/**` JSONs.
+⇒ **(B) export bug falsified** (materialize is faithful); **(A) F3 is real**, survives base
+regeneration; and **F3 is model-family-dependent** (hits Llama-3.2, not Llama-2-7B). No
+re-run needed. Failures were non-blocking (3.1-8B / Qwen2.5-1.5B missing GPTQ artifact;
+Qwen3-4B OOM in Hessian collection).
+
+---
+
+# DAY 1 — sprint jobs (priority order)
+
+## 1b. CLOSE the downstream contradiction (blocking, ~15 min) — do this first
+
+3B greedy@GPTQ is catastrophic (51.68) AND exports faithfully, yet the §7 **downstream**
+checkpoint scored healthy (lambada 4.17). `verify_materialized` only tests *in-memory*
+materialize, not save→disk→reload — so reload the **on-disk** downstream checkpoint that
+lm-eval actually scored and measure its WikiText-2 PPL. `--expected` is set to the sweep
+runtime; read `reload_ppl` (PASS ⇒ checkpoint is catastrophic ⇒ the healthy downstream was
+a stale/wrong checkpoint; big gap to ~8 ⇒ the save→reload path drops protection).
 
 ```bash
-bash scripts/run_final_seq_pipeline.sh   # sweep phase; see script flags
+python scripts/validate_saved_seq_reload.py \
+  runs/final/downstream/checkpoints/Llama-3.2-3B/greedy_gptq \
+  --expected 51.68 --tolerance 0.5 2>&1 | tee results/f3check_3b/reload_existing.log
+
+python scripts/validate_saved_seq_reload.py \
+  runs/final/downstream/checkpoints/Llama-3.2-1B/greedy_gptq \
+  --expected 63.95 --tolerance 0.5 2>&1 | tee results/f3check_1b/reload_existing.log
 ```
 
-## 3. random@HQQ matched-bit downstream point (paper §12.3)
-
-The point is prepped locally in `configs/downstream_operating_points.json` beforehand.
+If the checkpoint dir is missing (cleaned up), regenerate it fresh (NO `--resume`) with the
+exact downstream export command, then reload-validate `results/f3check_3b/_freshexport`:
 
 ```bash
-bash scripts/run_downstream_eval.sh --points random_hqq --resume
+python -m seq_core.channel_sweep --model meta-llama/Llama-3.2-3B --backend hqq \
+  --base_bits 4 --protect_fracs 0.02 --seed 1234 --ppl_mode canonical \
+  --calibration_prompts calibration_prompts.json --base_quantizer gptq_llmc \
+  --gptq_model_path "$PWD/runs/final/llmc/Llama-3.2-3B/gptq/artifacts/fake_quant_model" \
+  --out_dir results/f3check_3b/_freshexport/_sweep \
+  --save_model_path results/f3check_3b/_freshexport --save_signal greedy --save_k_frac 0.02 \
+  --select greedy 2>&1 | tee results/f3check_3b/freshexport.log
+python scripts/validate_saved_seq_reload.py results/f3check_3b/_freshexport \
+  --expected 51.68 --tolerance 0.5 2>&1 | tee -a results/f3check_3b/freshexport.log
+```
+
+Commit: `git add -f results/f3check_*/reload_existing.log results/f3check_*/freshexport.log \
+runs/final/downstream/checkpoints/*/greedy_gptq/reload_validation.json` (if written), then
+commit + push. **Report the `reload_ppl` for 1B and 3B.**
+
+## 2. Unify GPTQ base provenance (paper §12.2, ~2–4h)
+
+The sweep phases read the GPTQ base from `runs/final/llmc/<model>/gptq/artifacts/fake_quant_model`,
+which is now the **regenerated** base — so re-running them (without `--resume`, so they
+overwrite) makes §5/§6/§7/COMPARISON all cite one base. Covers `residual_max, residual_rms,
+act_max, act_scale, random×3seeds` (full_matrix) and `greedy, greedy_indep, random`
+(gate), fractions {0.02,0.05,0.1,0.2}, for 1B+3B, both bases:
+
+```bash
+bash scripts/run_final_seq_pipeline.sh --phase full_matrix 2>&1 | tee results/resweep_full_matrix.log
+bash scripts/run_final_seq_pipeline.sh --phase gate        2>&1 | tee results/resweep_gate.log
+
+git add -f runs/final/sweeps/**/channel_pareto.json results/resweep_*.log
+git commit -m "Unify GPTQ base provenance: re-sweep GPTQ+HQQ axes on regenerated base (1B+3B)"
+git push origin main
+```
+
+(Re-running the HQQ cells too is intentional — it removes all provenance ambiguity for a
+submission. If GPU time is tight, `--phase gate` alone refreshes the F3/greedy numbers.)
+
+## 3. random@HQQ matched-bit downstream point (paper §12.3, ~20 min)
+
+Point already added to `configs/downstream_operating_points.json` (pull first). Exports a
+random-channel control at the same 7.70 bits as `best_hqq`, then lm-evals it:
+
+```bash
+bash scripts/run_downstream_eval.sh --points random_hqq --resume 2>&1 | tee results/random_hqq_downstream.log
+# then rebuild the table (CPU, can be done locally):
+python analysis/build_downstream_table.py --root runs/final/downstream \
+  --config configs/downstream_operating_points.json --out docs/DOWNSTREAM.md \
+  --csv results/downstream.csv --json results/downstream.json
+git add -f runs/final/downstream/**/*.json results/downstream.* docs/DOWNSTREAM.md
+git commit -m "Add random@HQQ matched-bit downstream control (F1 sharpening)"
+git push origin main
 ```
 
 ## 4. (If window remains) cross-family — Qwen2.5-3B
 
 Sweep + downstream for Qwen2.5-3B (GPTQ baseline already in
-`runs/final/llmc/Qwen2.5-3B`).
+`runs/final/llmc/Qwen2.5-3B`). Out of scope for v1.0 but strengthens F1/F3/F4 generality.
