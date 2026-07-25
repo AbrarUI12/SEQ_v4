@@ -420,6 +420,44 @@
     },
     {
       "model": "meta-llama/Llama-3.2-3B",
+      "point": "random_hqq",
+      "nominal_bits": 7.7,
+      "results": {
+        "hellaswag": {
+          "metric": "acc_norm",
+          "value": 0.7282413861780522,
+          "stderr": 0.004439569447407135
+        },
+        "arc_easy": {
+          "metric": "acc_norm",
+          "value": 0.702020202020202,
+          "stderr": 0.009385046066694932
+        },
+        "arc_challenge": {
+          "metric": "acc_norm",
+          "value": 0.45733788395904434,
+          "stderr": 0.014558106543923992
+        },
+        "piqa": {
+          "metric": "acc_norm",
+          "value": 0.764961915125136,
+          "stderr": 0.009893146688805175
+        },
+        "winogrande": {
+          "metric": "acc",
+          "value": 0.6835043409629045,
+          "stderr": 0.013071868328051517
+        },
+        "lambada_openai": {
+          "metric": "acc",
+          "value": 0.6829031632058995,
+          "stderr": 0.006483172689580195
+        }
+      },
+      "macro_avg": 0.6698281485752063
+    },
+    {
+      "model": "meta-llama/Llama-3.2-3B",
       "point": "resmax_gptq",
       "nominal_bits": 4.82,
       "results": {
@@ -790,8 +828,58 @@
         }
       },
       "best_hqq_vs_random_hqq": {
-        "available": false,
-        "reason": "missing point"
+        "available": true,
+        "paired": true,
+        "per_task": {
+          "arc_challenge": {
+            "n": 1172,
+            "diff": 0.002559726962457376,
+            "lo": -0.012798634812286689,
+            "hi": 0.01877133105802048,
+            "paired": true
+          },
+          "arc_easy": {
+            "n": 2376,
+            "diff": 0.014309764309764383,
+            "lo": 0.003787878787878788,
+            "hi": 0.024831649831649833,
+            "paired": true
+          },
+          "hellaswag": {
+            "n": 10042,
+            "diff": 0.005178251344353679,
+            "lo": 0.0016928898625771759,
+            "hi": 0.008663612826130252,
+            "paired": true
+          },
+          "lambada_openai": {
+            "n": 5153,
+            "diff": 0.013390258102076391,
+            "lo": 0.006986221618474675,
+            "hi": 0.02018241800892684,
+            "paired": true
+          },
+          "piqa": {
+            "n": 1838,
+            "diff": 0.013601741022850944,
+            "lo": 0.004352557127312296,
+            "hi": 0.022850924918389554,
+            "paired": true
+          },
+          "winogrande": {
+            "n": 1267,
+            "diff": 0.007892659826361559,
+            "lo": -0.0055248618784530384,
+            "hi": 0.022099447513812154,
+            "paired": true
+          }
+        },
+        "macro_avg": {
+          "diff": 0.00948873359464404,
+          "lo": 0.005300291669812007,
+          "hi": 0.013662576380246776,
+          "paired": true
+        }
       }
     }
   }
