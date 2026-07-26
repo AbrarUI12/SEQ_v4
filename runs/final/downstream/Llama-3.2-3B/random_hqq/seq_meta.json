@@ -3,13 +3,20 @@
   "point": "random_hqq",
   "kind": "export",
   "nominal_bits": 7.7,
-  "note": "matched-bit random-channel control on HQQ (7.70 bits, single seed 1234)",
+  "note": "matched-bit random-channel control on HQQ (7.70 bits, seed 1234). Pairs with best_hqq for the matched-bit F1 test (paper 3). random_hqq{,_s2,_s3} give channel-set uncertainty.",
   "base_quantizer": "hqq",
   "base_bits": 4,
   "signal": "random",
   "k_frac": 0.2,
   "checkpoint": "/mnt/d/Abrar/SEQ/seq_v4/runs/final/downstream/checkpoints/Llama-3.2-3B/random_hqq",
   "expected_ppl": 8.243,
-  "tasks": ["hellaswag", "arc_easy", "arc_challenge", "piqa", "winogrande", "lambada_openai"],
+  "tasks": [
+    "hellaswag",
+    "arc_easy",
+    "arc_challenge",
+    "piqa",
+    "winogrande",
+    "lambada_openai"
+  ],
   "limit": null
 }
