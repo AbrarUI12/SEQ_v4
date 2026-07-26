@@ -1,0 +1,6 @@
+`torch_dtype` is deprecated! Use `dtype` instead!
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:01<00:01,  1.56s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:02<00:00,  1.05it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:02<00:00,  1.05s/it]
+2026-07-26 22:25:18,791 | INFO | sequential GPTQ pass, recording per-column compensation ...
+Token indices sequence length is longer than the specified maximum sequence length for this model (2435023 > 131072). Running this sequence through the model will result in indexing errors
+2026-07-26 22:25:42,865 | INFO | seq-gptq: captured 128 samples on CPU; processing 28 decoder blocks
+2026-07-26 22:25:42,865 | INFO | seq-gptq: block 1/28
