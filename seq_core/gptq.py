@@ -123,6 +123,10 @@ def gptq_quantize_model_sequential(
     skip: Optional[Sequence[str]] = None,
     out_dtype: torch.dtype = torch.float16,
     out_device: str = "cpu",
+    protect_cols_by_layer: Optional[Dict[str, Sequence[int]]] = None,
+    select_k_frac: Optional[float] = None,
+    selected_out: Optional[Dict[str, list]] = None,
+    protected_orig_out: Optional[Dict[str, torch.Tensor]] = None,
 ) -> Dict[str, torch.Tensor]:
     """Sequential GPTQ: quantize block-by-block, feeding each block's *quantized*
     output to the next so Hessians reflect the true (quantized) input distribution.
@@ -135,7 +139,17 @@ def gptq_quantize_model_sequential(
     decoder blocks are also offloaded and processed one at a time. Attention
     caching is forcibly disabled, because replaying a mutable KV cache across
     independent samples makes the effective sequence length grow without bound.
+
+    F3 causal-experiment hooks (all optional, default off):
+    ``protect_cols_by_layer`` keeps the listed input channels of each layer exact
+    throughout compensation (select-before-GPTQ / OWQ-style). ``select_k_frac``
+    runs residual-driven greedy selection *inside* the pass — right after a layer is
+    quantized, while its Hessian is still resident — writing the chosen channels to
+    ``selected_out`` and those channels' ORIGINAL (pre-quantization) weight columns to
+    ``protected_orig_out``. Selecting in-pass avoids materializing every layer's
+    Hessian at once, which is what makes the two-arm experiment tractable.
     """
+    import math as _math
     import torch.nn as nn
 
     skip_set = set(skip or [])
@@ -251,19 +265,41 @@ def gptq_quantize_model_sequential(
                     continue
                 H_dev = None
                 Wq = None
+                W_orig = None
                 try:
                     H_dev = accs[name][0].to(lin.weight.device)
+                    if select_k_frac:
+                        W_orig = lin.weight.detach().clone()
                     Wq = gptq_quantize_weight(
                         lin.weight, H_dev, bits, group_size=group_size,
                         percdamp=percdamp, clone_hessian=False,
+                        protect_cols=(protect_cols_by_layer or {}).get(full),
                     )
                     lin.weight.data.copy_(Wq)
                     result[full] = Wq.to(dtype=out_dtype, device=torch.device(out_device))
+                    if select_k_frac and W_orig is not None:
+                        # Residual-driven greedy selection on this layer's own residual,
+                        # using the (damped) Hessian GPTQ just used — the quantity the
+                        # post-hoc recipe would select from. H_dev carries GPTQ's damping
+                        # since clone_hessian=False; that shift is ~1% of mean(diag) and
+                        # does not change the ranking materially.
+                        from seq_core.greedy_select import greedy_select_channels
+
+                        dW = W_orig.to(torch.float32) - Wq.to(torch.float32)
+                        k = int(_math.ceil(float(select_k_frac) * dW.shape[1]))
+                        S = greedy_select_channels(dW, H_dev, k, exact_k=True)
+                        if selected_out is not None:
+                            selected_out[full] = S
+                        if protected_orig_out is not None and S:
+                            protected_orig_out[full] = (
+                                W_orig[:, S].to(dtype=out_dtype, device=torch.device(out_device))
+                            )
+                        del dW
                 except Exception as exc:  # noqa: BLE001
                     LOGGER.warning("seq-gptq: layer %s failed (%s)", full, exc)
                 finally:
                     accs[name] = None
-                    del H_dev, Wq
+                    del H_dev, Wq, W_orig
                     if dev.type == "cuda":
                         torch.cuda.empty_cache()
 

@@ -188,7 +188,13 @@ except Exception:
 print("full" if v in (None, "") else int(v))
 PY
 )"
-    have_results="$(find "$lm_out" -name '*.json' 2>/dev/null | head -1)"
+    # `find` exits non-zero when $lm_out does not exist yet (the normal case for a
+    # first/re-run). Under `set -e -o pipefail` that would abort the whole script, so
+    # guard on the directory and never let this assignment fail.
+    have_results=""
+    if [[ -d "$lm_out" ]]; then
+      have_results="$(find "$lm_out" -name '*.json' 2>/dev/null | head -1 || true)"
+    fi
     if [[ "$RESUME" == 1 && -n "$have_results" && "$prev_limit" == "$cur_limit" ]]; then
       echo "  reuse lm-eval results under: $lm_out (limit=$cur_limit)"
     else
