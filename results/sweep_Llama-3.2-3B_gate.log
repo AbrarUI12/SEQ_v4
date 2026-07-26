@@ -1,0 +1,2 @@
+=== phase: gate ===
+command: /mnt/d/Abrar/SEQ/seq_v4/.venv-seq/bin/python -m seq_core.channel_sweep --model meta-llama/Llama-3.2-3B --backend hqq --base_bits 4 --protect_fracs 0.0\,0.02\,0.05\,0.1\,0.2 --seed 1234 --ppl_mode canonical --calibration_prompts /mnt/d/Abrar/SEQ/seq_v4/calibration_prompts.json --out_dir /mnt/d/Abrar/SEQ/seq_v4/runs/final/sweeps/hqq/Llama-3.2-3B/residual_max/seed-1234 --base_quantizer hqq --skip_lm_head --signals residual_max
