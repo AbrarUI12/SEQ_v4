@@ -20,33 +20,67 @@ local box then pulls and rebuilds `COMPARISON.md`/`DOWNSTREAM.md`/figures and th
 
 ---
 
-## ⭐ NEXT SESSION (2026-07-26) — STEP 0: DIAGNOSE lm_eval (blocks ALL downstream)
+## ⭐ CORRECTED GPU WORKLIST (2026-07-26) — code fixes L1-L5 are LANDED
 
-Both lm-eval steps last time died the instant `lm_eval` was invoked (no output, no results),
-so there are **zero** downstream numbers. Nothing else downstream can proceed until this is
-fixed. This diagnosis is independent of the pending local code fixes — run it whenever.
+`lm_eval` is fine (v0.4.12, verified); the earlier "failures" were long runs cut off when the
+session ended. Local integrity fixes are pushed: `--skip-lm-head`, g128 storage, whole
+`--greedy_early_stop`, `scripts/run_protect_then_gptq.py`, per-point seeds. **`git pull` then
+run the items below**, in priority order. Models: L3=meta-llama/Llama-3.2-3B (headline),
+L1=meta-llama/Llama-3.2-1B, Q3=Qwen/Qwen2.5-3B, L27=meta-llama/Llama-2-7b-hf (`<name>` = the
+basename). Rules: never `/tmp`; `tee` logs; `git add -f`; never commit weights/`checkpoints/**`.
+Leave downstream (G4) sessions **uninterrupted** — each model is 6 full tasks (~1-3 h).
 
 ```bash
-cd /mnt/d/Abrar/SEQ/seq_v4 && git pull origin main
-PY="$PWD/.venv-seq/bin/python"
+cd /mnt/d/Abrar/SEQ/seq_v4 && git pull origin main && source .venv-seq/bin/activate
+M=meta-llama/Llama-3.2-3B; N=Llama-3.2-3B      # repeat the block per model (L3 first, then L1, Q3, L27)
 
-# 1) Is lm_eval importable, and what version?
-"$PY" -c "import lm_eval,sys; print('lm_eval', lm_eval.__version__, '| py', sys.version.split()[0])"; echo "import_exit=$?"
+# G1 — corrected sweeps (skip_lm_head + g128 storage):
+bash scripts/run_final_seq_pipeline.sh --models "$M" --phase full_matrix --skip-lm-head \
+  --llmc-repo "$PWD" --llmc-venv "$PWD/.venv-seq" 2>&1 | tee results/sweep_${N}_fm.log
+bash scripts/run_final_seq_pipeline.sh --models "$M" --phase gate --skip-lm-head \
+  --llmc-repo "$PWD" --llmc-venv "$PWD/.venv-seq" 2>&1 | tee results/sweep_${N}_gate.log
 
-# 2) Minimal DIRECT run (1 task, 4 examples) with full stderr to console — surfaces the real
-#    error the pipeline's tee swallowed. Uses the FP16 base (no custom checkpoint) to isolate
-#    lm_eval itself from any export issue.
-mkdir -p results/lm_eval_diag_out
-"$PY" -m lm_eval --model hf \
-  --model_args pretrained=meta-llama/Llama-3.2-3B,dtype=float16 \
-  --tasks lambada_openai --limit 4 --batch_size 1 --device cuda:0 \
-  --output_path results/lm_eval_diag_out 2>&1 | tee results/lm_eval_diag.log; echo "eval_exit=${PIPESTATUS[0]}"
+# G2 — F3 verify_materialized (exact-k) + early-stop causal control:
+python -m seq_core.channel_sweep --model "$M" --backend hqq --base_quantizer gptq_llmc \
+  --gptq_model_path "$PWD/runs/final/llmc/$N/gptq/artifacts/fake_quant_model" \
+  --select greedy --protect_fracs 0.02 --base_bits 4 --seed 1234 --skip_lm_head \
+  --ppl_mode canonical --calibration_prompts calibration_prompts.json \
+  --out_dir results/f3_$N --verify_materialized 2>&1 | tee results/f3_$N.log
+python -m seq_core.channel_sweep --model "$M" --backend hqq --base_quantizer gptq_llmc \
+  --gptq_model_path "$PWD/runs/final/llmc/$N/gptq/artifacts/fake_quant_model" \
+  --select greedy --protect_fracs 0.02 --base_bits 4 --seed 1234 --skip_lm_head --greedy_early_stop \
+  --ppl_mode canonical --calibration_prompts calibration_prompts.json \
+  --out_dir results/f3_earlystop_$N --verify_materialized 2>&1 | tee results/f3_es_$N.log
+
+# G3 — DECISIVE causal experiment (post-hoc vs select-before-GPTQ). L3 then L1:
+python scripts/run_protect_then_gptq.py --model "$M" --base_bits 4 --group_size 128 \
+  --protect_frac 0.02 --seed 1234 --n_calib 128 --out results/owq_$N.json 2>&1 | tee results/owq_$N.log
+
+git add -f runs/final/sweeps/**/channel_pareto.json results/sweep_*.log \
+           results/f3_*/channel_pareto.json results/f3_*.log results/owq_*.json results/owq_*.log
+git commit -m "corrected sweeps + F3 causal ($N)" && git push origin main
+
+# G4 — full-scale downstream (uniform, NO --limit), per model. Long; keep uninterrupted:
+bash scripts/run_downstream_eval.sh --models "$M" 2>&1 | tee results/downstream_$N.log
+# (optional) matched-bit random control over 3 seeds (adds ~2x lm-eval; do on L3/L1 if time):
+bash scripts/run_downstream_eval.sh --models "$M" --points random_hqq_s2,random_hqq_s3 2>&1 | tee -a results/downstream_$N.log
+python analysis/build_downstream_table.py --root runs/final/downstream \
+  --config configs/downstream_operating_points.json --out docs/DOWNSTREAM.md \
+  --csv results/downstream.csv --json results/downstream.json
+git add -f runs/final/downstream/$N/**/lm_eval/**/*.json runs/final/downstream/$N/**/seq_meta.json \
+           results/downstream.* docs/DOWNSTREAM.md results/downstream_$N.log
+git commit -m "downstream $N (full scale, skip_lm_head)" && git push origin main
 ```
 
-**Report back:** the `lm_eval <version>` line, `import_exit`/`eval_exit`, and the last ~30
-lines of `results/lm_eval_diag.log`. Likely culprits: an lm_eval API change (task names,
-`--output_path`, `--log_samples`), a dep broken/renamed after a venv rebuild, or OOM. I fix
-from the actual error, then hand back a corrected downstream run list.
+**Report back per model:** G2 FP16/runtime/materialized PPL (+ early-stop PPL & the logged
+non-positive-pick count); G3 `ppl_base/A_posthoc/B_protect_before` + `mean_overlap...`; G4 the
+per-point macro accuracies. Aug-3 priority if tight: G1+G2+G3 for **L3**, then G4 for L3/L1.
+
+---
+
+### (archived) STEP 0 lm_eval diagnosis — RESOLVED
+lm_eval works (v0.4.12, exit 0). The earlier no-output "failures" were interrupted long runs,
+not a broken lm_eval. Kept only as a record.
 
 ---
 
