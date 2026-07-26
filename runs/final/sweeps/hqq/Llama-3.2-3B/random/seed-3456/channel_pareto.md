@@ -7,7 +7,7 @@ Rows = signal; columns = protection config; `random` is the control. **At matche
 
 | signal | k=0.02 | k=0.05 | k=0.1 | k=0.2 |
 |---|---|---|---|---|
-| `random` | 8.378 (4.24b) | 8.365 (4.60b) | 8.337 (5.20b) | 8.296 (6.40b) |
+| `random` | 8.320 (4.24b) | 8.308 (4.60b) | 8.283 (5.20b) | 8.249 (6.40b) |
 
 ## PPL gap vs random (negative = signal beats random)
 
