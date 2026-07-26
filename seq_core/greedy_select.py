@@ -147,6 +147,9 @@ def greedy_select_channels(
     k: int,
     *,
     exact_k: bool = False,
+    dtype: "Any" = None,
+    recompute_every: int = 64,
+    logger=None,
 ) -> List[int]:
     """OMP residual-reduction selection on a real layer.
 
@@ -168,8 +171,13 @@ def greedy_select_channels(
     # accumulates float32 drift over hundreds of steps and corrupts late gains
     # (the source of the k=0.10 blow-up). float64 + a periodic exact recompute of
     # ``RX = A @ H`` keeps the gains accurate; non-finite gains are masked out.
-    A = delta_w.detach().to(dtype=torch.float64).clone()
-    Hf = H.detach().to(dtype=torch.float64, device=A.device)
+    # float64 is the default because it bounds rank-1 drift over hundreds of steps, but it is
+    # ~1/64 rate on consumer GPUs: A @ Hf for a [3072, 8192] x [8192, 8192] layer is ~412 GFLOP.
+    # Callers doing short selections (small k) can pass dtype=torch.float32 for a large speedup;
+    # `recompute_every` controls the exact-refresh cadence that cancels accumulated drift.
+    work_dtype = torch.float64 if dtype is None else dtype
+    A = delta_w.detach().to(dtype=work_dtype).clone()
+    Hf = H.detach().to(dtype=work_dtype, device=A.device)
     if not bool(torch.isfinite(A).all()) or not bool(torch.isfinite(Hf).all()):
         A = torch.nan_to_num(A)
         Hf = torch.nan_to_num(Hf)
@@ -177,8 +185,15 @@ def greedy_select_channels(
     RX = A @ Hf                                              # [out, in]
     avail = torch.ones(in_f, dtype=torch.bool, device=A.device)
     neg_inf = torch.tensor(float("-inf"), dtype=RX.dtype, device=A.device)
-    recompute_every = 64                                    # cancel accumulated drift
+    recompute_every = int(recompute_every)                  # cancel accumulated drift
     order: List[int] = []
+    if logger is not None:
+        import time as _t
+
+        from seq_core.proglog import heartbeat as _hb
+        _g_t0 = _t.monotonic()
+        logger.info("      greedy: k=%d over [%d, %d] in %s (recompute_every=%d)",
+                    k, out_f, in_f, str(work_dtype).replace("torch.", ""), recompute_every)
     for step in range(k):
         dot = (A * RX).sum(dim=0)                            # [in]
         nrm = (A * A).sum(dim=0)                             # [in]
@@ -195,6 +210,9 @@ def greedy_select_channels(
         order.append(j)
         if recompute_every and (step + 1) % recompute_every == 0:
             RX = A @ Hf                                      # exact refresh kills drift
+        if logger is not None:
+            _hb(logger, "      greedy steps", step + 1, k, _g_t0,
+                every=max(1, k // 4), extra=f"gain={float(gmax):.3e}")
     return order
 
 

@@ -35,10 +35,12 @@ import torch
 
 from seq_core.gptq import build_gptq_calibration, gptq_quantize_model_sequential
 from seq_core.pipeline import load_model_and_tokenizer, resolve_device, resolve_dtype, unload_model
+from seq_core.proglog import banner, quiet_http_logs
 from seq_core.sensitivity import make_ppl_fn
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 LOGGER = logging.getLogger("protect_then_gptq")
+quiet_http_logs()
 
 
 def _skip_names(model) -> list:
@@ -74,20 +76,24 @@ def main() -> int:
             skip=_skip_names(model), **kw)
 
     # ---- FP16 reference -------------------------------------------------- #
+    banner(LOGGER, 1, 5, f"FP16 reference perplexity ({args.model})")
     model, tok = load_model_and_tokenizer(args.model, device, dtype)
     ppl_fp16 = float(ppl_fn(model, tok))
     LOGGER.info("FP16 reference ppl = %.4f", ppl_fp16)
 
     # ---- base + arm A: quantize everything, selecting S in-pass ----------- #
+    banner(LOGGER, 2, 5, "sequential GPTQ base (selecting protected set S in-pass)")
     selected: dict = {}
     protected_orig: dict = {}
     quantize(model, tok, select_k_frac=args.protect_frac,
              selected_out=selected, protected_orig_out=protected_orig)
+    banner(LOGGER, 3, 5, "perplexity of the unprotected GPTQ base")
     ppl_base = float(ppl_fn(model, tok))
     n_sel = sum(len(v) for v in selected.values())
     LOGGER.info("sequential GPTQ base ppl = %.4f (selected %d channels over %d layers)",
                 ppl_base, n_sel, len(selected))
 
+    banner(LOGGER, 4, 5, "arm A: post-hoc restore S to original FP16")
     linears = dict(model.named_modules())
     with torch.no_grad():
         for name, cols in selected.items():
@@ -101,6 +107,7 @@ def main() -> int:
     unload_model(model, tok)
 
     # ---- arm B: same S, held exact throughout compensation ---------------- #
+    banner(LOGGER, 5, 5, "arm B: select-before-GPTQ (S exact throughout compensation)")
     model, tok = load_model_and_tokenizer(args.model, device, dtype)
     quantize(model, tok, protect_cols_by_layer=selected)
     ppl_B = float(ppl_fn(model, tok))

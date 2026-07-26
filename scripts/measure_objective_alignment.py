@@ -33,30 +33,31 @@ import torch
 
 from seq_core.gptq import build_gptq_calibration, gptq_quantize_model_sequential
 from seq_core.pipeline import load_model_and_tokenizer, resolve_device, resolve_dtype, unload_model
+from seq_core.proglog import banner, quiet_http_logs
 from seq_core.stats_utils import spearman
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 LOGGER = logging.getLogger("objective_alignment")
+quiet_http_logs()
 
 
-def selector_scores(dW: torch.Tensor, hdiag: torch.Tensor) -> dict:
-    """Per-input-channel score for each selector, on one layer.
+def selector_scores(cols: dict, hdiag: torch.Tensor) -> dict:
+    """Per-input-channel score for each selector, from the pass's column summaries.
 
-    `dW` is [out, in] (float32, CPU), `hdiag` is [in]. Scores are defined to match the
-    selectors used in the sweeps; `greedy_gain` is the first-step marginal gain of the
-    Hessian-weighted objective, which is exactly what `greedy`/`greedy_indep` rank by
-    (an iterative selector's first pick is its argmax).
+    `cols` holds `[in]`-sized vectors computed while ΔW was live on the GPU
+    (`residual_energy` = ‖ΔW_j‖², `residual_absmax` = max_j|ΔW|); `hdiag` is `[in]`.
+    `greedy_gain` is the first-step marginal gain of the Hessian-weighted objective, which
+    is exactly what `greedy`/`greedy_indep` rank by (an iterative selector's first pick is
+    its argmax).
     """
-    energy = (dW * dW).sum(dim=0)                      # ‖ΔW_j‖²
+    energy = cols["residual_energy"].to(torch.float32)
     return {
         # --- share GPTQ's objective ---------------------------------------- #
         "greedy_gain": (energy * hdiag),               # ∝ first-step gain, full coupling
         "hessian_diag": hdiag.clone(),                 # Hessian diagonal only
         # --- read the residual but not the Hessian -------------------------- #
         "residual_rms": energy.sqrt(),
-        "residual_max": dW.abs().max(dim=0).values,
-        # --- read neither ---------------------------------------------------- #
-        "weight_magnitude": torch.zeros_like(energy),  # placeholder, filled by caller
+        "residual_max": cols["residual_absmax"].to(torch.float32),
     }
 
 
@@ -69,39 +70,44 @@ def main() -> int:
     ap.add_argument("--n_calib", type=int, default=128)
     ap.add_argument("--seq_len", type=int, default=2048)
     ap.add_argument("--device", default="auto")
+    ap.add_argument("--max_blocks", type=int, default=0,
+                    help="only process the first N decoder blocks (0 = all). Alignment is a "
+                         "per-layer statistic, so a median over ~20 layers is already stable; "
+                         "use this for a bounded diagnostic run. Recorded in the output.")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
 
     device = resolve_device(args.device)
     dtype = resolve_dtype("float16", device)
+    banner(LOGGER, 1, 3, f"load {args.model}")
     model, tok = load_model_and_tokenizer(args.model, device, dtype)
     skip = [n for n, m in model.named_modules()
             if isinstance(m, torch.nn.Linear) and "lm_head" in n]
 
+    banner(LOGGER, 2, 3, "sequential GPTQ pass, recording per-column compensation")
     comp: dict = {}
-    resid: dict = {}
+    cols: dict = {}
     hdiag: dict = {}
-    LOGGER.info("sequential GPTQ pass, recording per-column compensation ...")
     gptq_quantize_model_sequential(
         model, tok,
         build_gptq_calibration(tok, n_samples=args.n_calib, seq_len=args.seq_len, seed=args.seed),
         bits=args.base_bits, group_size=args.group_size, seq_len=args.seq_len,
         device=str(device), max_prompts=args.n_calib, skip=skip,
-        compensation_out=comp, residual_out=resid, hessian_diag_out=hdiag,
+        compensation_out=comp, column_scores_out=cols, hessian_diag_out=hdiag,
+        max_blocks=(args.max_blocks or None),
     )
     unload_model(model, tok)
-    LOGGER.info("recorded %d layers; computing rank correlations ...", len(comp))
 
+    banner(LOGGER, 3, 3, f"rank correlations over {len(comp)} layers")
     per_layer: dict = {}
     rows: dict = {}
     for name, c in comp.items():
-        if name not in resid or name not in hdiag:
+        if name not in cols or name not in hdiag:
             continue
         c_v = c.to(torch.float32)
         if float(c_v.abs().sum()) == 0.0:
             continue                                   # nothing was compensated here
-        scores = selector_scores(resid[name].to(torch.float32), hdiag[name].to(torch.float32))
-        scores.pop("weight_magnitude", None)
+        scores = selector_scores(cols[name], hdiag[name].to(torch.float32))
         target = c_v.tolist()
         entry = {}
         for sel, s in scores.items():
@@ -126,6 +132,8 @@ def main() -> int:
         "model": args.model, "base_bits": args.base_bits, "group_size": args.group_size,
         "seed": args.seed, "n_calib": args.n_calib, "skip_lm_head": True,
         "gptq_path": "sequential",
+        "max_blocks": int(args.max_blocks) or None,
+        "layers_analyzed": len(per_layer),
         "target": "per-column compensation magnitude ||W_pre_quant - W_orig||_2",
         "summary": summary,
         "ranking_by_abs_median_rho": order,

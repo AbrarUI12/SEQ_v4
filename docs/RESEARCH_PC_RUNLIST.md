@@ -20,6 +20,106 @@ local box then pulls and rebuilds `COMPARISON.md`/`DOWNSTREAM.md`/figures and th
 
 ---
 
+## 🛑 READ FIRST (2026-07-27) — stalled jobs, and the rules that prevent it
+
+**One GPU job at a time.** E1 was holding 23.7 GiB while E4 ran, so lm_eval was starved onto CPU
+(that is the "only 620 MiB" observation) — correct results, but glacial. Before launching
+anything: `nvidia-smi` must show an idle GPU.
+
+**E1 and E2 both stalled at `seq-gptq: block 1/28`. That was our bug, not a model property.**
+Our internal sequential GPTQ had never been run above tiny test models — all real GPTQ bases came
+from LightCompress. Two confirmed cost bugs, both now fixed:
+- E1 shipped every layer's full ΔW `[out,in]` fp32 to CPU: **12.7 GB** of pointless traffic on 3B.
+  It now keeps only `[in]`-sized column summaries.
+- E2's in-pass greedy ran `A@Hf` in **float64** (412 GFLOP per `down_proj`; consumer GPUs run fp64
+  at ~1/64 rate). In-pass selection is now float32 (k is small, so the drift protection float64
+  was added for is unnecessary).
+
+**Everything is now instrumented.** Each run logs phase banners plus per-block, per-layer and
+per-sample progress with elapsed time, GPU/CPU memory and a running ETA. Judge health from the
+log, not from GPU%:
+```
+[t+ 3m12s] START block 4: hessians over 128 samples | gpu 5.31/7.02GB alloc, 8.00GB reserved | rss 12.4GB
+    hessian samples: 64/128 (50.0%)  41.2s elapsed, 1.6/s, eta  40.1s | ...
+    layer mlp.down_proj  (3072, 8192) done in 6.4s | ...
+seq-gptq: block 4/28 COMPLETE in 96.2s | ...
+```
+If the newest line is minutes old *and* names a step that should take seconds, it is stalled. If
+progress lines keep arriving, it is healthy even at low GPU utilization.
+
+### Bounded diagnostic — run this before any full E1/E2 job
+`--max_blocks 2` processes only the first two decoder blocks (minutes, not hours) and prints
+exactly which sub-step dominates:
+```bash
+cd /mnt/d/Abrar/SEQ/seq_v4 && git pull origin main && source .venv-seq/bin/activate
+nvidia-smi   # confirm idle first
+python scripts/measure_objective_alignment.py --model meta-llama/Llama-3.2-3B \
+  --base_bits 4 --group_size 128 --seed 1234 --n_calib 128 --max_blocks 2 \
+  --out results/align_diag_3B.json 2>&1 | tee results/align_diag_3B.log
+```
+**Report:** the per-block `COMPLETE in Xs` line and the slowest `layer …` line. Multiply the block
+time by 28 for the full-run estimate. Only launch the full runs if that estimate is acceptable.
+For the real E1 measurement a bounded subset is scientifically fine (alignment is a per-layer
+statistic; a median over ~20 layers is stable) — use `--max_blocks 8` and it is recorded in the
+output JSON as `max_blocks`, so the subset is disclosed rather than hidden.
+
+### Triage for the currently-running jobs
+- **E1 (stalled)** — kill it; the fix is landed. Preserve and push the log first.
+- **E2 (stalled)** — same; re-run after pulling.
+- **E4 (slow, 620 MiB)** — its numbers are valid, only slow. With E1 killed it should speed up.
+  Verify progress by log growth, not GPU%:
+  `stat -c %s results/downstream_Llama-3.2-3B.log` twice, 60 s apart.
+
+---
+
+## 🚨 E5 — RUN THIS FIRST: is the catastrophe a selector-Hessian artifact?
+
+A reviewer found a logical hole we could not answer, and chasing it uncovered a **confound that
+may generate the entire headline result**. The greedy selector's score is the *exact* decrease in
+`tr(ΔW H ΔWᵀ)` from restoring a column, and every pick had **positive** gain — so protection
+provably *lowers* the layer's reconstruction error, yet perplexity explodes 8.17 → 51.68.
+
+The likely reason: the two Hessians are estimated from completely different data.
+
+| | calibration for H | tokens |
+|---|---|---|
+| GPTQ base (LightCompress) | WikiText-2, 128 × 2048 | **~262,000** |
+| greedy selector (ours) | 51 short prompts in `calibration_prompts.json` | **~500** |
+
+For layers with 3072–8192 input channels, H from ~500 out-of-distribution tokens is
+**rank-deficient by ~10×**. The selector may simply be ranking noise. New flag
+`--selector_calib_samples N` estimates the selector's H from WikiText-2 at GPTQ's scale instead;
+the run records `selector_calib_source` and `selector_hessian_tokens` in its JSON.
+
+```bash
+cd /mnt/d/Abrar/SEQ/seq_v4 && git pull origin main && source .venv-seq/bin/activate
+for M in meta-llama/Llama-3.2-3B meta-llama/Llama-3.2-1B; do
+  N="${M##*/}"
+  python -m seq_core.channel_sweep --model "$M" --backend hqq --base_quantizer gptq_llmc \
+    --gptq_model_path "$PWD/runs/final/llmc/$N/gptq/artifacts/fake_quant_model" \
+    --select greedy --protect_fracs 0.02,0.05,0.1,0.2 --base_bits 4 --seed 1234 --skip_lm_head \
+    --ppl_mode canonical --calibration_prompts calibration_prompts.json \
+    --selector_calib_samples 128 \
+    --out_dir "results/e5_matchedcalib_$N" 2>&1 | tee "results/e5_${N}.log"
+done
+git add -f results/e5_matchedcalib_*/channel_pareto.json results/e5_*.log
+git commit -m "E5: greedy@GPTQ with selector Hessian matched to GPTQ calibration" && git push origin main
+```
+
+**Report:** the `greedy` perplexity at each budget for both models, plus the logged
+`selector Hessian: wikitext2:128x2048, N rows` line. Compare against the current numbers
+(3B 51.68 / 1B 63.95, both measured with the ~500-token Hessian).
+
+**Either outcome is a good result, so run it before anything else:**
+- **Catastrophe shrinks/vanishes** → the finding becomes *"Hessian-based protection on a
+  compensated base is only as good as the selector's Hessian; an under-estimated one is
+  catastrophic precisely because the compensated residual is large, while Hessian-free selectors
+  are robust."* Actionable and fully explained.
+- **Catastrophe persists** → the obvious confound is excluded and the compensation-structure
+  account becomes far stronger.
+
+---
+
 ## ⭐⭐ HANDOFF EXPERIMENTS E1–E4 (2026-07-26) — for paper v2.0 "Objective Collision"
 
 The paper's headline is now the **base-conditioned inversion**: the same Hessian-weighted

@@ -45,6 +45,15 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--calibration_prompts", default="calibration_prompts.json")
     p.add_argument("--calib_seq_len", type=int, default=2048)
     p.add_argument("--max_calib_prompts", type=int, default=64)
+    p.add_argument("--selector_calib_samples", type=int, default=0,
+                   help="tokens for the GREEDY SELECTOR's Hessian. 0 = reuse "
+                        "--calibration_prompts (~500 tokens of short prompts), which is "
+                        "rank-deficient for layers with thousands of input channels and is a "
+                        "different distribution from the one the base quantizer calibrated on. "
+                        ">0 builds this many --calib_seq_len chunks of WikiText-2 instead, "
+                        "matching how the GPTQ base was calibrated (128 x 2048). Use 128 to "
+                        "test whether Hessian-based selection failures are an artifact of an "
+                        "under-estimated selector Hessian.")
 
     p.add_argument("--backend", default="hqq")
     p.add_argument("--group_size", type=int, default=64)
@@ -294,15 +303,42 @@ def main() -> int:
 
     # greedy OMP selection order per layer (interaction-aware; nested across fracs)
     greedy_order: Dict[str, List[int]] = {}
+    selector_calib_source = None
+    selector_hessian_tokens = None
     if need_greedy:
         from seq_core.gptq import collect_gptq_hessians
         from seq_core.greedy_select import greedy_protected_map
         import math as _math
-        LOGGER.info("collecting input Hessians for greedy selection ...")
+        # The selector's Hessian must be estimated well enough to rank columns of a
+        # [in, in] matrix. --calibration_prompts is ~500 tokens of short instruction text,
+        # which is rank-deficient for in_features in the thousands AND is a different
+        # distribution from the corpus the base quantizer calibrated on. That is a
+        # confound for any Hessian-based selector on a compensated base, so it is made
+        # explicit and switchable here (and recorded in the output payload).
+        if int(args.selector_calib_samples) > 0:
+            from seq_core.gptq import build_gptq_calibration
+
+            sel_prompts = build_gptq_calibration(
+                tokenizer, n_samples=int(args.selector_calib_samples),
+                seq_len=args.calib_seq_len, seed=args.seed,
+            )
+            sel_max = int(args.selector_calib_samples)
+            selector_calib_source = f"wikitext2:{sel_max}x{args.calib_seq_len}"
+        else:
+            sel_prompts = prompts
+            sel_max = args.max_calib_prompts
+            selector_calib_source = f"calibration_prompts:{args.calibration_prompts}"
+        LOGGER.info("collecting input Hessians for greedy selection (calib=%s) ...",
+                    selector_calib_source)
         hessians = collect_gptq_hessians(
-            model, tokenizer, prompts, seq_len=args.calib_seq_len, device=device,
-            max_prompts=args.max_calib_prompts, hessian_device=args.gptq_hessian_device,
+            model, tokenizer, sel_prompts, seq_len=args.calib_seq_len, device=device,
+            max_prompts=sel_max, hessian_device=args.gptq_hessian_device,
         )
+        selector_hessian_tokens = max(
+            (int(n) for (_H, n) in hessians.values()), default=0
+        )
+        LOGGER.info("selector Hessian: %s, %d rows (tokens) accumulated",
+                    selector_calib_source, selector_hessian_tokens)
         max_frac = max([f for f in fracs if f > 0] or [0.0])
         weights = {n: m.weight.detach() for n, m in linear_items}
         k_by_layer = {n: int(_math.ceil(max_frac * in_features[n])) for n in weights if n in in_features}
@@ -598,6 +634,12 @@ def main() -> int:
         "baseline_fp16_ppl": baseline_fp16_ppl, "baseline_base_ppl": baseline_base_ppl,
         "select": args.select, "ppl_mode": args.ppl_mode,
         "seed": args.seed, "greedy_early_stop": bool(args.greedy_early_stop),
+        # Provenance for the selector's Hessian: which corpus it was estimated from and how
+        # many activation rows (tokens) went into it. Compare against the base quantizer's
+        # calibration when interpreting any Hessian-based selector result.
+        "selector_calib_source": selector_calib_source,
+        "selector_hessian_tokens": selector_hessian_tokens,
+        "selector_calib_samples": int(args.selector_calib_samples),
         "skip_lm_head": bool(args.skip_lm_head), "results": results,
     }
     (out_dir / "channel_pareto.json").write_text(json.dumps(payload, indent=2))

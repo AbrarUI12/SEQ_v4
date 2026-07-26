@@ -129,7 +129,9 @@ def gptq_quantize_model_sequential(
     protected_orig_out: Optional[Dict[str, torch.Tensor]] = None,
     compensation_out: Optional[Dict[str, torch.Tensor]] = None,
     residual_out: Optional[Dict[str, torch.Tensor]] = None,
+    column_scores_out: Optional[Dict[str, Dict[str, torch.Tensor]]] = None,
     hessian_diag_out: Optional[Dict[str, torch.Tensor]] = None,
+    max_blocks: Optional[int] = None,
 ) -> Dict[str, torch.Tensor]:
     """Sequential GPTQ: quantize block-by-block, feeding each block's *quantized*
     output to the next so Hessians reflect the true (quantized) input distribution.
@@ -153,7 +155,11 @@ def gptq_quantize_model_sequential(
     Hessian at once, which is what makes the two-arm experiment tractable.
     """
     import math as _math
+    import time as _time
+
     import torch.nn as nn
+
+    from seq_core.proglog import Stage, heartbeat, mem_str
 
     skip_set = set(skip or [])
     layers, prefix = _find_decoder_layers(model)
@@ -196,15 +202,20 @@ def gptq_quantize_model_sequential(
         layers[0] = _Catcher(first_block)
         try:
             used = list(prompts) if max_prompts is None else list(prompts)[: int(max_prompts)]
-            for prompt in used:
-                if not isinstance(prompt, str) or not prompt.strip():
-                    continue
-                enc = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=seq_len)
-                enc = {key: value.to(dev) for key, value in enc.items()}
-                try:
-                    model(**enc, use_cache=False)
-                except _StopForward:
-                    pass
+            with Stage(LOGGER, f"capture first-block inputs for {len(used)} calibration samples"):
+                _c_t0 = _time.monotonic()
+                for ci, prompt in enumerate(used, 1):
+                    if not isinstance(prompt, str) or not prompt.strip():
+                        continue
+                    enc = tokenizer(prompt, return_tensors="pt", truncation=True,
+                                    max_length=seq_len)
+                    enc = {key: value.to(dev) for key, value in enc.items()}
+                    try:
+                        model(**enc, use_cache=False)
+                    except _StopForward:
+                        pass
+                    heartbeat(LOGGER, "capture", ci, len(used), _c_t0,
+                              every=max(1, len(used) // 4))
         finally:
             layers[0] = first_block
 
@@ -216,10 +227,20 @@ def gptq_quantize_model_sequential(
         )
 
         # ---- accumulate, quantize, and advance one decoder block at a time -- #
+        n_blocks = len(layers) if not max_blocks else min(len(layers), int(max_blocks))
+        if n_blocks < len(layers):
+            LOGGER.warning("seq-gptq: max_blocks=%d -> processing only the first %d of %d "
+                           "decoder blocks (DIAGNOSTIC subset, not a full quantization)",
+                           int(max_blocks), n_blocks, len(layers))
         for i, block in enumerate(layers):
-            LOGGER.info("seq-gptq: block %d/%d", i + 1, len(layers))
+            if i >= n_blocks:
+                break
+            LOGGER.info("seq-gptq: ===== block %d/%d ===== | %s",
+                        i + 1, len(layers), mem_str())
+            _block_t0 = _time.monotonic()
             if offload_blocks:
-                block.to(dev)
+                with Stage(LOGGER, f"block {i+1}: move to {dev}", quiet_start=True):
+                    block.to(dev)
             sub = {n: m for n, m in block.named_modules() if isinstance(m, nn.Linear)}
             accs: Dict[str, list] = {}
 
@@ -247,10 +268,16 @@ def gptq_quantize_model_sequential(
                 if f"{prefix}.{i}.{name}" not in skip_set:
                     handles.append(module.register_forward_pre_hook(make_hook(name)))
             try:
-                for hidden_states, cpu_args, cpu_kwargs in replay:
-                    args = _move_replay_value(cpu_args, dev)
-                    kwargs = _move_replay_value(cpu_kwargs, dev)
-                    block(hidden_states.to(dev), *args, **kwargs)
+                # Hessian accumulation: one forward per calibration sample. This is the step
+                # that previously went silent for hours, so it reports per-sample progress.
+                with Stage(LOGGER, f"block {i+1}: hessians over {len(replay)} samples"):
+                    _h_t0 = _time.monotonic()
+                    for si, (hidden_states, cpu_args, cpu_kwargs) in enumerate(replay, 1):
+                        args = _move_replay_value(cpu_args, dev)
+                        kwargs = _move_replay_value(cpu_kwargs, dev)
+                        block(hidden_states.to(dev), *args, **kwargs)
+                        heartbeat(LOGGER, "hessian samples", si, len(replay), _h_t0,
+                                  every=max(1, len(replay) // 8))
             finally:
                 for handle in handles:
                     handle.remove()
@@ -262,17 +289,23 @@ def gptq_quantize_model_sequential(
                     entry[0] = entry[0].to(cpu)
                 torch.cuda.empty_cache()
 
+            _quant_names = [n for n in sub if f"{prefix}.{i}.{n}" not in skip_set and n in accs]
+            LOGGER.info("  block %d: quantizing %d linears: %s",
+                        i + 1, len(_quant_names), ", ".join(_quant_names))
             for name, lin in sub.items():
                 full = f"{prefix}.{i}.{name}"
                 if full in skip_set or name not in accs:
                     continue
+                _lay_t0 = _time.monotonic()
+                _shape = tuple(lin.weight.shape)
                 H_dev = None
                 Wq = None
                 W_orig = None
                 try:
                     H_dev = accs[name][0].to(lin.weight.device)
                     want_comp = compensation_out is not None
-                    if select_k_frac or want_comp or residual_out is not None:
+                    if (select_k_frac or want_comp or residual_out is not None
+                            or column_scores_out is not None):
                         W_orig = lin.weight.detach().clone()
                     if hessian_diag_out is not None:
                         hessian_diag_out[full] = torch.diagonal(H_dev).detach().cpu().clone()
@@ -287,10 +320,19 @@ def gptq_quantize_model_sequential(
                         compensation_out[full] = comp_vec.detach().cpu().clone()
                     lin.weight.data.copy_(Wq)
                     result[full] = Wq.to(dtype=out_dtype, device=torch.device(out_device))
-                    if residual_out is not None and W_orig is not None:
-                        residual_out[full] = (
-                            (W_orig.to(torch.float32) - Wq.to(torch.float32)).detach().cpu()
-                        )
+                    if (residual_out is not None or column_scores_out is not None) and W_orig is not None:
+                        _dW = W_orig.to(torch.float32) - Wq.to(torch.float32)
+                        if column_scores_out is not None:
+                            # Keep only [in]-sized summaries. Storing full dW per layer costs
+                            # ~12.7 GB of CPU traffic on a 3B model and is never needed by the
+                            # alignment analysis, which is entirely per-input-channel.
+                            column_scores_out[full] = {
+                                "residual_energy": (_dW * _dW).sum(dim=0).detach().cpu(),
+                                "residual_absmax": _dW.abs().max(dim=0).values.detach().cpu(),
+                            }
+                        if residual_out is not None:
+                            residual_out[full] = _dW.detach().cpu()
+                        del _dW
                     if select_k_frac and W_orig is not None:
                         # Residual-driven greedy selection on this layer's own residual,
                         # using the (damped) Hessian GPTQ just used — the quantity the
@@ -301,7 +343,10 @@ def gptq_quantize_model_sequential(
 
                         dW = W_orig.to(torch.float32) - Wq.to(torch.float32)
                         k = int(_math.ceil(float(select_k_frac) * dW.shape[1]))
-                        S = greedy_select_channels(dW, H_dev, k, exact_k=True)
+                        # float32: k here is small (a few % of in_f), so float64's drift
+                        # protection is unnecessary and costs ~64x on consumer GPUs.
+                        S = greedy_select_channels(dW, H_dev, k, exact_k=True,
+                                                   dtype=torch.float32, logger=LOGGER)
                         if selected_out is not None:
                             selected_out[full] = S
                         if protected_orig_out is not None and S:
@@ -316,21 +361,30 @@ def gptq_quantize_model_sequential(
                     del H_dev, Wq, W_orig
                     if dev.type == "cuda":
                         torch.cuda.empty_cache()
+                    LOGGER.info("    layer %-22s %s done in %.1fs | %s",
+                                name, _shape, _time.monotonic() - _lay_t0, mem_str())
 
             # Re-run the quantized block and retain only CPU outputs for the
             # next block. Per-sample args/kwargs remain independent and on CPU.
-            next_replay = []
-            for hidden_states, cpu_args, cpu_kwargs in replay:
-                args = _move_replay_value(cpu_args, dev)
-                kwargs = _move_replay_value(cpu_kwargs, dev)
-                out = block(hidden_states.to(dev), *args, **kwargs)
-                next_hidden = out[0] if isinstance(out, (tuple, list)) else out
-                next_replay.append((next_hidden.detach().to(cpu), cpu_args, cpu_kwargs))
-            replay = next_replay
+            with Stage(LOGGER, f"block {i+1}: replay {len(replay)} samples through quantized block",
+                       index=i + 1, total=len(layers)):
+                _r_t0 = _time.monotonic()
+                next_replay = []
+                for si, (hidden_states, cpu_args, cpu_kwargs) in enumerate(replay, 1):
+                    args = _move_replay_value(cpu_args, dev)
+                    kwargs = _move_replay_value(cpu_kwargs, dev)
+                    out = block(hidden_states.to(dev), *args, **kwargs)
+                    next_hidden = out[0] if isinstance(out, (tuple, list)) else out
+                    next_replay.append((next_hidden.detach().to(cpu), cpu_args, cpu_kwargs))
+                    heartbeat(LOGGER, "replay samples", si, len(replay), _r_t0,
+                              every=max(1, len(replay) // 4))
+                replay = next_replay
 
             if offload_blocks:
                 block.to(cpu)
                 torch.cuda.empty_cache()
+            LOGGER.info("seq-gptq: block %d/%d COMPLETE in %.1fs | %s",
+                        i + 1, len(layers), _time.monotonic() - _block_t0, mem_str())
 
     finally:
         if original_use_cache is not None:
@@ -527,6 +581,13 @@ def gptq_quantize_weight(
     scale = zero = None
     if gs == -1:  # per-tensor (single group over all columns)
         scale, zero = _find_params(W, maxq)
+    # Column loop is pure Python over in_f columns (up to 8192); heartbeat so a slow layer is
+    # visibly progressing rather than hung. Cheap: one log line per ~2048 columns.
+    import time as _t
+    from seq_core.proglog import heartbeat as _hb
+    _col_t0 = _t.monotonic()
+    _col_every = 2048
+
     for i1 in range(0, in_f, blocksize):
         i2 = min(i1 + blocksize, in_f)
         count = i2 - i1
@@ -561,6 +622,8 @@ def gptq_quantize_weight(
         Q[:, i1:i2] = Q1
         if i2 < in_f:
             W[:, i2:] -= Err1 @ Hinv[i1:i2, i2:]
+        if in_f > _col_every and (i2 % _col_every == 0 or i2 == in_f):
+            _hb(LOGGER, "      gptq columns", i2, in_f, _col_t0)
     if return_compensation:
         return Q, comp
     return Q
