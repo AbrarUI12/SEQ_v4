@@ -1,0 +1,7 @@
+`torch_dtype` is deprecated! Use `dtype` instead!
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:01<00:01,  1.53s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:02<00:00,  1.09it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:02<00:00,  1.01s/it]
+Token indices sequence length is longer than the specified maximum sequence length for this model (289076 > 131072). Running this sequence through the model will result in indexing errors
+2026-07-27 00:28:01,205 | INFO | PPL mode=canonical dataset=wikitext2 split=test tokenizer=meta-llama/Llama-3.2-3B seq_len=2048 stream=continuous_stream chunking=non_overlapping full_chunks=141 supervised_tokens=288627 tail_dropped=True tail_tokens_dropped=308 loss_impl=hf_internal_shift avg_loss=2.0562531804362085 ppl=7.816627381856085 error=None
+2026-07-27 00:28:01,207 | INFO | FP16 reference ppl = 7.8166
+2026-07-27 00:28:29,119 | INFO | seq-gptq: captured 128 samples on CPU; processing 28 decoder blocks
+2026-07-27 00:28:29,119 | INFO | seq-gptq: block 1/28
