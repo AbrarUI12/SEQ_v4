@@ -52,12 +52,15 @@ python -m seq_core.channel_sweep --model "$M" --backend hqq --base_quantizer gpt
   --ppl_mode canonical --calibration_prompts calibration_prompts.json \
   --out_dir results/f3_earlystop_$N --verify_materialized 2>&1 | tee results/f3_es_$N.log
 
-# G3 — DECISIVE causal experiment (post-hoc vs select-before-GPTQ). L3 then L1:
+# G3' — DECISIVE causal experiment, REBUILT on sequential GPTQ (supersedes the earlier G3;
+# that one used the one-shot path and produced a degenerate base >3000 PPL — discard those
+# results/owq_*.json). Runs 2 sequential GPTQ passes + 4 PPL evals (~1-1.5 h on 3B).
+# Read `verdict`: A_collapses_B_healthy => post-hoc restoration causally breaks compensation.
 python scripts/run_protect_then_gptq.py --model "$M" --base_bits 4 --group_size 128 \
-  --protect_frac 0.02 --seed 1234 --n_calib 128 --out results/owq_$N.json 2>&1 | tee results/owq_$N.log
+  --protect_frac 0.02 --seed 1234 --n_calib 128 --out results/owq_seq_$N.json 2>&1 | tee results/owq_seq_$N.log
 
 git add -f runs/final/sweeps/**/channel_pareto.json results/sweep_*.log \
-           results/f3_*/channel_pareto.json results/f3_*.log results/owq_*.json results/owq_*.log
+           results/f3_*/channel_pareto.json results/f3_*.log results/owq_seq_*.json results/owq_seq_*.log
 git commit -m "corrected sweeps + F3 causal ($N)" && git push origin main
 
 # G4 — full-scale downstream (uniform, NO --limit), per model. Long; keep uninterrupted:
@@ -72,9 +75,15 @@ git add -f runs/final/downstream/$N/**/lm_eval/**/*.json runs/final/downstream/$
 git commit -m "downstream $N (full scale, skip_lm_head)" && git push origin main
 ```
 
-**Report back per model:** G2 FP16/runtime/materialized PPL (+ early-stop PPL & the logged
-non-positive-pick count); G3 `ppl_base/A_posthoc/B_protect_before` + `mean_overlap...`; G4 the
-per-point macro accuracies. Aug-3 priority if tight: G1+G2+G3 for **L3**, then G4 for L3/L1.
+**Report back per model:** G2 FP16/runtime/materialized PPL (+ early-stop PPL); G3′
+`ppl_fp16/ppl_base_gptq/ppl_A_posthoc_restore/ppl_B_protect_before_gptq` + `verdict`; G4 the
+per-point macro accuracies.
+
+**Current priority (paper v1.0 is written; these two fill its only gaps):**
+1. **G4 downstream for L3 + L1** — fills §8, the last empty section. A `set -e` bug that
+   aborted this silently is fixed (commit 66d794c), so pull first. Keep the session running.
+2. **G3′ for L3** — fills §9; converts the mechanism from hypothesis to a causal claim.
+Everything else (G1 sweeps, G2) is already done and in the paper.
 
 ---
 
