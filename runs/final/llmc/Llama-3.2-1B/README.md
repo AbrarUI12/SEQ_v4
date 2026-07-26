@@ -2,7 +2,7 @@
 
 | method | bits | PPL | status |
 |---|---:|---:|---|
-| GPTQ-4 g128 | 4.0 | 10.3627 | completed |
+| GPTQ-4 g128 | 4.0 | 10.4306 | completed |
 
 Evaluation: full WikiText-2 test corpus in non-overlapping 2048-token chunks.
 AWQ and GPTQ algorithm/calibration settings are taken from the installed LLMC native configs.
