@@ -127,6 +127,9 @@ def gptq_quantize_model_sequential(
     select_k_frac: Optional[float] = None,
     selected_out: Optional[Dict[str, list]] = None,
     protected_orig_out: Optional[Dict[str, torch.Tensor]] = None,
+    compensation_out: Optional[Dict[str, torch.Tensor]] = None,
+    residual_out: Optional[Dict[str, torch.Tensor]] = None,
+    hessian_diag_out: Optional[Dict[str, torch.Tensor]] = None,
 ) -> Dict[str, torch.Tensor]:
     """Sequential GPTQ: quantize block-by-block, feeding each block's *quantized*
     output to the next so Hessians reflect the true (quantized) input distribution.
@@ -268,15 +271,26 @@ def gptq_quantize_model_sequential(
                 W_orig = None
                 try:
                     H_dev = accs[name][0].to(lin.weight.device)
-                    if select_k_frac:
+                    want_comp = compensation_out is not None
+                    if select_k_frac or want_comp or residual_out is not None:
                         W_orig = lin.weight.detach().clone()
+                    if hessian_diag_out is not None:
+                        hessian_diag_out[full] = torch.diagonal(H_dev).detach().cpu().clone()
                     Wq = gptq_quantize_weight(
                         lin.weight, H_dev, bits, group_size=group_size,
                         percdamp=percdamp, clone_hessian=False,
                         protect_cols=(protect_cols_by_layer or {}).get(full),
+                        return_compensation=want_comp,
                     )
+                    if want_comp:
+                        Wq, comp_vec = Wq
+                        compensation_out[full] = comp_vec.detach().cpu().clone()
                     lin.weight.data.copy_(Wq)
                     result[full] = Wq.to(dtype=out_dtype, device=torch.device(out_device))
+                    if residual_out is not None and W_orig is not None:
+                        residual_out[full] = (
+                            (W_orig.to(torch.float32) - Wq.to(torch.float32)).detach().cpu()
+                        )
                     if select_k_frac and W_orig is not None:
                         # Residual-driven greedy selection on this layer's own residual,
                         # using the (damped) Hessian GPTQ just used — the quantity the
@@ -453,7 +467,8 @@ def gptq_quantize_weight(
     blocksize: int = 128,
     clone_hessian: bool = True,
     protect_cols: Optional[Sequence[int]] = None,
-) -> torch.Tensor:
+    return_compensation: bool = False,
+):
     """GPTQ fake-quantized weight [out, in] using input Hessian H [in, in].
 
     Faithful to auto-gptq: damped inverse Cholesky of H drives per-column error
@@ -467,6 +482,12 @@ def gptq_quantize_weight(
     are exact. This is the causal counterpart to *post-hoc* restoration (quantize all
     columns, then overwrite S with FP16), which discards the compensation those
     columns were part of. Compare the two to establish the F3 mechanism.
+
+    ``return_compensation`` additionally returns a per-column vector
+    ``comp[j] = ‖W_pre_quant[:,j] − W_orig[:,j]‖₂`` — how far error compensation moved column j
+    *before* it was itself quantized, i.e. how much correction that column absorbed. This is the
+    ground truth a selector's score is correlated against to test objective collision. Returns
+    ``Q`` normally, or ``(Q, comp)`` when requested.
     """
     protect_set = {int(c) for c in protect_cols} if protect_cols else set()
     W = weight.detach().to(dtype=torch.float32).clone()
@@ -496,6 +517,11 @@ def gptq_quantize_weight(
     protect_orig = ({int(c): W[:, int(c)].clone() for c in protect_set}
                     if protect_set else {})
 
+    # Reference copy taken after dead-column zeroing so `comp` measures compensation only.
+    W_ref = W.clone() if return_compensation else None
+    comp = (torch.zeros(in_f, dtype=W.dtype, device=W.device)
+            if return_compensation else None)
+
     Q = torch.zeros_like(W)
     gs = int(group_size)
     scale = zero = None
@@ -511,6 +537,11 @@ def gptq_quantize_weight(
         for i in range(count):
             col = i1 + i
             w = W1[:, i]
+            if comp is not None:
+                # w is this column's CURRENT value: original + all compensation deposited
+                # into it by the columns already quantized. Distance from the original is
+                # exactly the correction this column is carrying at the moment it is rounded.
+                comp[col] = torch.linalg.vector_norm(w - W_ref[:, col])
             d = Hinv1[i, i]
             if gs != -1 and col % gs == 0:
                 g = W[:, col:min(col + gs, in_f)]
@@ -530,6 +561,8 @@ def gptq_quantize_weight(
         Q[:, i1:i2] = Q1
         if i2 < in_f:
             W[:, i2:] -= Err1 @ Hinv[i1:i2, i2:]
+    if return_compensation:
+        return Q, comp
     return Q
 
 

@@ -20,6 +20,92 @@ local box then pulls and rebuilds `COMPARISON.md`/`DOWNSTREAM.md`/figures and th
 
 ---
 
+## ⭐⭐ HANDOFF EXPERIMENTS E1–E4 (2026-07-26) — for paper v2.0 "Objective Collision"
+
+The paper's headline is now the **base-conditioned inversion**: the same Hessian-weighted
+selector is the *best* signal on data-free HQQ (3B 8.100 vs random 8.319) and the *worst* on
+compensated GPTQ (8.172 → 51.68). The explanation is **objective collision** — the selector
+maximizes reduction of ‖ΔW X‖², exactly what GPTQ minimizes, so on a compensated base it ranks
+compensation-bearing columns instead of salient ones. These four experiments close the paper's
+open items. **Hand them out one at a time**; each is self-contained.
+
+Common preamble (all experiments):
+```bash
+cd /mnt/d/Abrar/SEQ/seq_v4 && git pull origin main && source .venv-seq/bin/activate
+```
+Rules: never `/tmp` for outputs; `tee` logs under `results/`; `git add -f` (results/ and runs/
+are gitignored); **never** commit weights or anything under `runs/final/downstream/checkpoints/`;
+a job is finished when the shell prompt returns — do not poll PIDs or "monitor" processes.
+
+### E4 — downstream evaluation (highest value; fills paper §9)
+Long (~1–3 h per model) and **must run uninterrupted**; earlier attempts were cut off mid-run.
+A `set -euo pipefail` abort on a missing `lm_eval/` dir was fixed, so pull first.
+```bash
+for M in meta-llama/Llama-3.2-3B meta-llama/Llama-3.2-1B; do
+  N="${M##*/}"
+  bash scripts/run_downstream_eval.sh --models "$M" 2>&1 | tee "results/downstream_${N}.log"
+done
+python analysis/build_downstream_table.py --root runs/final/downstream \
+  --config configs/downstream_operating_points.json --out docs/DOWNSTREAM.md \
+  --csv results/downstream.csv --json results/downstream.json
+git add -f runs/final/downstream/*/*/lm_eval/**/*.json runs/final/downstream/*/*/seq_meta.json \
+           results/downstream.csv results/downstream.json docs/DOWNSTREAM.md results/downstream_*.log
+git commit -m "E4: full-scale downstream (corrected scope)" && git push origin main
+```
+**Report:** per-point macro accuracy for each model, especially `greedy_gptq` (does accuracy
+collapse, matching its perplexity of ~52/64?).
+
+### E2 — ordering intervention (causal; fills §6.4b)
+Same protected set S, only *when* it is made exact differs. ~1–1.5 h per model.
+```bash
+for M in meta-llama/Llama-3.2-3B meta-llama/Llama-3.2-1B; do
+  N="${M##*/}"
+  python scripts/run_protect_then_gptq.py --model "$M" --base_bits 4 --group_size 128 \
+    --protect_frac 0.02 --seed 1234 --n_calib 128 \
+    --out "results/owq_seq_${N}.json" 2>&1 | tee "results/owq_seq_${N}.log"
+done
+git add -f results/owq_seq_*.json results/owq_seq_*.log
+git commit -m "E2: ordering intervention (post-hoc vs select-before-GPTQ)" && git push origin main
+```
+**Report:** `ppl_fp16`, `ppl_base_gptq`, `ppl_A_posthoc_restore`, `ppl_B_protect_before_gptq`,
+`verdict`. **Sanity-check `ppl_base_gptq` first** — it must be close to the FP16 value (~8 on 3B).
+If it is in the hundreds or thousands the base is degenerate and the arms are uninformative.
+
+### E1 — objective alignment (the mechanism measurement; fills §6.4a and explains §7)
+Cheap (~20–40 min per model, no perplexity evaluations). Runs on all four models.
+```bash
+for M in meta-llama/Llama-3.2-3B meta-llama/Llama-3.2-1B Qwen/Qwen2.5-3B meta-llama/Llama-2-7b-hf; do
+  N="${M##*/}"
+  python scripts/measure_objective_alignment.py --model "$M" --base_bits 4 --group_size 128 \
+    --seed 1234 --n_calib 128 --out "results/align_${N}.json" 2>&1 | tee "results/align_${N}.log"
+done
+git add -f results/align_*.json results/align_*.log
+git commit -m "E1: selector-vs-compensation rank alignment" && git push origin main
+```
+**Report:** the `summary` block per model (median ρ per selector) and `ranking_by_abs_median_rho`.
+**Pre-registered prediction:** `greedy_gain` > `hessian_diag` > `residual_rms`/`residual_max` in
+|ρ|, and alignment should be *higher on the susceptible models* (Llama-3.2-1B/3B) than on the
+safe ones (Qwen2.5-3B, Llama-2-7B) — that would turn §7's model dependence into a diagnostic.
+
+### E3 — intermediate-coupling selector (fills the alignment axis; §6.4c)
+Adds `hessian_diag` (Hessian diagonal, no cross terms = "half" the objective) to the GPTQ panel.
+Cheap; prediction is harm strictly between `residual_max` (safe) and `greedy_indep` (harmful).
+```bash
+for M in meta-llama/Llama-3.2-3B meta-llama/Llama-3.2-1B; do
+  N="${M##*/}"
+  python -m seq_core.channel_sweep --model "$M" --backend hqq --base_quantizer gptq_llmc \
+    --gptq_model_path "$PWD/runs/final/llmc/$N/gptq/artifacts/fake_quant_model" \
+    --signals hessian_diag --protect_fracs 0.02,0.05,0.1,0.2 --base_bits 4 --seed 1234 \
+    --skip_lm_head --ppl_mode canonical --calibration_prompts calibration_prompts.json \
+    --out_dir "runs/final/sweeps/gptq_llmc/$N/hessian_diag/seed-1234" 2>&1 | tee "results/hdiag_${N}.log"
+done
+git add -f runs/final/sweeps/gptq_llmc/*/hessian_diag/seed-1234/channel_pareto.json results/hdiag_*.log
+git commit -m "E3: hessian_diag intermediate-coupling selector on GPTQ" && git push origin main
+```
+**Report:** the `hessian_diag` perplexity at each budget for both models.
+
+---
+
 ## ⭐ CORRECTED GPU WORKLIST (2026-07-26) — code fixes L1-L5 are LANDED
 
 `lm_eval` is fine (v0.4.12, verified); the earlier "failures" were long runs cut off when the
