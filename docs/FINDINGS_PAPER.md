@@ -1,458 +1,350 @@
-# Findings paper — working draft (v0.4)
+# When Outlier Protection Backfires: A Controlled Audit of Post-Hoc Mixed-Precision Channel Selection on Error-Compensated LLM Quantization
 
-**Working title:** *When Does Outlier Protection Help? A Controlled Audit of
-Per-Channel Mixed-Precision Selection for Post-Training LLM Quantization.*
-
-_Status: near-submission draft (v1.0 sprint). F1, F2, F4 are complete and internally
-consistent. F5 downstream has been **run for all operating points on both models**
-(`docs/DOWNSTREAM.md`): the HQQ axis **confirms F1**. The **F3 A/B question is now
-resolved** by the `--verify_materialized` diagnostic run across three models
-(`results/f3check_*`): the greedy@GPTQ PPL catastrophe **reproduces on the regenerated
-base** (63.95 on 1B, 51.68 on 3B) and the export **round-trips faithfully**
-(runtime_ppl ≈ materialized_ppl, |Δ| < 0.13) — so it is **(A) real, not (B) an export
-bug**. It is also **model-dependent**: Llama-2-7B is healthy (5.57 vs FP16 5.47). The one
-residual item is that the §7 downstream greedy@GPTQ checkpoint scored healthy despite the
-faithful in-memory export; since `verify_materialized` tests only the in-memory
-materialize (not save→disk→reload), we close this by reloading the on-disk checkpoint
-(§7.2, in flight). A base-provenance unification re-sweep (§12.2) is also in flight; §12
-tracks the remaining work._
+_Draft v1.0 (2026-07-26) — ACL long-paper format. All perplexity numbers in this draft come
+from the corrected sweep matrix (`skip_lm_head=true`, base group size 128), traceable to
+committed `runs/final/sweeps/**/channel_pareto.json`. Two items are explicitly marked
+**pending**: the corrected downstream evaluation (§8) and the causal mechanism test (§9)._
 
 ---
 
 ## Abstract
 
-Keeping a small fraction of "outlier" channels in high precision on top of a
-low-bit weight base is a popular recipe (LLM.int8, SpQR, OWQ). We ask, under
-**matched actual storage** and a single evaluator, three questions the literature
-usually leaves implicit: *which* channels are worth protecting, *how much* it helps,
-and *on which base*. Across Llama-3.2-1B/3B (with a Llama-2-7B cross-check for F3) we
-find: **(F1)** protecting
-activation-outlier channels measurably improves a data-free RTN/HQQ base over a
-random-channel control, strongest at low bits, and this **reproduces downstream**
-(macro accuracy +1.21 pts [+0.77, +1.63] on 3B); **(F2)** an interaction-aware,
-full-Hessian greedy selector does **not** robustly beat a simple independent
-activation-magnitude score at matched bits — the extra second-order machinery is
-unjustified; **(F3)** on an error-compensated (GPTQ) base, residual-driven *set*
-selection is **catastrophic in perplexity** (PPL 8→55 on 3B, 10→104 on 1B) while
-activation-magnitude and random selection stay safe — consistent with a mechanism in
-which GPTQ concentrates residual error into compensation columns that the selector
-then restores to FP16, breaking the compensation. This catastrophe **reproduces on an
-independently regenerated GPTQ base** (52/64) and its exported checkpoint round-trips
-faithfully (`verify_materialized` |Δ|<0.13), but is **model-dependent** — it does not
-appear on Llama-2-7B (5.57 vs 5.47 FP16); **(F4)** on a weight-only
-matched-bit axis the base quantizer is the Pareto ceiling — protected RTN never
-reaches GPTQ-4's operating point, and only a single activation-magnitude-on-GPTQ
-point is Pareto-optimal (3B, 4.82 bits / 8.099 PPL vs GPTQ-4 8.304). **We audit our own
-F3 headline honestly:** a controlled `verify_materialized` diagnostic confirms the
-catastrophe is real and its export faithful, yet the downstream lm-eval of the greedy@GPTQ
-checkpoint read *healthy* (lambada PPL 4.17). Because in-memory materialize is provably
-faithful, the healthy reading must come from the on-disk export checkpoint rather than the
-catastrophic model — a save→reload/orchestration discrepancy we localize and close (§7.2),
-not a downstream refutation of the perplexity result. We release a reproducible pipeline
-with honest storage accounting and treat the work as an **audit** whose controls overturn
-several implicit assumptions in the mixed-precision literature.
+Keeping a small fraction of "outlier" input channels in high precision on top of a low-bit
+weight base is a widely used post-training quantization recipe. We audit it under matched
+theoretical weight-only storage with random controls and a single evaluator, varying the
+selection signal, the base quantizer, and the model. On a data-free RTN/HQQ base, cheap
+activation-magnitude protection gives a small but real gain over a matched-bit random control
+(Llama-3.2-3B: 8.11 vs 8.32 perplexity at 2% protection). On an error-compensated GPTQ base
+the picture inverts: protection is at best neutral, and *residual-driven set selection applied
+post hoc* is catastrophic — perplexity rises from 8.17 to 38–55 on Llama-3.2-3B and from 10.56
+to 64–78 on Llama-3.2-1B — while activation-magnitude and random selection of the *same* number
+of channels remain safe (~8.1–8.5). The failure requires both a residual-driven selection rule
+and post-hoc restoration, is faithful through export and reload, and is model-dependent: it does
+not appear on Llama-2-7B or Qwen2.5-3B. We further find that interaction-aware iterative
+selection does not outperform one-shot full-Hessian selection, and that the base quantizer
+dominates the accuracy–size frontier. Post-hoc outlier protection must not be assumed safe on a
+compensated base.
 
-## 1. Introduction
-The outlier-protection recipe and its many instances. The gap: no controlled study
-that varies the *selection signal* and the *base quantizer* at **matched actual
-bytes** with **random controls**. Contributions = findings F1–F5, a pre-registered
-gate that the interaction-aware method fails on the strong base, and a reproducible,
-honestly-accounted benchmark. We also report where our own pre-registered
-downstream prediction was falsified (§7.2) — the paper is an audit, and that
-includes auditing our own headline.
+_(≤200 words)_
 
-## 2. Setup
-- **Protection form (column split):** `y = Q(W)x + x[S]·(W − Q(W))[:,S]ᵀ`; S = the
-  protected input channels restored to FP16. (Note: this is the LLM.int8 idea —
-  isolating outlier *input-feature* columns of `[out, in]` weights via a
-  mixed-precision decomposition, *not* row promotion.) The exported evaluation
-  checkpoint materializes exactly this: `W_dense = Q(W) + scatter(W − Q(W), S)`,
-  which is algebraically identical to the runtime forward pass, so a faithful
-  export must reproduce the runtime PPL (this identity is the basis of the §7.2
-  diagnostic).
-- **Bases:** HQQ-4 (data-free RTN) and a validated LightCompress **GPTQ-4** (replay
-  diff < 0.006 vs LLMC PPL).
-- **Selectors:** act_max, act_scale, residual_rms, residual_max (activation-weighted
-  quant-error), `greedy` (OMP on `tr(ΔWᵀΔW H)`, H = XᵀX), `greedy_indep` (first-step
-  gains, no iterative interaction), `random` (control, 3 seeds).
-- **Accounting:** weight-only bits/param (embeddings/lm_head/norms excluded; equal
-  to GPTQ-4 = 4.0). **Eval:** WikiText-2 canonical PPL, seq 2048. Checkpoints saved
-  and reload-validated.
+---
 
-### 2a. Baselines at ~4 bits (single environment, one evaluator, matched bits)
-FP16 PPL: **1B 9.757**, **3B 7.817**. Axis = weight-only bits/param.
+## 1 Introduction
 
-| model | GPTQ-4 | AWQ-4 | RTN-4 | HQQ-4 | HQQ-5 | HQQ-6 | HQQ-8 |
+Post-training quantization (PTQ) of large language models routinely combines a low-bit weight
+base with a small high-precision "escape hatch": a few input channels, columns, or weights kept
+in FP16 because they carry outlier activations. LLM.int8() isolates outlier feature dimensions;
+OWQ and SpQR retain sensitivity-selected columns or weights at higher precision; CMPQ assigns
+per-channel precision from activation distributions. The recipe is intuitive and widely adopted.
+
+What is rarely tested is whether the recipe *composes*. Two design choices are usually made
+implicitly: **which signal** selects the protected channels, and **which base** the protection
+sits on. A third — **when** protection is applied relative to error compensation — is almost
+never varied, because most methods integrate the two by construction.
+
+We run that audit. We hold storage fixed (matched theoretical weight-only bits per parameter),
+include a random-selection control at every budget, use one evaluator for every number, and vary
+the selection signal (activation magnitude, activation scale, quantization-residual magnitude,
+residual RMS, random, and two Hessian-based set selectors), the base (data-free HQQ-4 vs an
+error-compensated GPTQ-4), the protection budget (2–20% of input channels), and the model
+(Llama-3.2-1B/3B, Llama-2-7B, Qwen2.5-3B).
+
+The headline result is a failure mode. On a compensated GPTQ base, selecting channels by
+quantization *residual* using a Hessian-driven set objective and then restoring them to FP16
+**post hoc** does not merely fail to help — it destroys the model, raising perplexity by
+30–68 points, while random selection of the same number of channels at the same storage is
+harmless. To our knowledge this specific composition failure has not been reported. It is not
+an artifact: it survives base regeneration, it reproduces under a faithful export/reload
+round-trip, and it is stable across protection budgets. It is, however, **model-dependent** —
+absent on Llama-2-7B and Qwen2.5-3B — which is itself informative and which we do not yet fully
+explain.
+
+**Contributions.**
+1. A controlled, matched-storage audit of outlier-channel protection across selection signal ×
+   base quantizer × budget × model, with random controls and a single evaluator (§3–§7).
+2. The main finding: **post-hoc residual-driven set protection can catastrophically damage an
+   already error-compensated base**, while magnitude/random protection at identical storage is
+   safe; the effect is model-dependent (§5).
+3. Two supporting negative results: interaction-aware iterative selection does not earn its
+   cost where protection helps (§6), and the base quantizer, not the protection, sets the
+   accuracy–size frontier (§7).
+4. A mechanism hypothesis with the falsification test that would confirm it, reported honestly
+   as open (§9), and a reproducible pipeline with explicit storage accounting.
+
+**What is not novel.** Protecting activation-outlier channels is not new (LLM.int8, CMPQ);
+Hessian/salience-driven column selection is not new (OWQ, SpQR); and *integrating* protection
+into compensation — selecting columns before GPTQ and compensating over the complement — is
+exactly OWQ's design, not ours. Our contribution is the controlled demonstration that the
+*post-hoc* composition, which the literature does not endorse but which is the natural thing to
+try when a compensated checkpoint already exists, is unsafe and model-dependent.
+
+## 2 Related work
+
+**Outlier-aware mixed precision.** LLM.int8() decomposes matrix multiplication so that outlier
+feature dimensions are computed in FP16. OWQ selects sensitive input columns with a
+Hessian-weighted quantization-error score, keeps them in FP16, and — crucially — *orders them
+last inside the OPTQ/GPTQ pass* so that compensation happens with knowledge of which columns
+stay exact. SpQR isolates outlier weights in a sparse high-precision structure. Atom, CLAQ and
+SqueezeLLM apply related group/column/row schemes. CMPQ assigns per-channel precision from
+activation distributions. All of these *co-design* protection with the base; none reports what
+happens when protection is applied to a finished compensated base.
+
+**Bit allocation and interactions.** SliM-LLM and CoopQ allocate bit budgets by
+salience/interaction structure; AMQ searches allocations under memory constraints; EWQ uses an
+entropy prior over layers. These motivate our F2 ablation (does modelling interaction between
+protected channels pay?) and our matched-bit random controls, which some of this literature
+includes (SliM-LLM) and some does not.
+
+**Compensation error.** Recent work analyses residual/compensation error in GPTQ-style methods
+and its accumulation. Our finding is complementary and empirical: it identifies a composition
+that *breaks* compensation rather than improving its numerics.
+
+**Positioning.** We do not propose a new protector. We audit the recipe's composition and report
+a failure mode plus two negative controls. The closest prior work is OWQ; our post-hoc arm is
+precisely the configuration OWQ's design avoids, and our results give an empirical reason why
+that design choice matters more than it may appear.
+
+## 3 Method
+
+**Protection form.** For a linear layer with weight `W ∈ R^{out×in}` and protected input-channel
+set `S`, the protected forward pass is
+
+```
+y = Q(W)x + x[S] · (W − Q(W))[:, S]ᵀ
+```
+
+i.e. the base quantizer `Q` is applied to all columns and the protected columns are corrected
+back to full precision. Materialising this gives the dense weight
+`W_dense = Q(W) + scatter(W − Q(W), S)`, which is algebraically identical to the forward pass —
+so a faithful export must reproduce the runtime perplexity exactly. We use this identity as an
+integrity check throughout (§5.3).
+
+Note this is *post-hoc* protection: `Q` has already been computed (including, for GPTQ, its error
+compensation) when `S` is restored. The alternative — choosing `S` first and compensating over
+the complement — is OWQ's design and is the causal comparison we discuss in §9.
+
+**Bases.** (i) **HQQ-4**, a data-free round-to-nearest base; (ii) **GPTQ-4**, an
+error-compensated base produced by LightCompress at W4 group size 128 with a fixed calibration
+set. The GPTQ base is imported as fake-quantized weights and re-evaluated inside our evaluator.
+
+**Selectors.** Per layer, given the base residual `ΔW = W − Q(W)` and input Hessian `H = XᵀX`
+from calibration data:
+- `act_max`, `act_scale` — activation-magnitude statistics per input channel (data-driven, cheap).
+- `residual_max`, `residual_rms` — magnitude statistics of `ΔW` per column.
+- `random` — uniformly random channels (control), 3 seeds.
+- `greedy` — an OMP-style **iterative** set selector maximising residual-energy reduction
+  `tr(ΔWᵀΔW H)`, re-scoring after each pick.
+- `greedy_indep` — the **one-shot full-Hessian** ablation: the same marginal-gain objective
+  evaluated once, with no iterative re-scoring. (It is *not* an activation-magnitude score; it
+  uses `ΔW`, `H` and `ΔW H`. This distinction matters for §6.)
+
+**Storage accounting.** We report **matched theoretical weight-only storage**: bits per
+quantized-linear parameter, counting the low-bit values, group scales/zeros at *the base's true
+group size* (128 for the imported GPTQ base), the FP16 correction columns, and the channel index
+overhead. Embeddings, `lm_head` and norms are FP16 in every method and excluded from the axis;
+SEQ runs therefore exclude `lm_head` from quantization so that the quantized scope matches the
+GPTQ baseline exactly. These are theoretical weight bytes: no kernel, runtime-metadata or
+latency effects are modelled.
+
+**Evaluation.** WikiText-2 perplexity, sequence length 2048, canonical non-overlapping chunking,
+one evaluator for every number in this paper. Where a checkpoint is exported, the *reloaded*
+checkpoint is what we evaluate. We note that the imported GPTQ base evaluated in our evaluator
+differs from the LightCompress-reported value by 0.19 PPL on Llama-3.2-1B (10.557 vs 10.363);
+we therefore use the reloaded `k=0` checkpoint as the operational base for every comparison
+rather than the externally reported number, so all contrasts are within one evaluator.
+
+## 4 Protection helps a data-free base
+
+On HQQ-4, every informative signal beats the matched-bit random control, and the gain grows with
+budget. Llama-3.2-3B (FP16 7.817, HQQ-4 base 8.328) and Llama-3.2-1B (FP16 9.757, HQQ-4 base
+11.072), perplexity at 2% and 20% protection:
+
+| model | budget | greedy | greedy_indep | act_max | act_scale | residual_rms | **random** |
 |---|---|---|---|---|---|---|---|
-| 1B | **10.363** (4.29b) | 11.278 | 11.710 | 11.187 | 10.064 | 9.829 | 9.762 |
-| 3B | **8.304** (4.28b) | 8.405 | 8.498 | 8.387 | 7.957 | 7.845 | 7.820 |
+| 3B | 2% | **8.100** | — | 8.108 | 8.146 | 8.141 | 8.319 |
+| 3B | 20% | **7.994** | — | 8.007 | 8.046 | 8.040 | 8.247 |
+| 1B | 2% | **10.398** | — | 10.434 | 10.521 | 10.512 | 11.051 |
+| 1B | 20% | **10.128** | — | 10.158 | 10.309 | 10.308 | 10.907 |
 
-> **Provenance note (to reconcile before submission).** The GPTQ-4 base that
-> produced these numbers (3B 8.304 / 1B 10.363) was later lost and **regenerated**
-> with the same recipe (seed 42, fixed calibration); the regenerated base measures
-> 3B **8.326** / 1B **10.404**. All downstream GPTQ exports (§7) were built from the
-> **regenerated** base, while the §3/§5 PPL sweeps were run on the **original** base.
-> This split provenance is benign for F1/F2/F4 but is the crux of the F3 downstream
-> discrepancy (§7.2); the fix is to re-run the GPTQ-axis sweeps on the regenerated
-> base so every GPTQ number shares one base (§12, item 2).
+Every signal sits clearly below random at the same storage, so per-channel activation importance
+carries real information on a data-free base. The margin over random (~0.2 PPL at 3B, ~0.65 at
+1B) is modest but consistent, and the ordering of signals is stable across budgets.
 
-## 3. F1 — Protection helps a data-free base
-On HQQ, every signal beats random at matched bits, monotone in budget; weight-magnitude
-selection ≈ random (runs 4–6) → **the useful signal is activation, not weights.**
+## 5 Post-hoc residual-driven protection breaks a compensated base
 
-| model | frac | bits | greedy | greedy_indep | residual_max | random (mean [95% CI]) |
-|---|---|---|---|---|---|---|
-| 1B | 0.02 | 4.82 | 10.495 | 10.506 | 10.533 | 11.165 [11.155, 11.174] |
-| 1B | 0.20 | 7.70 | **10.207** | 10.230 | 10.232 | 10.975 [10.932, 11.018] |
-| 3B | 0.02 | 4.82 | 8.149 | 8.151 | 8.161 | 8.376 [8.370, 8.382] |
-| 3B | 0.20 | 7.70 | **8.028** | 8.037 | 8.048 | 8.243 [8.025, 8.462] |
+### 5.1 The failure
 
-Every signal point sits well below the random-control CI at the same bits (e.g. 1B @
-0.20: 10.207 vs 10.975 [10.932, 11.018]) → per-channel activation importance is real.
-**Downstream (F5, §7.1): confirmed** — the best HQQ protection point recovers most of
-the base→FP16 accuracy gap (3B +1.21 pts, CI excludes 0).
+On the GPTQ-4 base the same protection machinery, at the same storage, produces a qualitatively
+different outcome. Llama-3.2-3B (FP16 7.817, GPTQ-4 base 8.172 at 4.25 bits):
 
-## 4. F2 — Interactions don't pay
-greedy vs greedy_indep vs residual_max are within **~0.02–0.03 PPL** on HQQ (see the
-F1 table), and greedy_indep sometimes wins (3B @ 0.05: 8.111 vs greedy 8.112).
-Isolating the iterative interaction term (greedy − greedy_indep) yields no consistent,
-meaningful gain. **The full-Hessian OMP machinery is not justified over a one-shot
-activation-magnitude score.**
-
-| model | frac | greedy | greedy_indep | Δ (greedy − indep) | residual_max |
-|---|---|---|---|---|---|
-| 1B | 0.02 | 10.495 | 10.506 | −0.011 | 10.533 |
-| 1B | 0.20 | 10.207 | 10.230 | −0.023 | 10.232 |
-| 3B | 0.02 | 8.149 | 8.151 | −0.002 | 8.161 |
-| 3B | 0.20 | 8.028 | 8.037 | −0.009 | 8.048 |
-
-## 5. F3 — Protection is antagonistic to error compensation (in perplexity)
-On the GPTQ base, `residual_max` stays safe (≈ base, even improves) and `random` is
-harmless (≈ base), but the residual-driven **set** selectors blow up.
-
-| model | frac | residual_max | random | **greedy** | **greedy_indep** |
-|---|---|---|---|---|---|
-| 1B | 0.02 | 10.391 | 10.680 | **104.16** | **15.64** |
-| 1B | 0.20 | 10.350 | 10.650 | **106.82** | **15.61** |
-| 3B | 0.02 | 8.099 | 8.161 | **55.34** | **44.88** |
-| 3B | 0.20 | 8.070 | 8.342 | **43.21** | **45.41** |
-
-> _Base note: this table is on the **original** GPTQ base. The greedy@0.02 catastrophe
-> reproduces on the regenerated base at 63.95 (1B) / 51.68 (3B) — see §5b. The remaining
-> GPTQ-axis cells are being re-run on the regenerated base to unify provenance (§12.2);
-> only magnitudes shift, not the qualitative blow-up._
-
-**Mechanism (hypothesis):** GPTQ quantizes column-by-column and pushes each column's
-error into the *remaining* columns to compensate; the residual `ΔW = W − Wq` is
-therefore concentrated in those compensation columns; a residual-driven selector
-picks exactly them, and restoring them to FP16 removes the error the other columns
-were compensating for → the compensation double-counts. **Dose-response:** harm grows
-with budget on 1B; on 3B it is large at every budget (Fig. 1, right panel).
-
-### 5b. Reproducibility diagnostic: F3 is real, faithful, and model-dependent
-We ran `channel_sweep --select greedy --protect_fracs 0.02 --base_quantizer gptq_llmc
---verify_materialized` on the **regenerated** GPTQ base for three models. The flag measures
-the protected model's runtime (forward-pass) PPL, then materializes the protection to dense
-weights **in memory** and re-measures; equal PPLs mean the export round-trips
-(`results/f3check_*`).
-
-| model | FP16 | greedy@GPTQ runtime PPL | materialized PPL | Δ (export) | verdict |
-|---|---|---|---|---|---|
-| Llama-3.2-1B | 9.757 | **63.95** | 63.82 | −0.12 | catastrophic |
-| Llama-3.2-3B | 7.817 | **51.68** | 51.76 | +0.08 | catastrophic |
-| Llama-2-7B | 5.469 | 5.57 | 5.57 | +0.00003 | **healthy** |
-
-Three conclusions: **(1)** the catastrophe **reproduces on an independently regenerated
-base** (52/64), so it is not an artifact of the specific lost original base; **(2)** the
-in-memory export is **faithful** (|Δ|<0.13 everywhere), so F3 is **not an export bug**; and
-**(3)** it is **model-dependent** — Llama-2-7B is unharmed (Δ+0.10 over FP16), so
-residual-driven set protection is toxic on the Llama-3.2 family's GPTQ residual but benign
-on Llama-2-7B's. This turns the earlier "open blocker" into a sharper, honest finding:
-*residual-driven set selection can be catastrophic on a compensated base, but whether it is
-depends on the model.* (Fig. 4.)
-
-> **On the downstream reading (fully resolved framing).** The §7 downstream export of
-> greedy@GPTQ scored *healthy* (lambada PPL 4.17 on 3B), which once looked like F3 failing
-> to reproduce. The diagnostic above rules out the export-bug explanation: in-memory
-> materialize is faithful, so a checkpoint faithfully written from the catastrophic model
-> *would* score ~52. Since it did not, the checkpoint that lm-eval loaded **is not the
-> catastrophic model** — the discrepancy lives in the save→disk→reload/orchestration path
-> (most likely a stale `--resume` checkpoint from an earlier healthy run), **not** in a
-> genuine downstream rescue of the perplexity catastrophe. We close this by reloading the
-> on-disk checkpoint and re-measuring its WikiText PPL (§7.2); `scripts/validate_saved_seq_reload.py`
-> writes the number. F3 is reported as a perplexity finding; no downstream *antagonism*
-> claim is made (the effect not transferring to accuracy at this budget is itself reported,
-> §7.2).
-
-### 5a. Pre-registered gate (why the framing is "audit")
-Rule: `greedy` must beat greedy_indep, residual_max, **and** the random-CI in ≥3/4
-budgets **in every** model×base stratum.
-
-| stratum | greedy > greedy_indep | > residual_max | > random-CI | verdict |
+| selector | 2% | 5% | 10% | 20% |
 |---|---|---|---|---|
-| 1B / HQQ | 4/4 | 4/4 | 4/4 | **PASS** |
-| 3B / HQQ | 3/4 | 3/4 | 4/4 | **PASS** |
-| 1B / GPTQ | 0/4 | 0/4 | 0/4 | **FAIL** |
-| 3B / GPTQ | 0/4 | 0/4 | 0/4 | **FAIL** |
+| **greedy** (iterative) | **51.68** | **55.05** | **38.39** | **40.65** |
+| **greedy_indep** (one-shot full-Hessian) | **41.50** | **43.30** | **44.83** | **43.04** |
+| residual_max | 8.100 | 8.100 | 8.101 | 8.075 |
+| residual_rms | 8.146 | 8.153 | 8.160 | 8.139 |
+| act_max | 8.181 | 8.173 | 8.136 | 8.102 |
+| act_scale | 8.586 | 8.204 | 8.187 | 8.154 |
+| random (control) | 8.181 | 8.221 | 9.048 | 8.487 |
 
-The interaction-aware method fails its own pre-registered bar on the strong base →
-we report an **audit**, not a method.
+Actual storage is identical across a column (4.57 bits at 2%, 7.45 at 20%), so this is not a
+budget effect. Llama-3.2-1B (FP16 9.757, GPTQ-4 base 10.557) shows the same collapse for the
+iterative selector, with an important asymmetry:
 
-## 6. F4 — The base is the ceiling; honest accounting matters
-On the weight-only axis: **1B — no SEQ point is Pareto-optimal** (GPTQ-4, uniform
-HQQ-5/6/8, FP16 dominate). **3B — one SEQ point is on the frontier:**
-`residual_max` on GPTQ, **4.82 bits / 8.099 PPL**, non-dominated vs GPTQ-4 (8.304) at a
-+0.5-bit premium. Nominal effective bits mislead: naive accounting charged the same
-GPTQ base 7.9 bits vs 4.0 (fixed here via `seq_core/storage_accounting.py`). Full
-matched-bit Pareto in the regenerated `docs/COMPARISON.md`.
-
-## 7. F5 — Downstream evaluation
-lm-eval (hellaswag, arc-easy, arc-challenge, piqa, winogrande, lambada-openai) at the
-operating points, run from the saved checkpoints via `scripts/run_downstream_eval.sh`
-(operating points in `configs/downstream_operating_points.json`). We report zero-shot
-accuracy (acc_norm where the task provides it, else acc) and **paired-bootstrap 95%
-CIs** on per-example correctness for three contrasts. Numbers are from
-`docs/DOWNSTREAM.md` (all six points × two models now complete).
-
-### 7.1 Full operating-point table
-
-**Llama-3.2-3B** (macro-avg over six tasks):
-
-| point | bits | arc-c | arc-e | hellaswag | lambada | piqa | winogrande | **avg** |
-|---|---|---|---|---|---|---|---|---|
-| FP16 | 16 | 46.42 | 72.14 | 74.16 | 70.17 | 78.07 | 69.61 | **68.43** |
-| GPTQ-4 (base) | 4.0 | 44.20 | 69.91 | 73.24 | 68.54 | 77.04 | 69.69 | **67.10** |
-| HQQ-4 (base) | 4.0 | 45.31 | 70.03 | 72.34 | 67.48 | 76.61 | 68.59 | **66.72** |
-| residual_max@GPTQ | 4.82 | 45.31 | 72.35 | 73.27 | 68.45 | 76.39 | 69.06 | **67.47** |
-| greedy@GPTQ | 4.82 | 44.80 | 71.46 | 73.25 | 69.05 | 77.26 | 69.85 | **67.61** |
-| best greedy@HQQ | 7.70 | 45.99 | 71.63 | 73.34 | 69.63 | 77.86 | 69.14 | **67.93** |
-
-**Llama-3.2-1B**:
-
-| point | bits | arc-c | arc-e | hellaswag | lambada | piqa | winogrande | **avg** |
-|---|---|---|---|---|---|---|---|---|
-| FP16 | 16 | 31.50 | 61.50 | 58.00 | 60.00 | 76.50 | 60.50 | **58.00** |
-| GPTQ-4 (base) | 4.0 | 34.98 | 61.62 | 62.11 | 58.06 | 73.56 | 59.75 | **58.35** |
-| HQQ-4 (base) | 4.0 | 35.00 | 59.00 | 54.50 | 56.50 | 75.50 | 62.50 | **57.17** |
-| residual_max@GPTQ | 4.82 | 35.32 | 61.41 | 61.81 | 60.62 | 73.94 | 61.25 | **59.06** |
-| greedy@GPTQ | 4.82 | 35.58 | 60.82 | 61.97 | 59.01 | 73.45 | 61.17 | **58.67** |
-| best greedy@HQQ | 7.70 | 32.00 | 64.00 | 57.50 | 61.00 | 75.00 | 63.50 | **58.83** |
-
-**Paired contrasts (macro-Δ accuracy pts, 95% CI, paired bootstrap):**
-
-| contrast | claim tested | 3B | 1B |
-|---|---|---|---|
-| best@HQQ − HQQ-4 | protection helps a data-free base (F1) | **+1.21 [+0.77, +1.63]** ✅ | +1.67 [−0.08, +3.33] (dir.) |
-| residual_max@GPTQ − GPTQ-4 | safe protection ≥ GPTQ-4 (F4) | +0.37 [−0.06, +0.77] | **+0.71 [+0.28, +1.16]** ✅ |
-| greedy@GPTQ − GPTQ-4 | residual-driven protection is catastrophic (F3) | **+0.51 [+0.13, +0.86]** ❌pred. | +0.32 [−0.07, +0.73] ❌pred. |
-
-- **F1 — confirmed.** On 3B the CI excludes zero; the data-free base recovers ~70%
-  of its accuracy gap to FP16. 1B is directional (small model, wide CI).
-- **F4 — confirmed.** Safe activation-magnitude protection on GPTQ is at least as good
-  as the GPTQ-4 base downstream (positive on both models, CI excludes 0 on 1B).
-
-### 7.2 F3 downstream — the "healthy" row was a stale checkpoint; re-evaluated
-We pre-registered: *"`greedy@GPTQ − GPTQ-4` macro-Δ CI is strongly negative (F3
-antagonism reproduces downstream)."* The **committed** contrast reads **+0.51 [+0.13, +0.86]
-on 3B** and +0.32 on 1B — apparently *falsifying* the prediction (greedy looks healthy, even
-favourable). This subsection shows that reading is an **artifact of a stale downstream
-checkpoint**, not a real refutation, and reports the corrected re-evaluation.
-
-The tell is internal: lm-eval's own token-level **lambada perplexity** for the committed
-greedy@GPTQ row is **4.17 (3B)** / **6.76 (1B)** — as healthy as the GPTQ-4 base (4.28 /
-7.11). A model at WikiText PPL 52/64 would have lambada perplexity in the tens–hundreds and
-near-zero accuracy. So the checkpoint those numbers came from **is not the catastrophic
-model** — the §5 blow-up is simply absent from whatever was scored.
-
-Given the export identity `runtime_ppl == materialized_ppl` (§2), there were exactly two
-explanations — (A) the catastrophe does not survive base regeneration, or (B) the export
-drops protection — and the §5b diagnostic **rules out both of the innocent readings**:
-- On the **regenerated** base, greedy@GPTQ **is** catastrophic in-sweep (63.95/51.68), so
-  it is **not** base-fragile in the "vanishes on regeneration" sense (A is false as an
-  *excuse*; the catastrophe is real).
-- The **in-memory materialize is faithful** (Δ export |·|<0.13), so the export code does
-  **not** silently drop protection (B is false).
-
-Together these force the conclusion that the *specific on-disk checkpoint lm-eval loaded*
-is not the catastrophic model — the discrepancy is in the **save→disk→reload /
-orchestration** path that `verify_materialized` does not exercise (in-memory only), most
-plausibly a **stale `--resume` checkpoint** written by an earlier healthy configuration and
-reused without regeneration.
-
-**Closing experiment — result in.** We reloaded the on-disk
-`runs/final/downstream/checkpoints/<model>/greedy_gptq` and re-measured WikiText-2 PPL with
-`scripts/validate_saved_seq_reload.py`: **reload_ppl = 51.76 (3B) / 63.82 (1B)** — the
-checkpoint on disk *is* the catastrophic model, and the save→reload round-trip is faithful
-(it matches the §5b materialized PPL to <0.13). This selects the **stale-checkpoint
-branch**: the healthy downstream numbers in §7.1 were produced by an *earlier, healthy*
-export of `greedy_gptq` and were never refreshed after the checkpoint was corrected — a
-`--resume` guard reused the old lm-eval directory. Its `seq_meta.json` betrays the mismatch
-(it records `expected_ppl: 55.34` and the obsolete "CATASTROPHIC — confirms F3" note beside
-healthy accuracy). So the export/reload code is exonerated; the fault was orchestration
-staleness, not science.
-
-**Consequence:** the "falsified downstream" reading above is itself an artifact of stale
-results. We re-ran `greedy_gptq` downstream **fresh** on the catastrophic checkpoint (no
-`--resume`); on a model at WikiText PPL 52/64 the six-task accuracy is expected to collapse,
-which would mean **F3 reproduces downstream and the original pre-registration is
-confirmed.** The §7.1 greedy@GPTQ row, the `greedy_gptq_vs_gptq4` contrast, and Fig 3 are
-regenerated from the fresh eval.
-
-> **⏳ Pending number (v1.0, GPU in flight):** replace §7.1's greedy@GPTQ row + the
-> `greedy_gptq_vs_gptq4` contrast with the FRESH re-eval on the catastrophic checkpoint, and
-> state the verdict here (expected: accuracy collapses ⇒ **F3 reproduces downstream**). The
-> reload numbers (51.76/63.82) are final; only the fresh downstream accuracies remain.
-
-### 7.3 Matched-bit downstream control — F1 confirmed at equal bits
-The `best@HQQ − HQQ-4` F1 contrast varies budget (4.0 → 7.70 bits), so it could in
-principle be a bits effect rather than a signal effect. We added a **`random@HQQ`** point at
-the *same* 7.70-bit budget (random-channel selection, seed 1234) and compared it to
-`best@HQQ` — a matched-bit signal-vs-random test mirroring §3. Result: **best@HQQ −
-random@HQQ = +0.95 pts [+0.53, +1.37]** (paired bootstrap; random@HQQ macro-avg 66.98). The
-CI excludes zero, so at **identical** storage the activation signal genuinely beats a random
-control downstream — F1 is a *selection* effect, not a budget artifact.
-
-## 8. Auxiliary result — allocation proxies decouple from PPL (module level)
-Before the per-channel study we tested whether a *proxy* — activation/weight entropy,
-Hessian diagonal, or reconstruction error — can rank whole modules for bit allocation
-better than uniform (`docs/FINDINGS_run{1..6}.md`, `analysis/findings_summary.json`).
-Across runs 1–6 the proxies **rank-decouple from measured per-module PPL sensitivity**
-(low, unstable Spearman ρ; measured sensitivity is itself concentrated and often near
-the noise floor), and proxy-guided module allocation is **≤ uniform** at matched bits.
-This is the module-granularity analogue of F1/F2: the coarse, proxy-driven allocation
-that entropy-weighted methods (EWQ) rely on does not survive a matched-bit control.
-It motivates moving to the per-channel activation signal that F1 shows *does* carry
-information. (Consolidated from six earlier audit runs; details in the appendix.)
-
-## 9. Related work
-We do not propose a new protector; we *audit* selection signals and base×protection
-interaction with controls that prior work omits.
-
-| method | unit protected | selection signal | base | our controlled result |
+| selector | 2% | 5% | 10% | 20% |
 |---|---|---|---|---|
-| LLM.int8 | input columns (mixed-precision decomp.) | activation outlier magnitude | RTN | F1: activation signal helps a data-free base (PPL + downstream) |
-| SpQR / OWQ | outlier weights / columns | sensitivity (Hessian/OBS-style) | RTN & compensated | F3: residual-driven selection toxic post-compensation *in PPL* |
-| CLAQ / Atom / SqueezeLLM | columns / groups / rows | outlier + sensitivity | RTN/GPTQ | F4: base quantizer is the Pareto ceiling |
-| AMQ / SliM-LLM / CoopQ | layer / group budgets | learned / interaction | mixed | F2: interaction-aware selection doesn't pay at channel level |
-| EWQ | modules | entropy prior | uniform | §8: entropy proxy ≤ uniform under matched bits |
+| **greedy** (iterative) | **63.95** | **66.84** | **77.99** | **65.00** |
+| greedy_indep (one-shot) | 11.28 | — | — | 11.39 |
+| residual_max | 10.42 | — | — | 10.36 |
+| act_max | 10.71 | — | — | 10.38 |
+| random (control) | 10.41 | 10.41 | 10.43 | 10.58 |
 
-**Position:** the novel contribution is the *controls* — matched actual bytes, random
-baselines, an interaction ablation (greedy vs greedy_indep), and a base×selector cross
-— which together overturn the implicit "more/smarter protection is better" assumption.
+Two observations. First, **the harm requires a residual-driven *set* objective**: magnitude-based
+and random selection of the same number of channels leave the model intact, so simply restoring
+2–20% of columns to FP16 is not what breaks it. Second, **the iterative selector is the
+consistent offender**: `greedy` collapses on both models at every budget, whereas the one-shot
+ablation `greedy_indep` collapses on 3B but is only mildly harmful on 1B (11.28 vs base 10.56).
+Iterative re-scoring concentrates the selection on precisely the columns whose restoration is
+most damaging.
 
-## 10. Discussion & limitations
-**Discussion.** F3's mechanism (if confirmed robust) implies a concrete fix —
-**protect-then-recompensate**: choose the FP16 columns first, then run GPTQ over the
-complement so compensation and protection cooperate. That is the one direction that
-could turn this audit into a method (see `docs/TRACK_B_STATUS.md §4`); it is
-deliberately out of scope here.
-**Limitations.**
-- F1/F2/F4 are on two sizes / one family (Llama-3.2). F3 now has a **cross-family point**:
-  the greedy@GPTQ catastrophe reproduces on Llama-3.2-1B/3B but **not** on Llama-2-7B
-  (§5b), which is a strength (it shows F3 is model-conditioned) but also a caution — we do
-  not yet know *which* base/model properties predict the catastrophe. Full cross-family
-  sweeps+downstream (Qwen2.5-3B, an 8B model) remain future work; GPTQ baselines exist
-  (`runs/final/llmc/*`).
-- **F3 reproducibility is resolved** (§5b/§7.2): real, faithful in-memory export,
-  model-dependent. The only open items are cosmetic-for-the-claim: the on-disk
-  downstream-checkpoint reload number (§7.2) and unifying the split base provenance (§2a,
-  §12.2) so every GPTQ cell cites one base.
-- Weight-only PTQ; PPL + six zero-shot tasks; storage is theoretical weight-only
-  bytes (no custom kernels / latency).
+### 5.2 Model dependence
 
-## 11. Conclusion
-Cheap **activation-magnitude** protection gives a modest, real gain on a data-free
-RTN base **that reproduces downstream**; **interaction-aware selection does not earn
-its cost**; and on a strong error-compensated base, **residual-driven set protection
-can be catastrophic in perplexity** — robust to base regeneration and with a faithful
-export, but **model-dependent** (severe on Llama-3.2, absent on Llama-2-7B) — a warning
-against naively stacking outlier protection on GPTQ without checking the specific model.
-The base quantizer dominates the
-accuracy–size frontier. Practitioners should prefer a strong base over post-hoc
-protection, and reserve outlier protection for data-free bases or protect-then-
-compensate designs.
+The failure is not universal. Running the identical configuration (greedy, 2%, GPTQ-4 base,
+matched scope and storage) across four models:
+
+| model | FP16 | GPTQ-4 base | greedy@GPTQ 2% | verdict |
+|---|---|---|---|---|
+| Llama-3.2-1B | 9.757 | 10.557 | **63.95** | catastrophic |
+| Llama-3.2-3B | 7.817 | 8.172 | **51.68** (55.35 in the standalone diagnostic run) | catastrophic |
+| Llama-2-7B | 5.469 | — | 5.571 | safe |
+| Qwen2.5-3B | 8.030 | 8.290 | 8.335 | safe |
+
+On Qwen2.5-3B the full selector panel is benign (greedy 8.34, greedy_indep 8.36, random 8.30 at
+2%). So the failure mode is real and reproducible on one model family and absent on two others.
+This is a genuine boundary condition rather than a fragile artifact, and it constrains any
+mechanism: whatever breaks must be a property of the Llama-3.2 GPTQ residual structure, not of
+the protection form itself.
+
+### 5.3 Integrity checks
+
+Three checks rule out the obvious artifacts.
+- **Base regeneration.** The original GPTQ base was lost and regenerated with the same recipe;
+  the catastrophe reproduces on the regenerated base, so it is not a property of one artifact.
+- **Export/reload fidelity.** For every catastrophic configuration, materialising the protected
+  model to dense weights and re-measuring gives the same perplexity (3B 55.35 → 55.19; 1B 63.95
+  → 63.82; |Δ| < 0.13), and reloading the saved checkpoint from disk reproduces it again
+  (3B 51.76, 1B 63.82). The collapse is a property of the weights, not of a runtime path.
+- **Budget exhaustion.** The selector is by default forced to spend the full budget. Re-running
+  with early stopping (stop when the next marginal gain is non-positive) at 2% yields the
+  identical perplexity, i.e. at this budget every selected channel had positive predicted gain —
+  the catastrophe is not caused by being forced to protect channels the objective itself deems
+  useless.
+
+## 6 Interaction-aware selection does not pay
+
+Where protection helps (HQQ), the iterative selector and the one-shot full-Hessian ablation are
+within ~0.03 PPL of each other at every budget (§4), i.e. modelling interactions between
+protected channels does not buy accuracy over evaluating the same objective once. Where
+protection hurts (GPTQ), the iterative selector is *worse* (§5.1): on 1B it collapses to 63.95
+while the one-shot ablation stays at 11.28.
+
+The defensible statement is therefore: **iterative re-scoring does not improve on one-shot
+full-Hessian selection, and on a compensated base it actively concentrates harm.** We do not
+claim that second-order machinery is unnecessary relative to activation magnitude — that would
+require an equivalence test against `act_max` with a pre-declared margin, which we report as
+future work rather than assert from a ~0.03 PPL difference.
+
+## 7 The base quantizer is the ceiling
+
+On the matched weight-only storage axis, the base quantizer dominates. The GPTQ-4 base at 4.25
+bits (3B: 8.172) is not reached by any protected HQQ configuration at comparable storage, and
+protection on GPTQ buys at most ~0.07–0.10 PPL (residual_max, 8.100 at 4.57 bits vs base 8.172 at
+4.25 bits) for a +0.32-bit premium. Correcting the storage accounting matters here: charging the
+imported GPTQ base at its true group size (128) rather than the internal default (64) moves the
+2% operating point from 4.82 to **4.57** bits. We therefore state F4 as an observation on this
+grid — the base dominates, and protection is a small correction on top — not as a general law.
+
+## 8 Downstream evaluation
+
+**Pending (corrected run).** Downstream zero-shot evaluation (hellaswag, arc-easy, arc-challenge,
+piqa, winogrande, lambada-openai via lm-eval) is being re-run under the corrected scope, at
+uniform full scale, with a multi-seed matched-bit random control. Earlier downstream numbers in
+this repository are superseded: they were produced from a stale exported checkpoint (a resume
+guard reused an lm-eval directory from an earlier, healthy export), which we detected because the
+recorded `expected_ppl` sidecar and the measured accuracy were mutually inconsistent. Because the
+export/reload identity is now verified (§5.3), a faithful downstream evaluation of a
+perplexity-55 checkpoint must show correspondingly degraded accuracy; we report the measured
+values here rather than predict them.
+
+## 9 Mechanism: hypothesis and the test that would confirm it
+
+**Hypothesis.** GPTQ quantizes column by column and pushes each column's error into the
+*remaining* columns. The residual `ΔW = W − Q(W)` is therefore not arbitrary: it encodes the
+compensation. A residual-driven selector picks the columns carrying the most of that encoded
+correction, and restoring them to FP16 post hoc removes the error the other columns were
+compensating *for*, leaving the complement mis-corrected. Random and magnitude selectors do not
+preferentially pick compensation-carrying columns, which is consistent with their safety.
+
+**Evidence and its limits.** The hypothesis is consistent with the selector asymmetry (only
+residual-driven objectives are harmful) and with the iterative/one-shot gap (§5.1, §6). However,
+we measured the overlap between the selected set and the columns of highest residual energy at
+only 2–3%, so a simple "it picks the biggest-residual columns" account is *not* supported; the
+iterative objective selects an interaction-structured set, not the top-energy columns. We
+therefore report the mechanism as an open hypothesis.
+
+**The decisive test.** Hold the selected set `S`, the model, the calibration data, the budget and
+the evaluator fixed, and vary only *when* protection is applied: (A) quantize all columns with
+GPTQ, then restore `S` to FP16 (post hoc, our failing configuration); (B) keep `S` exact
+*throughout* compensation so the complement is compensated knowing `S` is exact (OWQ-style). If
+A collapses while B stays healthy on the same `S`, the compensation-breaking account is
+established causally. We have implemented both arms; our first execution used a one-shot GPTQ
+implementation whose base was itself degenerate (perplexity > 3000 for all arms, including the
+unprotected base), so it is uninformative and we exclude it. The experiment is being re-run on a
+sequential GPTQ implementation. **We make no causal claim until it returns.**
+
+## 10 Limitations
+
+- **Model coverage.** The failure is established on Llama-3.2-1B/3B and shown absent on
+  Llama-2-7B and Qwen2.5-3B. We do not yet know which property of a model or its GPTQ residual
+  predicts susceptibility, and we cannot claim it generalises to families we did not test.
+- **Mechanism.** Open (§9). The causal experiment is specified and implemented but not yet
+  validly executed.
+- **Downstream.** Pending (§8); all conclusions in this draft are perplexity-based.
+- **Base coverage.** One compensated base (GPTQ). Whether the failure appears on other
+  compensated bases (e.g. AWQ) determines whether it is GPTQ-specific.
+- **Storage is theoretical.** Weight-only bytes; no kernels, packing overhead or latency.
+- **Selection cost.** We do not report wall-clock/memory cost of each selector; the Hessian-based
+  selectors are substantially more expensive than the magnitude ones, which strengthens the
+  practical case against them given §6.
+
+## 11 Conclusion
+
+Outlier-channel protection is not a universally safe add-on. On a data-free base it delivers a
+small, real gain over a matched-bit random control. On an error-compensated base it delivers
+almost nothing — and if the channels are chosen by a residual-driven set objective and restored
+*post hoc*, it can destroy the model, raising perplexity from 8 to 40–55 while a random control
+at identical storage is harmless. The effect is faithful through export and reload, stable across
+budgets, and model-dependent. Practitioners should prefer a strong base over post-hoc protection,
+and where protection is wanted on a compensated base, integrate it into compensation (as OWQ
+does) rather than applying it afterwards — and validate on the specific model, because whether
+the failure appears depends on it.
 
 ---
 
-## 12. What is missing before submission (ranked)
-1. ✅ **Resolve F3 (A vs B) — DONE.** `--verify_materialized` on the regenerated base
-   (1B/3B/7B) shows the catastrophe is real, the in-memory export faithful, and the effect
-   model-dependent (§5b). Remaining sliver: reload the on-disk downstream checkpoint to
-   fix the §7.2 stale-vs-save-path discrepancy (~15 min GPU).
-2. **Unify GPTQ base provenance — blocking for F3/F4.** Re-run the GPTQ-axis PPL
-   sweeps (`residual_max`, `residual_rms`, `act_max`, `act_scale`, `random`×3, `greedy`,
-   `greedy_indep` × fracs) on the **regenerated** base so §5, §6 and §7 all cite one base.
-   Reconcile the §2a baseline (8.304→8.326 / 10.363→10.404). Command in
-   `docs/RESEARCH_PC_RUNLIST.md` (pipeline `full_matrix` + `gate` phases). The catastrophe
-   is already confirmed base-robust (§5b); this pass makes the *whole table* consistent.
-3. **Matched-bit downstream control (F1 sharpening).** _Point prepped:_ `random_hqq`
-   (7.70 bits) + the `best_hqq_vs_random_hqq` contrast are now in
-   `configs/downstream_operating_points.json`. Remaining: run that one downstream point on
-   GPU and report `best@HQQ − random@HQQ` (matched-bit signal-vs-random, mirrors §3).
-4. **Cross-family / scale robustness (F1/F3/F4 generality).** _Partly answered:_ the F3
-   `verify_materialized` check already ran on **Llama-2-7B** and is **healthy** (§5b) — a
-   second-family negative that establishes model-dependence. Still open: full sweep +
-   downstream on Qwen2.5-3B / an 8B model (baselines present; 3.1-8B and Qwen2.5-1.5B GPTQ
-   artifacts must be regenerated first — they errored missing in this cycle). Out of scope
-   for v1.0.
-5. **Second error-compensated base (F3 generality).** Repeat the greedy-vs-safe
-   contrast on an **AWQ** base. If residual-driven protection is also toxic on AWQ,
-   F3 generalizes beyond GPTQ; if not, it is GPTQ-specific.
-6. **Reload-validation table.** Publish, for every exported checkpoint, `expected_ppl`
-   vs measured `reload_ppl` (the sanity check that would have caught §7.2 earlier).
-   This is a credibility exhibit, not new science.
-7. **(Optional, turns audit→method)** protect-then-recompensate proof-of-concept on
-   3B: does choosing FP16 columns *before* GPTQ beat GPTQ-4 at matched bits?
+## Appendix A. Reproducibility and statistics
 
-## 13. Figures
-`analysis/plot_final_results.py` emits all figures below under `figures/final/` in one
-invocation (`--input results/final_comparison.csv`). Figs 1, 3, 4 are **generated and
-committed** (provisional — they will be regenerated after the §12.2 base-unification
-re-sweep so the sweep-derived panels cite the unified base). Fig 5 is optional appendix.
-
-- **Fig. 1 — Dose-response (F1 + F3), the money figure.** ✅ *Built*
-  (`fig1_dose_response_{3B,1B}.pdf`). PPL vs protection fraction, two panels (HQQ base |
-  GPTQ base), one line per selector (greedy, greedy_indep, residual_max, random with seed
-  band), 3B (1B its own file for the appendix). HQQ panel: all selectors below the random
-  band (F1). GPTQ panel: greedy/greedy_indep blow up while residual_max/random stay flat
-  (F3). Per-panel log-y (unshared) so both stories are legible.
-- **Fig. 2 — Pareto frontier (F4).** PPL vs weight-only bits/param scatter of all
-  methods (GPTQ-4, AWQ-4, RTN-4, HQQ-4/5/6/8, SEQ points, FP16), frontier line drawn,
-  the single 3B frontier SEQ point (residual_max@GPTQ, 4.82b/8.099) marked ★. Source:
-  regenerated `COMPARISON.md` / `results/final_comparison.csv`.
-- **Fig. 3 — Downstream forest plot (F5).** ✅ *Built* (`fig3_downstream_forest.pdf`).
-  The paired contrasts × two models, each as Δ-accuracy ± paired-bootstrap 95% CI with a
-  zero line. Shows F1 positive, F4 ≈0/positive, and the F3 prediction landing on the
-  *wrong side of zero* (ties to §7.2). Picks up `best@HQQ − random@HQQ` automatically once
-  §12.3 runs.
-- **Fig. 4 — F3 forensic panel (honesty exhibit).** ✅ *Built* (`fig4_f3_forensic.pdf`).
-  Per model (Llama-3.2-3B, Llama-3.2-1B, Llama-2-7B), grouped bars of FP16 baseline vs
-  greedy@GPTQ **runtime** PPL vs **materialized** (exported) PPL, log-y. Makes visible that
-  runtime ≈ materialized (faithful export) and that the catastrophe is model-dependent
-  (7B stays at the FP16 floor). Source: `results/f3check_*/channel_pareto.json`.
-- **Fig. 5 (appendix) — Proxy decoupling (§8).** Spearman ρ between each module-level
-  proxy and measured per-module PPL sensitivity across runs 1–6, with the ρ≈0 band.
-  Source: `analysis/findings_summary.json`.
-
----
-
-## Appendix A. Statistics
-- **Random control CIs (F1/F3).** The `random` selector is run with 3 seeds per
-  (model, base, fraction); we report the mean and a 95% CI across seeds (columns in
-  §3/§5). A signal is credited only when its point lies **below** the random CI at
-  matched bits.
-- **Downstream paired bootstrap (F5).** lm-eval is run with `--log_samples`, giving
-  per-example 0/1 correctness. For a contrast (system A vs B) on a task, we pair
-  correctness on the **same** examples and bootstrap the mean difference (2000
-  resamples of examples with replacement) for a 95% CI; the macro-average difference
-  bootstraps within each task and averages. Implemented pure-stdlib in
-  `analysis/build_downstream_table.py` (paired design → tighter, correct CIs than the
-  harness's unpaired stderr). When sample logs are absent the code falls back to an
-  unpaired normal-approximation CI and labels it as such.
-- **Effective-bits accounting.** All "bits" are weight-only bits/param with
-  embeddings/lm_head/norms excluded (`seq_core/storage_accounting.py`), so every
-  method is compared on the axis where GPTQ-4 = 4.0; the earlier 7.9-vs-4.0 mis-plot
-  is corrected.
-- **Base provenance (F3 caveat).** §3/§5 PPL sweeps use the original GPTQ base; §7
-  downstream exports use a regenerated base with the same recipe (3B 8.326 / 1B
-  10.404 vs original 8.304 / 10.363). Item 2 of §12 unifies these.
+- **Provenance.** Every perplexity in this draft is read from a committed
+  `runs/final/sweeps/<base>/<model>/<selector>/seed-1234/channel_pareto.json` with
+  `skip_lm_head=true` and `base_group_size=128`, or from `results/f3_*`/`results/f3check_*` for
+  the model-dependence panel. The two 3B greedy@2% values (51.68 in the matrix sweep, 55.35 in
+  the standalone diagnostic) come from separate runs of the same configuration; both are
+  catastrophic and we report the matrix value in tables.
+- **Random controls.** `random` is run with 3 seeds per (model, base, budget); tables report the
+  seed-1234 value, with the multi-seed spread used for the control band in the dose-response
+  figure.
+- **Storage.** Weight-only bits/parameter, group scales/zeros at the base's true group size,
+  FP16 correction columns and channel indices included; embeddings/`lm_head`/norms excluded and
+  FP16 in all methods.
+- **Evaluator.** One path for all numbers; exported checkpoints are evaluated after reload. The
+  imported GPTQ base measures 10.557 (1B) in our evaluator vs 10.363 as reported by
+  LightCompress; the reloaded value is used operationally.
