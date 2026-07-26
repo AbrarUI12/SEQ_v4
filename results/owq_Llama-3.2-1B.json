@@ -1,0 +1,580 @@
+{
+  "model": "meta-llama/Llama-3.2-1B",
+  "base_bits": 4,
+  "group_size": 128,
+  "protect_frac": 0.02,
+  "seed": 1234,
+  "n_calib": 128,
+  "skip_lm_head": true,
+  "layers_quantized": 112,
+  "ppl_fp16_sanity": 9.757103797171887,
+  "ppl_base_gptq": 4024.7846895754087,
+  "ppl_A_posthoc_restore": 3672.8482969094152,
+  "ppl_B_protect_before_gptq": 4725.514659315292,
+  "delta_A_vs_base": -351.9363926659935,
+  "delta_B_vs_base": 700.7299697398835,
+  "mean_overlap_S_with_top_error_cols": 0.0181,
+  "interpretation": "A>>B (post-hoc collapses, pre-GPTQ healthy) => F3 is caused by breaking GPTQ compensation, not by protecting useful columns",
+  "per_layer": {
+    "model.layers.0.self_attn.q_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.0.self_attn.k_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0488
+    },
+    "model.layers.0.self_attn.v_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.0.self_attn.o_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.0.mlp.gate_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0244
+    },
+    "model.layers.0.mlp.up_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.0.mlp.down_proj": {
+      "k": 164,
+      "in_features": 8192,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.1.self_attn.q_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.1.self_attn.k_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.1.self_attn.v_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.1.self_attn.o_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.1.mlp.gate_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.1.mlp.up_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.1.mlp.down_proj": {
+      "k": 164,
+      "in_features": 8192,
+      "overlap_S_with_top_error_cols": 0.1463
+    },
+    "model.layers.2.self_attn.q_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0488
+    },
+    "model.layers.2.self_attn.k_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0488
+    },
+    "model.layers.2.self_attn.v_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0732
+    },
+    "model.layers.2.self_attn.o_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.2.mlp.gate_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.2.mlp.up_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.2.mlp.down_proj": {
+      "k": 164,
+      "in_features": 8192,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.3.self_attn.q_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.3.self_attn.k_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.3.self_attn.v_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.3.self_attn.o_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.3.mlp.gate_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0244
+    },
+    "model.layers.3.mlp.up_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0244
+    },
+    "model.layers.3.mlp.down_proj": {
+      "k": 164,
+      "in_features": 8192,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.4.self_attn.q_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.4.self_attn.k_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.4.self_attn.v_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.4.self_attn.o_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.4.mlp.gate_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.4.mlp.up_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.4.mlp.down_proj": {
+      "k": 164,
+      "in_features": 8192,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.5.self_attn.q_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.5.self_attn.k_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.5.self_attn.v_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0244
+    },
+    "model.layers.5.self_attn.o_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.5.mlp.gate_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.5.mlp.up_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.5.mlp.down_proj": {
+      "k": 164,
+      "in_features": 8192,
+      "overlap_S_with_top_error_cols": 0.0061
+    },
+    "model.layers.6.self_attn.q_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.6.self_attn.k_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0244
+    },
+    "model.layers.6.self_attn.v_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.6.self_attn.o_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0488
+    },
+    "model.layers.6.mlp.gate_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0244
+    },
+    "model.layers.6.mlp.up_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.6.mlp.down_proj": {
+      "k": 164,
+      "in_features": 8192,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.7.self_attn.q_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.7.self_attn.k_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0244
+    },
+    "model.layers.7.self_attn.v_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.7.self_attn.o_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.7.mlp.gate_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0244
+    },
+    "model.layers.7.mlp.up_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.7.mlp.down_proj": {
+      "k": 164,
+      "in_features": 8192,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.8.self_attn.q_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0732
+    },
+    "model.layers.8.self_attn.k_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0732
+    },
+    "model.layers.8.self_attn.v_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0732
+    },
+    "model.layers.8.self_attn.o_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.8.mlp.gate_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0244
+    },
+    "model.layers.8.mlp.up_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0244
+    },
+    "model.layers.8.mlp.down_proj": {
+      "k": 164,
+      "in_features": 8192,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.9.self_attn.q_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.9.self_attn.k_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.9.self_attn.v_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.9.self_attn.o_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.9.mlp.gate_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0244
+    },
+    "model.layers.9.mlp.up_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0244
+    },
+    "model.layers.9.mlp.down_proj": {
+      "k": 164,
+      "in_features": 8192,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.10.self_attn.q_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0488
+    },
+    "model.layers.10.self_attn.k_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0244
+    },
+    "model.layers.10.self_attn.v_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0732
+    },
+    "model.layers.10.self_attn.o_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.10.mlp.gate_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0732
+    },
+    "model.layers.10.mlp.up_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0488
+    },
+    "model.layers.10.mlp.down_proj": {
+      "k": 164,
+      "in_features": 8192,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.11.self_attn.q_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0488
+    },
+    "model.layers.11.self_attn.k_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.11.self_attn.v_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0244
+    },
+    "model.layers.11.self_attn.o_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.11.mlp.gate_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0488
+    },
+    "model.layers.11.mlp.up_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.11.mlp.down_proj": {
+      "k": 164,
+      "in_features": 8192,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.12.self_attn.q_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.12.self_attn.k_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.12.self_attn.v_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.12.self_attn.o_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.12.mlp.gate_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0488
+    },
+    "model.layers.12.mlp.up_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0732
+    },
+    "model.layers.12.mlp.down_proj": {
+      "k": 164,
+      "in_features": 8192,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.13.self_attn.q_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0488
+    },
+    "model.layers.13.self_attn.k_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0244
+    },
+    "model.layers.13.self_attn.v_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.13.self_attn.o_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.13.mlp.gate_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.13.mlp.up_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0488
+    },
+    "model.layers.13.mlp.down_proj": {
+      "k": 164,
+      "in_features": 8192,
+      "overlap_S_with_top_error_cols": 0.0305
+    },
+    "model.layers.14.self_attn.q_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0976
+    },
+    "model.layers.14.self_attn.k_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0244
+    },
+    "model.layers.14.self_attn.v_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.14.self_attn.o_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.14.mlp.gate_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0488
+    },
+    "model.layers.14.mlp.up_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0488
+    },
+    "model.layers.14.mlp.down_proj": {
+      "k": 164,
+      "in_features": 8192,
+      "overlap_S_with_top_error_cols": 0.0854
+    },
+    "model.layers.15.self_attn.q_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0488
+    },
+    "model.layers.15.self_attn.k_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0244
+    },
+    "model.layers.15.self_attn.v_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0488
+    },
+    "model.layers.15.self_attn.o_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.15.mlp.gate_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.15.mlp.up_proj": {
+      "k": 41,
+      "in_features": 2048,
+      "overlap_S_with_top_error_cols": 0.0
+    },
+    "model.layers.15.mlp.down_proj": {
+      "k": 164,
+      "in_features": 8192,
+      "overlap_S_with_top_error_cols": 0.0
+    }
+  }
+}

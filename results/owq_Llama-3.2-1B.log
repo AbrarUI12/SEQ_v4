@@ -1,0 +1,13 @@
+`torch_dtype` is deprecated! Use `dtype` instead!
+Token indices sequence length is longer than the specified maximum sequence length for this model (2435023 > 131072). Running this sequence through the model will result in indexing errors
+2026-07-26 16:24:41,037 | INFO | collecting GPTQ Hessians over 128 calibration samples ...
+2026-07-26 16:34:39,146 | INFO | evaluating FP16 sanity / base / arm-A (post-hoc) / arm-B (pre-GPTQ) ...
+Token indices sequence length is longer than the specified maximum sequence length for this model (289076 > 131072). Running this sequence through the model will result in indexing errors
+2026-07-26 16:34:52,771 | INFO | PPL mode=canonical dataset=wikitext2 split=test tokenizer=meta-llama/Llama-3.2-1B seq_len=2048 stream=continuous_stream chunking=non_overlapping full_chunks=141 supervised_tokens=288627 tail_dropped=True tail_tokens_dropped=308 loss_impl=hf_internal_shift avg_loss=2.27799561429531 ppl=9.757103797171887 error=None
+Token indices sequence length is longer than the specified maximum sequence length for this model (289076 > 131072). Running this sequence through the model will result in indexing errors
+2026-07-26 16:35:05,879 | INFO | PPL mode=canonical dataset=wikitext2 split=test tokenizer=meta-llama/Llama-3.2-1B seq_len=2048 stream=continuous_stream chunking=non_overlapping full_chunks=141 supervised_tokens=288627 tail_dropped=True tail_tokens_dropped=308 loss_impl=hf_internal_shift avg_loss=8.300226695148657 ppl=4024.7846895754087 error=None
+Token indices sequence length is longer than the specified maximum sequence length for this model (289076 > 131072). Running this sequence through the model will result in indexing errors
+2026-07-26 16:35:19,036 | INFO | PPL mode=canonical dataset=wikitext2 split=test tokenizer=meta-llama/Llama-3.2-1B seq_len=2048 stream=continuous_stream chunking=non_overlapping full_chunks=141 supervised_tokens=288627 tail_dropped=True tail_tokens_dropped=308 loss_impl=hf_internal_shift avg_loss=8.208722742736763 ppl=3672.8482969094152 error=None
+Token indices sequence length is longer than the specified maximum sequence length for this model (289076 > 131072). Running this sequence through the model will result in indexing errors
+2026-07-26 16:35:32,280 | INFO | PPL mode=canonical dataset=wikitext2 split=test tokenizer=meta-llama/Llama-3.2-1B seq_len=2048 stream=continuous_stream chunking=non_overlapping full_chunks=141 supervised_tokens=288627 tail_dropped=True tail_tokens_dropped=308 loss_impl=hf_internal_shift avg_loss=8.460731756602618 ppl=4725.514659315292 error=None
+2026-07-26 16:35:32,441 | INFO | fp16=9.7571 base=4024.7847 A(post-hoc)=3672.8483 B(pre-GPTQ)=4725.5147 | overlap=0.018 -> results/owq_Llama-3.2-1B.json
