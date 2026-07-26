@@ -416,6 +416,7 @@ def gptq_quantize_weight(
     percdamp: float = 0.01,
     blocksize: int = 128,
     clone_hessian: bool = True,
+    protect_cols: Optional[Sequence[int]] = None,
 ) -> torch.Tensor:
     """GPTQ fake-quantized weight [out, in] using input Hessian H [in, in].
 
@@ -423,7 +424,15 @@ def gptq_quantize_weight(
     compensation; per-(row, group) asymmetric quantization. Set
     ``clone_hessian=False`` only when the caller owns and can discard ``H``;
     this avoids retaining two large Hessian buffers during Cholesky.
+
+    ``protect_cols`` = input-channel indices kept **exact (FP16)** throughout the
+    compensation (q=w, zero error propagated), i.e. *select-before-GPTQ* / OWQ-style
+    protection: the remaining columns are compensated knowing the protected columns
+    are exact. This is the causal counterpart to *post-hoc* restoration (quantize all
+    columns, then overwrite S with FP16), which discards the compensation those
+    columns were part of. Compare the two to establish the F3 mechanism.
     """
+    protect_set = {int(c) for c in protect_cols} if protect_cols else set()
     W = weight.detach().to(dtype=torch.float32).clone()
     out_f, in_f = W.shape
     maxq = float(2 ** int(bits) - 1)
@@ -446,6 +455,11 @@ def gptq_quantize_weight(
     del L
     Hinv = torch.linalg.cholesky(Hinv, upper=True)
 
+    # Original values of the protected columns, captured before any compensation
+    # mutates W, so arm-B keeps S at literal FP16 (not the compensated running value).
+    protect_orig = ({int(c): W[:, int(c)].clone() for c in protect_set}
+                    if protect_set else {})
+
     Q = torch.zeros_like(W)
     gs = int(group_size)
     scale = zero = None
@@ -465,9 +479,16 @@ def gptq_quantize_weight(
             if gs != -1 and col % gs == 0:
                 g = W[:, col:min(col + gs, in_f)]
                 scale, zero = _find_params(g, maxq)
-            q = _quantize_affine(w, scale, zero, maxq)
-            Q1[:, i] = q
-            err = (w - q) / d
+            if col in protect_set:
+                # Kept exact at the ORIGINAL FP16 value; inject zero quantization error
+                # so the complement compensates as if this column is exact (select-before).
+                q = protect_orig[col]
+                Q1[:, i] = q
+                err = torch.zeros_like(w)
+            else:
+                q = _quantize_affine(w, scale, zero, maxq)
+                Q1[:, i] = q
+                err = (w - q) / d
             W1[:, i:] -= err.unsqueeze(1) * Hinv1[i, i:].unsqueeze(0)
             Err1[:, i] = err
         Q[:, i1:i2] = Q1
