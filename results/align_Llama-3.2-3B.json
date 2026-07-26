@@ -1,0 +1,383 @@
+{
+  "model": "meta-llama/Llama-3.2-3B",
+  "base_bits": 4,
+  "group_size": 128,
+  "seed": 1234,
+  "n_calib": 128,
+  "skip_lm_head": true,
+  "gptq_path": "sequential",
+  "max_blocks": 8,
+  "layers_analyzed": 56,
+  "target": "per-column compensation magnitude ||W_pre_quant - W_orig||_2",
+  "summary": {
+    "greedy_gain": {
+      "median_rho": 0.3897,
+      "mean_rho": 0.4355,
+      "n_layers": 56,
+      "frac_positive": 0.9821
+    },
+    "hessian_diag": {
+      "median_rho": -0.1336,
+      "mean_rho": -0.0978,
+      "n_layers": 56,
+      "frac_positive": 0.3393
+    },
+    "residual_rms": {
+      "median_rho": 0.9881,
+      "mean_rho": 0.9723,
+      "n_layers": 56,
+      "frac_positive": 1.0
+    },
+    "residual_max": {
+      "median_rho": 0.5446,
+      "mean_rho": 0.5968,
+      "n_layers": 56,
+      "frac_positive": 1.0
+    }
+  },
+  "ranking_by_abs_median_rho": [
+    "residual_rms",
+    "residual_max",
+    "greedy_gain",
+    "hessian_diag"
+  ],
+  "prediction": "objective collision predicts greedy_gain > hessian_diag > residual_rms/residual_max in |rho|",
+  "per_layer": {
+    "model.layers.0.self_attn.q_proj": {
+      "greedy_gain": 0.0852,
+      "hessian_diag": -0.3729,
+      "residual_rms": 0.9602,
+      "residual_max": 0.795
+    },
+    "model.layers.0.self_attn.k_proj": {
+      "greedy_gain": 0.0827,
+      "hessian_diag": -0.3734,
+      "residual_rms": 0.9759,
+      "residual_max": 0.7653
+    },
+    "model.layers.0.self_attn.v_proj": {
+      "greedy_gain": 0.0562,
+      "hessian_diag": -0.3799,
+      "residual_rms": 0.9918,
+      "residual_max": 0.9617
+    },
+    "model.layers.0.self_attn.o_proj": {
+      "greedy_gain": 0.1607,
+      "hessian_diag": -0.0301,
+      "residual_rms": 0.8828,
+      "residual_max": 0.5063
+    },
+    "model.layers.0.mlp.gate_proj": {
+      "greedy_gain": 0.7332,
+      "hessian_diag": 0.0361,
+      "residual_rms": 0.9956,
+      "residual_max": 0.4757
+    },
+    "model.layers.0.mlp.up_proj": {
+      "greedy_gain": 0.729,
+      "hessian_diag": 0.037,
+      "residual_rms": 0.9973,
+      "residual_max": 0.6215
+    },
+    "model.layers.0.mlp.down_proj": {
+      "greedy_gain": 0.2448,
+      "hessian_diag": -0.2385,
+      "residual_rms": 0.9903,
+      "residual_max": 0.4991
+    },
+    "model.layers.1.self_attn.q_proj": {
+      "greedy_gain": 0.3885,
+      "hessian_diag": -0.2064,
+      "residual_rms": 0.9893,
+      "residual_max": 0.8515
+    },
+    "model.layers.1.self_attn.k_proj": {
+      "greedy_gain": 0.3909,
+      "hessian_diag": -0.2052,
+      "residual_rms": 0.9899,
+      "residual_max": 0.9172
+    },
+    "model.layers.1.self_attn.v_proj": {
+      "greedy_gain": 0.3961,
+      "hessian_diag": -0.2037,
+      "residual_rms": 0.9942,
+      "residual_max": 0.9591
+    },
+    "model.layers.1.self_attn.o_proj": {
+      "greedy_gain": 0.1197,
+      "hessian_diag": -0.2301,
+      "residual_rms": 0.9529,
+      "residual_max": 0.6403
+    },
+    "model.layers.1.mlp.gate_proj": {
+      "greedy_gain": 0.7917,
+      "hessian_diag": 0.1348,
+      "residual_rms": 0.9969,
+      "residual_max": 0.2387
+    },
+    "model.layers.1.mlp.up_proj": {
+      "greedy_gain": 0.7885,
+      "hessian_diag": 0.1345,
+      "residual_rms": 0.9961,
+      "residual_max": 0.2328
+    },
+    "model.layers.1.mlp.down_proj": {
+      "greedy_gain": 0.3508,
+      "hessian_diag": 0.2054,
+      "residual_rms": 0.8852,
+      "residual_max": 0.2945
+    },
+    "model.layers.2.self_attn.q_proj": {
+      "greedy_gain": 0.462,
+      "hessian_diag": -0.1359,
+      "residual_rms": 0.9933,
+      "residual_max": 0.7847
+    },
+    "model.layers.2.self_attn.k_proj": {
+      "greedy_gain": 0.4595,
+      "hessian_diag": -0.1341,
+      "residual_rms": 0.9787,
+      "residual_max": 0.7382
+    },
+    "model.layers.2.self_attn.v_proj": {
+      "greedy_gain": 0.4688,
+      "hessian_diag": -0.1334,
+      "residual_rms": 0.9909,
+      "residual_max": 0.9302
+    },
+    "model.layers.2.self_attn.o_proj": {
+      "greedy_gain": 0.2037,
+      "hessian_diag": -0.1467,
+      "residual_rms": 0.7965,
+      "residual_max": 0.4203
+    },
+    "model.layers.2.mlp.gate_proj": {
+      "greedy_gain": 0.7926,
+      "hessian_diag": 0.1242,
+      "residual_rms": 0.9965,
+      "residual_max": 0.3599
+    },
+    "model.layers.2.mlp.up_proj": {
+      "greedy_gain": 0.7917,
+      "hessian_diag": 0.1251,
+      "residual_rms": 0.9963,
+      "residual_max": 0.2522
+    },
+    "model.layers.2.mlp.down_proj": {
+      "greedy_gain": 0.115,
+      "hessian_diag": -0.2664,
+      "residual_rms": 0.9836,
+      "residual_max": 0.3025
+    },
+    "model.layers.3.self_attn.q_proj": {
+      "greedy_gain": 0.4487,
+      "hessian_diag": -0.0901,
+      "residual_rms": 0.9878,
+      "residual_max": 0.8393
+    },
+    "model.layers.3.self_attn.k_proj": {
+      "greedy_gain": 0.4443,
+      "hessian_diag": -0.0899,
+      "residual_rms": 0.9718,
+      "residual_max": 0.8365
+    },
+    "model.layers.3.self_attn.v_proj": {
+      "greedy_gain": 0.4611,
+      "hessian_diag": -0.0882,
+      "residual_rms": 0.9804,
+      "residual_max": 0.8596
+    },
+    "model.layers.3.self_attn.o_proj": {
+      "greedy_gain": 0.4409,
+      "hessian_diag": 0.0615,
+      "residual_rms": 0.9055,
+      "residual_max": 0.3308
+    },
+    "model.layers.3.mlp.gate_proj": {
+      "greedy_gain": 0.7688,
+      "hessian_diag": 0.0832,
+      "residual_rms": 0.9957,
+      "residual_max": 0.5529
+    },
+    "model.layers.3.mlp.up_proj": {
+      "greedy_gain": 0.7697,
+      "hessian_diag": 0.0831,
+      "residual_rms": 0.9964,
+      "residual_max": 0.4362
+    },
+    "model.layers.3.mlp.down_proj": {
+      "greedy_gain": 0.1612,
+      "hessian_diag": -0.1983,
+      "residual_rms": 0.984,
+      "residual_max": 0.3757
+    },
+    "model.layers.4.self_attn.q_proj": {
+      "greedy_gain": 0.3979,
+      "hessian_diag": -0.1351,
+      "residual_rms": 0.9881,
+      "residual_max": 0.6071
+    },
+    "model.layers.4.self_attn.k_proj": {
+      "greedy_gain": 0.3964,
+      "hessian_diag": -0.1327,
+      "residual_rms": 0.9709,
+      "residual_max": 0.7023
+    },
+    "model.layers.4.self_attn.v_proj": {
+      "greedy_gain": 0.4086,
+      "hessian_diag": -0.1339,
+      "residual_rms": 0.9845,
+      "residual_max": 0.92
+    },
+    "model.layers.4.self_attn.o_proj": {
+      "greedy_gain": -0.0721,
+      "hessian_diag": -0.4182,
+      "residual_rms": 0.9085,
+      "residual_max": 0.3571
+    },
+    "model.layers.4.mlp.gate_proj": {
+      "greedy_gain": 0.7847,
+      "hessian_diag": 0.1451,
+      "residual_rms": 0.996,
+      "residual_max": 0.427
+    },
+    "model.layers.4.mlp.up_proj": {
+      "greedy_gain": 0.7868,
+      "hessian_diag": 0.145,
+      "residual_rms": 0.996,
+      "residual_max": 0.4405
+    },
+    "model.layers.4.mlp.down_proj": {
+      "greedy_gain": 0.2135,
+      "hessian_diag": -0.2198,
+      "residual_rms": 0.9833,
+      "residual_max": 0.3025
+    },
+    "model.layers.5.self_attn.q_proj": {
+      "greedy_gain": 0.3587,
+      "hessian_diag": -0.2056,
+      "residual_rms": 0.9931,
+      "residual_max": 0.809
+    },
+    "model.layers.5.self_attn.k_proj": {
+      "greedy_gain": 0.3705,
+      "hessian_diag": -0.2035,
+      "residual_rms": 0.978,
+      "residual_max": 0.6949
+    },
+    "model.layers.5.self_attn.v_proj": {
+      "greedy_gain": 0.3705,
+      "hessian_diag": -0.2025,
+      "residual_rms": 0.9894,
+      "residual_max": 0.9347
+    },
+    "model.layers.5.self_attn.o_proj": {
+      "greedy_gain": 0.3292,
+      "hessian_diag": -0.0845,
+      "residual_rms": 0.9139,
+      "residual_max": 0.4863
+    },
+    "model.layers.5.mlp.gate_proj": {
+      "greedy_gain": 0.7677,
+      "hessian_diag": 0.1049,
+      "residual_rms": 0.9962,
+      "residual_max": 0.587
+    },
+    "model.layers.5.mlp.up_proj": {
+      "greedy_gain": 0.7722,
+      "hessian_diag": 0.1046,
+      "residual_rms": 0.9964,
+      "residual_max": 0.4206
+    },
+    "model.layers.5.mlp.down_proj": {
+      "greedy_gain": 0.2248,
+      "hessian_diag": -0.2127,
+      "residual_rms": 0.9794,
+      "residual_max": 0.2661
+    },
+    "model.layers.6.self_attn.q_proj": {
+      "greedy_gain": 0.3371,
+      "hessian_diag": -0.2037,
+      "residual_rms": 0.9924,
+      "residual_max": 0.7899
+    },
+    "model.layers.6.self_attn.k_proj": {
+      "greedy_gain": 0.3395,
+      "hessian_diag": -0.2012,
+      "residual_rms": 0.9823,
+      "residual_max": 0.8426
+    },
+    "model.layers.6.self_attn.v_proj": {
+      "greedy_gain": 0.3499,
+      "hessian_diag": -0.2019,
+      "residual_rms": 0.9867,
+      "residual_max": 0.926
+    },
+    "model.layers.6.self_attn.o_proj": {
+      "greedy_gain": 0.3564,
+      "hessian_diag": 0.0296,
+      "residual_rms": 0.844,
+      "residual_max": 0.4461
+    },
+    "model.layers.6.mlp.gate_proj": {
+      "greedy_gain": 0.75,
+      "hessian_diag": 0.0694,
+      "residual_rms": 0.9959,
+      "residual_max": 0.5082
+    },
+    "model.layers.6.mlp.up_proj": {
+      "greedy_gain": 0.7514,
+      "hessian_diag": 0.0685,
+      "residual_rms": 0.9968,
+      "residual_max": 0.4251
+    },
+    "model.layers.6.mlp.down_proj": {
+      "greedy_gain": 0.2759,
+      "hessian_diag": -0.1289,
+      "residual_rms": 0.9881,
+      "residual_max": 0.356
+    },
+    "model.layers.7.self_attn.q_proj": {
+      "greedy_gain": 0.3581,
+      "hessian_diag": -0.1855,
+      "residual_rms": 0.9929,
+      "residual_max": 0.8967
+    },
+    "model.layers.7.self_attn.k_proj": {
+      "greedy_gain": 0.3548,
+      "hessian_diag": -0.1855,
+      "residual_rms": 0.9836,
+      "residual_max": 0.8887
+    },
+    "model.layers.7.self_attn.v_proj": {
+      "greedy_gain": 0.3594,
+      "hessian_diag": -0.1858,
+      "residual_rms": 0.9848,
+      "residual_max": 0.9169
+    },
+    "model.layers.7.self_attn.o_proj": {
+      "greedy_gain": 0.1037,
+      "hessian_diag": -0.41,
+      "residual_rms": 0.8954,
+      "residual_max": 0.4542
+    },
+    "model.layers.7.mlp.gate_proj": {
+      "greedy_gain": 0.7534,
+      "hessian_diag": 0.0424,
+      "residual_rms": 0.996,
+      "residual_max": 0.5364
+    },
+    "model.layers.7.mlp.up_proj": {
+      "greedy_gain": 0.7541,
+      "hessian_diag": 0.042,
+      "residual_rms": 0.9963,
+      "residual_max": 0.4345
+    },
+    "model.layers.7.mlp.down_proj": {
+      "greedy_gain": 0.328,
+      "hessian_diag": -0.0783,
+      "residual_rms": 0.9837,
+      "residual_max": 0.2668
+    }
+  }
+}

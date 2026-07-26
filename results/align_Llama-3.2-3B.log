@@ -1,6 +1,364 @@
-`torch_dtype` is deprecated! Use `dtype` instead!
-Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:01<00:01,  1.56s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:02<00:00,  1.05it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:02<00:00,  1.05s/it]
-2026-07-26 22:25:18,791 | INFO | sequential GPTQ pass, recording per-column compensation ...
-Token indices sequence length is longer than the specified maximum sequence length for this model (2435023 > 131072). Running this sequence through the model will result in indexing errors
-2026-07-26 22:25:42,865 | INFO | seq-gptq: captured 128 samples on CPU; processing 28 decoder blocks
-2026-07-26 22:25:42,865 | INFO | seq-gptq: block 1/28
+2026-07-26 13:42:14,182 | INFO | ============ PHASE 1/3: load meta-llama/Llama-3.2-3B [t+  0.0s] ============
+Loading weights:   0%|          | 0/254 [00:00<?, ?it/s]Loading weights:  16%|█▌        | 41/254 [00:00<00:00, 376.45it/s]Loading weights:  44%|████▍     | 113/254 [00:00<00:00, 558.79it/s]Loading weights:  73%|███████▎  | 185/254 [00:00<00:00, 616.45it/s]Loading weights: 100%|██████████| 254/254 [00:00<00:00, 616.68it/s]
+2026-07-26 13:42:21,132 | INFO | ============ PHASE 2/3: sequential GPTQ pass, recording per-column compensation [t+  7.0s] ============
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (2435023 > 131072). Running this sequence through the model will result in indexing errors
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+2026-07-26 13:42:32,635 | INFO |   [t+ 18.5s] START capture first-block inputs for 128 calibration samples | gpu 0.73/5.98GB alloc, 0.74GB reserved | rss 7.79GB
+2026-07-26 13:42:33,186 | INFO |     capture: 32/128 (25.0%)   0.6s elapsed, 58.1/s, eta   1.7s | gpu 0.74/5.98GB alloc, 0.77GB reserved | rss 8.29GB
+2026-07-26 13:42:33,542 | INFO |     capture: 64/128 (50.0%)   0.9s elapsed, 70.6/s, eta   0.9s | gpu 0.74/5.98GB alloc, 0.77GB reserved | rss 8.67GB
+2026-07-26 13:42:33,903 | INFO |     capture: 96/128 (75.0%)   1.3s elapsed, 75.7/s, eta   0.4s | gpu 0.74/5.98GB alloc, 0.77GB reserved | rss 9.05GB
+2026-07-26 13:42:34,248 | INFO |     capture: 128/128 (100.0%)   1.6s elapsed, 79.4/s, eta   0.0s | gpu 0.74/5.98GB alloc, 0.77GB reserved | rss 9.46GB
+2026-07-26 13:42:34,248 | INFO |   [t+ 20.1s] END   capture first-block inputs for 128 calibration samples in   1.6s | gpu 0.74/5.98GB alloc, 0.77GB reserved | rss 9.46GB
+2026-07-26 13:42:34,248 | INFO | seq-gptq: captured 128 samples on CPU; processing 28 decoder blocks
+2026-07-26 13:42:34,248 | WARNING | seq-gptq: max_blocks=8 -> processing only the first 8 of 28 decoder blocks (DIAGNOSTIC subset, not a full quantization)
+2026-07-26 13:42:34,249 | INFO | seq-gptq: ===== block 1/28 ===== | gpu 0.74/5.98GB alloc, 0.77GB reserved | rss 9.46GB
+2026-07-26 13:42:34,273 | INFO |   [t+ 20.1s] END   block 1: move to cuda in   0.0s | gpu 0.93/5.98GB alloc, 0.94GB reserved | rss 9.32GB
+2026-07-26 13:42:34,273 | INFO |   [t+ 20.1s] START block 1: hessians over 128 samples | gpu 0.93/5.98GB alloc, 0.94GB reserved | rss 9.32GB
+2026-07-26 13:42:35,040 | INFO |     hessian samples: 16/128 (12.5%)   0.8s elapsed, 20.9/s, eta   5.4s | gpu 1.39/5.98GB alloc, 1.92GB reserved | rss 9.53GB
+2026-07-26 13:42:35,419 | INFO |     hessian samples: 32/128 (25.0%)   1.1s elapsed, 27.9/s, eta   3.4s | gpu 1.39/5.98GB alloc, 1.92GB reserved | rss 9.53GB
+2026-07-26 13:42:35,802 | INFO |     hessian samples: 48/128 (37.5%)   1.5s elapsed, 31.4/s, eta   2.5s | gpu 1.39/5.98GB alloc, 1.92GB reserved | rss 9.53GB
+2026-07-26 13:42:36,182 | INFO |     hessian samples: 64/128 (50.0%)   1.9s elapsed, 33.5/s, eta   1.9s | gpu 1.39/5.98GB alloc, 1.92GB reserved | rss 9.53GB
+2026-07-26 13:42:36,559 | INFO |     hessian samples: 80/128 (62.5%)   2.3s elapsed, 35.0/s, eta   1.4s | gpu 1.39/5.98GB alloc, 1.92GB reserved | rss 9.53GB
+2026-07-26 13:42:36,941 | INFO |     hessian samples: 96/128 (75.0%)   2.7s elapsed, 36.0/s, eta   0.9s | gpu 1.39/5.98GB alloc, 1.92GB reserved | rss 9.53GB
+2026-07-26 13:42:37,322 | INFO |     hessian samples: 112/128 (87.5%)   3.0s elapsed, 36.7/s, eta   0.4s | gpu 1.39/5.98GB alloc, 1.92GB reserved | rss 9.53GB
+2026-07-26 13:42:37,703 | INFO |     hessian samples: 128/128 (100.0%)   3.4s elapsed, 37.3/s, eta   0.0s | gpu 1.39/5.98GB alloc, 1.92GB reserved | rss 9.53GB
+2026-07-26 13:42:37,703 | INFO |   [t+ 23.6s] END   block 1: hessians over 128 samples in   3.4s | gpu 1.39/5.98GB alloc, 1.92GB reserved | rss 9.53GB
+2026-07-26 13:42:37,926 | INFO |   block 1: quantizing 7 linears: self_attn.q_proj, self_attn.k_proj, self_attn.v_proj, self_attn.o_proj, mlp.gate_proj, mlp.up_proj, mlp.down_proj
+2026-07-26 13:42:38,433 | INFO |           gptq columns: 2048/3072 (66.7%)   0.4s elapsed, 5103.3/s, eta   0.2s | gpu 1.13/5.98GB alloc, 1.18GB reserved | rss 10.14GB
+2026-07-26 13:42:38,594 | INFO |           gptq columns: 3072/3072 (100.0%)   0.6s elapsed, 5455.4/s, eta   0.0s | gpu 1.13/5.98GB alloc, 1.18GB reserved | rss 10.14GB
+2026-07-26 13:42:38,633 | INFO |     layer self_attn.q_proj       (3072, 3072) done in 0.7s | gpu 0.93/5.98GB alloc, 0.94GB reserved | rss 10.12GB
+2026-07-26 13:42:38,958 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6719.3/s, eta   0.2s | gpu 1.04/5.98GB alloc, 1.12GB reserved | rss 10.12GB
+2026-07-26 13:42:39,114 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6673.1/s, eta   0.0s | gpu 1.04/5.98GB alloc, 1.12GB reserved | rss 10.12GB
+2026-07-26 13:42:39,133 | INFO |     layer self_attn.k_proj       (1024, 3072) done in 0.5s | gpu 0.93/5.98GB alloc, 0.94GB reserved | rss 10.10GB
+2026-07-26 13:42:39,463 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6619.3/s, eta   0.2s | gpu 1.04/5.98GB alloc, 1.12GB reserved | rss 10.10GB
+2026-07-26 13:42:39,625 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6511.5/s, eta   0.0s | gpu 1.04/5.98GB alloc, 1.12GB reserved | rss 10.10GB
+2026-07-26 13:42:39,638 | INFO |     layer self_attn.v_proj       (1024, 3072) done in 0.5s | gpu 0.93/5.98GB alloc, 0.94GB reserved | rss 10.07GB
+2026-07-26 13:42:39,978 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6455.8/s, eta   0.2s | gpu 1.13/5.98GB alloc, 1.18GB reserved | rss 10.07GB
+2026-07-26 13:42:40,135 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6471.3/s, eta   0.0s | gpu 1.13/5.98GB alloc, 1.18GB reserved | rss 10.07GB
+2026-07-26 13:42:40,164 | INFO |     layer self_attn.o_proj       (3072, 3072) done in 0.5s | gpu 0.93/5.98GB alloc, 0.94GB reserved | rss 10.04GB
+2026-07-26 13:42:40,498 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6725.7/s, eta   0.2s | gpu 1.34/5.98GB alloc, 1.49GB reserved | rss 10.04GB
+2026-07-26 13:42:40,652 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6703.9/s, eta   0.0s | gpu 1.34/5.98GB alloc, 1.49GB reserved | rss 10.04GB
+2026-07-26 13:42:40,716 | INFO |     layer mlp.gate_proj          (8192, 3072) done in 0.6s | gpu 0.93/5.98GB alloc, 0.94GB reserved | rss 10.06GB
+2026-07-26 13:42:41,070 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6274.6/s, eta   0.2s | gpu 1.34/5.98GB alloc, 1.49GB reserved | rss 10.06GB
+2026-07-26 13:42:41,236 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6238.1/s, eta   0.0s | gpu 1.34/5.98GB alloc, 1.49GB reserved | rss 10.06GB
+2026-07-26 13:42:41,301 | INFO |     layer mlp.up_proj            (8192, 3072) done in 0.6s | gpu 0.93/5.98GB alloc, 0.94GB reserved | rss 10.07GB
+2026-07-26 13:42:41,772 | INFO |           gptq columns: 2048/8192 (25.0%)   0.3s elapsed, 6336.4/s, eta   1.0s | gpu 1.76/5.98GB alloc, 2.17GB reserved | rss 10.07GB
+2026-07-26 13:42:42,091 | INFO |           gptq columns: 4096/8192 (50.0%)   0.6s elapsed, 6372.6/s, eta   0.6s | gpu 1.76/5.98GB alloc, 2.17GB reserved | rss 10.07GB
+2026-07-26 13:42:42,418 | INFO |           gptq columns: 6144/8192 (75.0%)   1.0s elapsed, 6339.8/s, eta   0.3s | gpu 1.76/5.98GB alloc, 2.17GB reserved | rss 10.07GB
+2026-07-26 13:42:42,756 | INFO |           gptq columns: 8192/8192 (100.0%)   1.3s elapsed, 6264.7/s, eta   0.0s | gpu 1.76/5.98GB alloc, 2.17GB reserved | rss 10.07GB
+2026-07-26 13:42:42,810 | INFO |     layer mlp.down_proj          (3072, 8192) done in 1.5s | gpu 0.93/5.98GB alloc, 0.94GB reserved | rss 10.11GB
+2026-07-26 13:42:42,810 | INFO |   [t+ 28.7s] START block 1: replay 128 samples through quantized block | gpu 0.93/5.98GB alloc, 0.94GB reserved | rss 10.11GB
+2026-07-26 13:42:43,170 | INFO |     replay samples: 32/128 (25.0%)   0.4s elapsed, 89.0/s, eta   1.1s | gpu 0.94/5.98GB alloc, 1.10GB reserved | rss 10.49GB
+2026-07-26 13:42:43,550 | INFO |     replay samples: 64/128 (50.0%)   0.7s elapsed, 86.5/s, eta   0.7s | gpu 0.94/5.98GB alloc, 1.10GB reserved | rss 10.86GB
+2026-07-26 13:42:43,951 | INFO |     replay samples: 96/128 (75.0%)   1.1s elapsed, 84.2/s, eta   0.4s | gpu 0.94/5.98GB alloc, 1.10GB reserved | rss 11.24GB
+2026-07-26 13:42:44,333 | INFO |     replay samples: 128/128 (100.0%)   1.5s elapsed, 84.1/s, eta   0.0s | gpu 0.94/5.98GB alloc, 1.10GB reserved | rss 11.61GB
+2026-07-26 13:42:44,333 | INFO |   [t+ 30.2s] END   block 1: replay 128 samples through quantized block in   1.5s | eta 13m35s for 27 more | gpu 0.94/5.98GB alloc, 1.10GB reserved | rss 11.61GB
+2026-07-26 13:42:44,417 | INFO | seq-gptq: block 1/28 COMPLETE in 10.2s | gpu 0.75/5.98GB alloc, 0.80GB reserved | rss 11.79GB
+2026-07-26 13:42:44,417 | INFO | seq-gptq: ===== block 2/28 ===== | gpu 0.75/5.98GB alloc, 0.80GB reserved | rss 11.79GB
+2026-07-26 13:42:44,440 | INFO |   [t+ 30.3s] END   block 2: move to cuda in   0.0s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 11.65GB
+2026-07-26 13:42:44,440 | INFO |   [t+ 30.3s] START block 2: hessians over 128 samples | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 11.65GB
+2026-07-26 13:42:44,831 | INFO |     hessian samples: 16/128 (12.5%)   0.4s elapsed, 41.0/s, eta   2.7s | gpu 1.40/5.98GB alloc, 1.82GB reserved | rss 11.65GB
+2026-07-26 13:42:45,211 | INFO |     hessian samples: 32/128 (25.0%)   0.8s elapsed, 41.6/s, eta   2.3s | gpu 1.40/5.98GB alloc, 1.82GB reserved | rss 11.65GB
+2026-07-26 13:42:45,591 | INFO |     hessian samples: 48/128 (37.5%)   1.2s elapsed, 41.7/s, eta   1.9s | gpu 1.40/5.98GB alloc, 1.82GB reserved | rss 11.65GB
+2026-07-26 13:42:45,972 | INFO |     hessian samples: 64/128 (50.0%)   1.5s elapsed, 41.8/s, eta   1.5s | gpu 1.40/5.98GB alloc, 1.82GB reserved | rss 11.65GB
+2026-07-26 13:42:46,353 | INFO |     hessian samples: 80/128 (62.5%)   1.9s elapsed, 41.8/s, eta   1.1s | gpu 1.40/5.98GB alloc, 1.82GB reserved | rss 11.65GB
+2026-07-26 13:42:46,734 | INFO |     hessian samples: 96/128 (75.0%)   2.3s elapsed, 41.9/s, eta   0.8s | gpu 1.40/5.98GB alloc, 1.82GB reserved | rss 11.65GB
+2026-07-26 13:42:47,115 | INFO |     hessian samples: 112/128 (87.5%)   2.7s elapsed, 41.9/s, eta   0.4s | gpu 1.40/5.98GB alloc, 1.82GB reserved | rss 11.65GB
+2026-07-26 13:42:47,496 | INFO |     hessian samples: 128/128 (100.0%)   3.1s elapsed, 41.9/s, eta   0.0s | gpu 1.40/5.98GB alloc, 1.82GB reserved | rss 11.65GB
+2026-07-26 13:42:47,497 | INFO |   [t+ 33.4s] END   block 2: hessians over 128 samples in   3.1s | gpu 1.40/5.98GB alloc, 1.82GB reserved | rss 11.65GB
+2026-07-26 13:42:47,659 | INFO |   block 2: quantizing 7 linears: self_attn.q_proj, self_attn.k_proj, self_attn.v_proj, self_attn.o_proj, mlp.gate_proj, mlp.up_proj, mlp.down_proj
+2026-07-26 13:42:48,011 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6195.4/s, eta   0.2s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 11.86GB
+2026-07-26 13:42:48,178 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6180.6/s, eta   0.0s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 11.86GB
+2026-07-26 13:42:48,214 | INFO |     layer self_attn.q_proj       (3072, 3072) done in 0.6s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 11.84GB
+2026-07-26 13:42:48,551 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6462.6/s, eta   0.2s | gpu 1.05/5.98GB alloc, 1.14GB reserved | rss 11.84GB
+2026-07-26 13:42:48,709 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6468.5/s, eta   0.0s | gpu 1.05/5.98GB alloc, 1.14GB reserved | rss 11.84GB
+2026-07-26 13:42:48,719 | INFO |     layer self_attn.k_proj       (1024, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 11.81GB
+2026-07-26 13:42:49,055 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6502.4/s, eta   0.2s | gpu 1.05/5.98GB alloc, 1.14GB reserved | rss 11.81GB
+2026-07-26 13:42:49,215 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6456.5/s, eta   0.0s | gpu 1.05/5.98GB alloc, 1.14GB reserved | rss 11.81GB
+2026-07-26 13:42:49,231 | INFO |     layer self_attn.v_proj       (1024, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 11.77GB
+2026-07-26 13:42:49,561 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6605.2/s, eta   0.2s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 11.77GB
+2026-07-26 13:42:49,724 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6496.6/s, eta   0.0s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 11.77GB
+2026-07-26 13:42:49,757 | INFO |     layer self_attn.o_proj       (3072, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 11.76GB
+2026-07-26 13:42:50,103 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6464.8/s, eta   0.2s | gpu 1.35/5.98GB alloc, 1.51GB reserved | rss 11.76GB
+2026-07-26 13:42:50,264 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6428.6/s, eta   0.0s | gpu 1.35/5.98GB alloc, 1.51GB reserved | rss 11.76GB
+2026-07-26 13:42:50,318 | INFO |     layer mlp.gate_proj          (8192, 3072) done in 0.6s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 11.77GB
+2026-07-26 13:42:50,653 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6649.8/s, eta   0.2s | gpu 1.35/5.98GB alloc, 1.51GB reserved | rss 11.77GB
+2026-07-26 13:42:50,812 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6581.9/s, eta   0.0s | gpu 1.35/5.98GB alloc, 1.51GB reserved | rss 11.77GB
+2026-07-26 13:42:50,866 | INFO |     layer mlp.up_proj            (8192, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 11.78GB
+2026-07-26 13:42:51,338 | INFO |           gptq columns: 2048/8192 (25.0%)   0.3s elapsed, 6318.9/s, eta   1.0s | gpu 1.77/5.98GB alloc, 2.19GB reserved | rss 11.78GB
+2026-07-26 13:42:51,668 | INFO |           gptq columns: 4096/8192 (50.0%)   0.7s elapsed, 6263.1/s, eta   0.7s | gpu 1.77/5.98GB alloc, 2.19GB reserved | rss 11.78GB
+2026-07-26 13:42:51,993 | INFO |           gptq columns: 6144/8192 (75.0%)   1.0s elapsed, 6272.4/s, eta   0.3s | gpu 1.77/5.98GB alloc, 2.19GB reserved | rss 11.78GB
+2026-07-26 13:42:52,308 | INFO |           gptq columns: 8192/8192 (100.0%)   1.3s elapsed, 6328.0/s, eta   0.0s | gpu 1.77/5.98GB alloc, 2.19GB reserved | rss 11.78GB
+2026-07-26 13:42:52,364 | INFO |     layer mlp.down_proj          (3072, 8192) done in 1.5s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 11.83GB
+2026-07-26 13:42:52,364 | INFO |   [t+ 38.2s] START block 2: replay 128 samples through quantized block | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 11.83GB
+2026-07-26 13:42:52,728 | INFO |     replay samples: 32/128 (25.0%)   0.4s elapsed, 88.2/s, eta   1.1s | gpu 0.94/5.98GB alloc, 1.12GB reserved | rss 12.18GB
+2026-07-26 13:42:53,119 | INFO |     replay samples: 64/128 (50.0%)   0.8s elapsed, 84.9/s, eta   0.8s | gpu 0.94/5.98GB alloc, 1.12GB reserved | rss 12.55GB
+2026-07-26 13:42:53,521 | INFO |     replay samples: 96/128 (75.0%)   1.2s elapsed, 83.0/s, eta   0.4s | gpu 0.94/5.98GB alloc, 1.12GB reserved | rss 12.93GB
+2026-07-26 13:42:53,916 | INFO |     replay samples: 128/128 (100.0%)   1.6s elapsed, 82.5/s, eta   0.0s | gpu 0.94/5.98GB alloc, 1.12GB reserved | rss 13.30GB
+2026-07-26 13:42:53,917 | INFO |   [t+ 39.8s] END   block 2: replay 128 samples through quantized block in   1.6s | eta 8m37s for 26 more | gpu 0.94/5.98GB alloc, 1.12GB reserved | rss 13.30GB
+2026-07-26 13:42:53,935 | INFO | seq-gptq: block 2/28 COMPLETE in 9.5s | gpu 0.75/5.98GB alloc, 0.80GB reserved | rss 13.30GB
+2026-07-26 13:42:53,936 | INFO | seq-gptq: ===== block 3/28 ===== | gpu 0.75/5.98GB alloc, 0.80GB reserved | rss 13.30GB
+2026-07-26 13:42:53,957 | INFO |   [t+ 39.8s] END   block 3: move to cuda in   0.0s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 13.16GB
+2026-07-26 13:42:53,957 | INFO |   [t+ 39.8s] START block 3: hessians over 128 samples | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 13.16GB
+2026-07-26 13:42:54,348 | INFO |     hessian samples: 16/128 (12.5%)   0.4s elapsed, 41.0/s, eta   2.7s | gpu 1.40/5.98GB alloc, 1.88GB reserved | rss 13.16GB
+2026-07-26 13:42:54,728 | INFO |     hessian samples: 32/128 (25.0%)   0.8s elapsed, 41.6/s, eta   2.3s | gpu 1.40/5.98GB alloc, 1.88GB reserved | rss 13.16GB
+2026-07-26 13:42:55,107 | INFO |     hessian samples: 48/128 (37.5%)   1.1s elapsed, 41.8/s, eta   1.9s | gpu 1.40/5.98GB alloc, 1.88GB reserved | rss 13.16GB
+2026-07-26 13:42:55,492 | INFO |     hessian samples: 64/128 (50.0%)   1.5s elapsed, 41.7/s, eta   1.5s | gpu 1.40/5.98GB alloc, 1.88GB reserved | rss 13.16GB
+2026-07-26 13:42:55,879 | INFO |     hessian samples: 80/128 (62.5%)   1.9s elapsed, 41.6/s, eta   1.2s | gpu 1.40/5.98GB alloc, 1.88GB reserved | rss 13.16GB
+2026-07-26 13:42:56,258 | INFO |     hessian samples: 96/128 (75.0%)   2.3s elapsed, 41.7/s, eta   0.8s | gpu 1.40/5.98GB alloc, 1.88GB reserved | rss 13.16GB
+2026-07-26 13:42:56,641 | INFO |     hessian samples: 112/128 (87.5%)   2.7s elapsed, 41.7/s, eta   0.4s | gpu 1.40/5.98GB alloc, 1.88GB reserved | rss 13.16GB
+2026-07-26 13:42:57,023 | INFO |     hessian samples: 128/128 (100.0%)   3.1s elapsed, 41.8/s, eta   0.0s | gpu 1.40/5.98GB alloc, 1.88GB reserved | rss 13.16GB
+2026-07-26 13:42:57,024 | INFO |   [t+ 42.9s] END   block 3: hessians over 128 samples in   3.1s | gpu 1.40/5.98GB alloc, 1.88GB reserved | rss 13.16GB
+2026-07-26 13:42:57,076 | INFO |   block 3: quantizing 7 linears: self_attn.q_proj, self_attn.k_proj, self_attn.v_proj, self_attn.o_proj, mlp.gate_proj, mlp.up_proj, mlp.down_proj
+2026-07-26 13:42:57,418 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6403.9/s, eta   0.2s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 12.91GB
+2026-07-26 13:42:57,582 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6349.1/s, eta   0.0s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 12.91GB
+2026-07-26 13:42:57,605 | INFO |     layer self_attn.q_proj       (3072, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 12.91GB
+2026-07-26 13:42:57,945 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6380.1/s, eta   0.2s | gpu 1.05/5.98GB alloc, 1.14GB reserved | rss 12.91GB
+2026-07-26 13:42:58,108 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6353.7/s, eta   0.0s | gpu 1.05/5.98GB alloc, 1.14GB reserved | rss 12.91GB
+2026-07-26 13:42:58,122 | INFO |     layer self_attn.k_proj       (1024, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 12.91GB
+2026-07-26 13:42:58,459 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6447.9/s, eta   0.2s | gpu 1.05/5.98GB alloc, 1.14GB reserved | rss 12.91GB
+2026-07-26 13:42:58,620 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6415.2/s, eta   0.0s | gpu 1.05/5.98GB alloc, 1.14GB reserved | rss 12.91GB
+2026-07-26 13:42:58,635 | INFO |     layer self_attn.v_proj       (1024, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 12.91GB
+2026-07-26 13:42:58,971 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6502.6/s, eta   0.2s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 12.91GB
+2026-07-26 13:42:59,131 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6465.9/s, eta   0.0s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 12.91GB
+2026-07-26 13:42:59,154 | INFO |     layer self_attn.o_proj       (3072, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 12.91GB
+2026-07-26 13:42:59,498 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6501.4/s, eta   0.2s | gpu 1.35/5.98GB alloc, 1.53GB reserved | rss 12.91GB
+2026-07-26 13:42:59,660 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6433.7/s, eta   0.0s | gpu 1.35/5.98GB alloc, 1.53GB reserved | rss 12.91GB
+2026-07-26 13:42:59,692 | INFO |     layer mlp.gate_proj          (8192, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 12.91GB
+2026-07-26 13:43:00,050 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6177.7/s, eta   0.2s | gpu 1.35/5.98GB alloc, 1.53GB reserved | rss 12.91GB
+2026-07-26 13:43:00,209 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6272.8/s, eta   0.0s | gpu 1.35/5.98GB alloc, 1.53GB reserved | rss 12.91GB
+2026-07-26 13:43:00,236 | INFO |     layer mlp.up_proj            (8192, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 12.91GB
+2026-07-26 13:43:00,709 | INFO |           gptq columns: 2048/8192 (25.0%)   0.3s elapsed, 6145.4/s, eta   1.0s | gpu 1.77/5.98GB alloc, 2.21GB reserved | rss 12.91GB
+2026-07-26 13:43:01,015 | INFO |           gptq columns: 4096/8192 (50.0%)   0.6s elapsed, 6407.1/s, eta   0.6s | gpu 1.77/5.98GB alloc, 2.21GB reserved | rss 12.91GB
+2026-07-26 13:43:01,325 | INFO |           gptq columns: 6144/8192 (75.0%)   0.9s elapsed, 6470.4/s, eta   0.3s | gpu 1.77/5.98GB alloc, 2.21GB reserved | rss 12.91GB
+2026-07-26 13:43:01,644 | INFO |           gptq columns: 8192/8192 (100.0%)   1.3s elapsed, 6456.9/s, eta   0.0s | gpu 1.77/5.98GB alloc, 2.21GB reserved | rss 12.91GB
+2026-07-26 13:43:01,677 | INFO |     layer mlp.down_proj          (3072, 8192) done in 1.4s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 12.91GB
+2026-07-26 13:43:01,678 | INFO |   [t+ 47.5s] START block 3: replay 128 samples through quantized block | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 12.91GB
+2026-07-26 13:43:01,928 | INFO |     replay samples: 32/128 (25.0%)   0.3s elapsed, 127.8/s, eta   0.8s | gpu 0.94/5.98GB alloc, 1.12GB reserved | rss 12.91GB
+2026-07-26 13:43:02,172 | INFO |     replay samples: 64/128 (50.0%)   0.5s elapsed, 129.5/s, eta   0.5s | gpu 0.94/5.98GB alloc, 1.12GB reserved | rss 12.91GB
+2026-07-26 13:43:02,481 | INFO |     replay samples: 96/128 (75.0%)   0.8s elapsed, 119.5/s, eta   0.3s | gpu 0.94/5.98GB alloc, 1.12GB reserved | rss 13.12GB
+2026-07-26 13:43:02,887 | INFO |     replay samples: 128/128 (100.0%)   1.2s elapsed, 105.9/s, eta   0.0s | gpu 0.94/5.98GB alloc, 1.12GB reserved | rss 13.50GB
+2026-07-26 13:43:02,888 | INFO |   [t+ 48.8s] END   block 3: replay 128 samples through quantized block in   1.2s | eta 6m46s for 25 more | gpu 0.94/5.98GB alloc, 1.12GB reserved | rss 13.50GB
+2026-07-26 13:43:02,906 | INFO | seq-gptq: block 3/28 COMPLETE in 9.0s | gpu 0.75/5.98GB alloc, 0.79GB reserved | rss 13.50GB
+2026-07-26 13:43:02,907 | INFO | seq-gptq: ===== block 4/28 ===== | gpu 0.75/5.98GB alloc, 0.79GB reserved | rss 13.50GB
+2026-07-26 13:43:02,930 | INFO |   [t+ 48.8s] END   block 4: move to cuda in   0.0s | gpu 0.94/5.98GB alloc, 0.98GB reserved | rss 13.36GB
+2026-07-26 13:43:02,930 | INFO |   [t+ 48.8s] START block 4: hessians over 128 samples | gpu 0.94/5.98GB alloc, 0.98GB reserved | rss 13.36GB
+2026-07-26 13:43:03,321 | INFO |     hessian samples: 16/128 (12.5%)   0.4s elapsed, 41.0/s, eta   2.7s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 13.36GB
+2026-07-26 13:43:03,702 | INFO |     hessian samples: 32/128 (25.0%)   0.8s elapsed, 41.5/s, eta   2.3s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 13.36GB
+2026-07-26 13:43:04,083 | INFO |     hessian samples: 48/128 (37.5%)   1.2s elapsed, 41.7/s, eta   1.9s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 13.36GB
+2026-07-26 13:43:04,462 | INFO |     hessian samples: 64/128 (50.0%)   1.5s elapsed, 41.8/s, eta   1.5s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 13.36GB
+2026-07-26 13:43:04,842 | INFO |     hessian samples: 80/128 (62.5%)   1.9s elapsed, 41.9/s, eta   1.1s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 13.36GB
+2026-07-26 13:43:05,223 | INFO |     hessian samples: 96/128 (75.0%)   2.3s elapsed, 41.9/s, eta   0.8s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 13.36GB
+2026-07-26 13:43:05,605 | INFO |     hessian samples: 112/128 (87.5%)   2.7s elapsed, 41.9/s, eta   0.4s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 13.36GB
+2026-07-26 13:43:05,987 | INFO |     hessian samples: 128/128 (100.0%)   3.1s elapsed, 41.9/s, eta   0.0s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 13.36GB
+2026-07-26 13:43:05,987 | INFO |   [t+ 51.9s] END   block 4: hessians over 128 samples in   3.1s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 13.36GB
+2026-07-26 13:43:06,040 | INFO |   block 4: quantizing 7 linears: self_attn.q_proj, self_attn.k_proj, self_attn.v_proj, self_attn.o_proj, mlp.gate_proj, mlp.up_proj, mlp.down_proj
+2026-07-26 13:43:06,369 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6623.8/s, eta   0.2s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 13.36GB
+2026-07-26 13:43:06,539 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6412.9/s, eta   0.0s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 13.36GB
+2026-07-26 13:43:06,559 | INFO |     layer self_attn.q_proj       (3072, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.98GB reserved | rss 13.36GB
+2026-07-26 13:43:06,889 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6604.2/s, eta   0.2s | gpu 1.05/5.98GB alloc, 1.12GB reserved | rss 13.36GB
+2026-07-26 13:43:07,050 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6514.7/s, eta   0.0s | gpu 1.05/5.98GB alloc, 1.12GB reserved | rss 13.36GB
+2026-07-26 13:43:07,066 | INFO |     layer self_attn.k_proj       (1024, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.98GB reserved | rss 13.36GB
+2026-07-26 13:43:07,401 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6485.6/s, eta   0.2s | gpu 1.05/5.98GB alloc, 1.12GB reserved | rss 13.36GB
+2026-07-26 13:43:07,558 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6496.9/s, eta   0.0s | gpu 1.05/5.98GB alloc, 1.12GB reserved | rss 13.36GB
+2026-07-26 13:43:07,570 | INFO |     layer self_attn.v_proj       (1024, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.98GB reserved | rss 13.36GB
+2026-07-26 13:43:07,901 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6586.9/s, eta   0.2s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 13.36GB
+2026-07-26 13:43:08,065 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6468.3/s, eta   0.0s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 13.36GB
+2026-07-26 13:43:08,089 | INFO |     layer self_attn.o_proj       (3072, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.98GB reserved | rss 13.36GB
+2026-07-26 13:43:08,425 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6610.2/s, eta   0.2s | gpu 1.35/5.98GB alloc, 1.51GB reserved | rss 13.36GB
+2026-07-26 13:43:08,591 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6466.0/s, eta   0.0s | gpu 1.35/5.98GB alloc, 1.51GB reserved | rss 13.36GB
+2026-07-26 13:43:08,619 | INFO |     layer mlp.gate_proj          (8192, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.98GB reserved | rss 13.36GB
+2026-07-26 13:43:08,957 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6554.5/s, eta   0.2s | gpu 1.35/5.98GB alloc, 1.51GB reserved | rss 13.36GB
+2026-07-26 13:43:09,115 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6528.2/s, eta   0.0s | gpu 1.35/5.98GB alloc, 1.51GB reserved | rss 13.36GB
+2026-07-26 13:43:09,142 | INFO |     layer mlp.up_proj            (8192, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.98GB reserved | rss 13.36GB
+2026-07-26 13:43:09,598 | INFO |           gptq columns: 2048/8192 (25.0%)   0.3s elapsed, 6474.5/s, eta   0.9s | gpu 1.77/5.98GB alloc, 2.21GB reserved | rss 13.36GB
+2026-07-26 13:43:09,931 | INFO |           gptq columns: 4096/8192 (50.0%)   0.6s elapsed, 6309.9/s, eta   0.6s | gpu 1.77/5.98GB alloc, 2.21GB reserved | rss 13.36GB
+2026-07-26 13:43:10,243 | INFO |           gptq columns: 6144/8192 (75.0%)   1.0s elapsed, 6390.3/s, eta   0.3s | gpu 1.77/5.98GB alloc, 2.21GB reserved | rss 13.36GB
+2026-07-26 13:43:10,553 | INFO |           gptq columns: 8192/8192 (100.0%)   1.3s elapsed, 6446.8/s, eta   0.0s | gpu 1.77/5.98GB alloc, 2.21GB reserved | rss 13.36GB
+2026-07-26 13:43:10,583 | INFO |     layer mlp.down_proj          (3072, 8192) done in 1.4s | gpu 0.94/5.98GB alloc, 0.98GB reserved | rss 13.36GB
+2026-07-26 13:43:10,583 | INFO |   [t+ 56.4s] START block 4: replay 128 samples through quantized block | gpu 0.94/5.98GB alloc, 0.98GB reserved | rss 13.36GB
+2026-07-26 13:43:10,828 | INFO |     replay samples: 32/128 (25.0%)   0.2s elapsed, 130.6/s, eta   0.7s | gpu 0.94/5.98GB alloc, 1.10GB reserved | rss 13.36GB
+2026-07-26 13:43:11,073 | INFO |     replay samples: 64/128 (50.0%)   0.5s elapsed, 130.8/s, eta   0.5s | gpu 0.94/5.98GB alloc, 1.10GB reserved | rss 13.36GB
+2026-07-26 13:43:11,319 | INFO |     replay samples: 96/128 (75.0%)   0.7s elapsed, 130.4/s, eta   0.2s | gpu 0.94/5.98GB alloc, 1.10GB reserved | rss 13.36GB
+2026-07-26 13:43:11,690 | INFO |     replay samples: 128/128 (100.0%)   1.1s elapsed, 115.6/s, eta   0.0s | gpu 0.94/5.98GB alloc, 1.10GB reserved | rss 13.71GB
+2026-07-26 13:43:11,691 | INFO |   [t+ 57.6s] END   block 4: replay 128 samples through quantized block in   1.1s | eta 5m45s for 24 more | gpu 0.94/5.98GB alloc, 1.10GB reserved | rss 13.71GB
+2026-07-26 13:43:11,710 | INFO | seq-gptq: block 4/28 COMPLETE in 8.8s | gpu 0.75/5.98GB alloc, 0.79GB reserved | rss 13.71GB
+2026-07-26 13:43:11,710 | INFO | seq-gptq: ===== block 5/28 ===== | gpu 0.75/5.98GB alloc, 0.79GB reserved | rss 13.71GB
+2026-07-26 13:43:11,733 | INFO |   [t+ 57.6s] END   block 5: move to cuda in   0.0s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 13.57GB
+2026-07-26 13:43:11,733 | INFO |   [t+ 57.6s] START block 5: hessians over 128 samples | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 13.57GB
+2026-07-26 13:43:12,125 | INFO |     hessian samples: 16/128 (12.5%)   0.4s elapsed, 40.8/s, eta   2.7s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 13.57GB
+2026-07-26 13:43:12,507 | INFO |     hessian samples: 32/128 (25.0%)   0.8s elapsed, 41.4/s, eta   2.3s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 13.57GB
+2026-07-26 13:43:12,889 | INFO |     hessian samples: 48/128 (37.5%)   1.2s elapsed, 41.5/s, eta   1.9s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 13.57GB
+2026-07-26 13:43:13,273 | INFO |     hessian samples: 64/128 (50.0%)   1.5s elapsed, 41.6/s, eta   1.5s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 13.57GB
+2026-07-26 13:43:13,654 | INFO |     hessian samples: 80/128 (62.5%)   1.9s elapsed, 41.7/s, eta   1.2s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 13.57GB
+2026-07-26 13:43:14,035 | INFO |     hessian samples: 96/128 (75.0%)   2.3s elapsed, 41.7/s, eta   0.8s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 13.57GB
+2026-07-26 13:43:14,416 | INFO |     hessian samples: 112/128 (87.5%)   2.7s elapsed, 41.7/s, eta   0.4s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 13.57GB
+2026-07-26 13:43:14,797 | INFO |     hessian samples: 128/128 (100.0%)   3.1s elapsed, 41.8/s, eta   0.0s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 13.57GB
+2026-07-26 13:43:14,797 | INFO |   [t+1m00s] END   block 5: hessians over 128 samples in   3.1s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 13.57GB
+2026-07-26 13:43:14,851 | INFO |   block 5: quantizing 7 linears: self_attn.q_proj, self_attn.k_proj, self_attn.v_proj, self_attn.o_proj, mlp.gate_proj, mlp.up_proj, mlp.down_proj
+2026-07-26 13:43:15,206 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6138.9/s, eta   0.2s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 13.57GB
+2026-07-26 13:43:15,374 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6123.3/s, eta   0.0s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 13.57GB
+2026-07-26 13:43:15,397 | INFO |     layer self_attn.q_proj       (3072, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 13.57GB
+2026-07-26 13:43:15,730 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6541.3/s, eta   0.2s | gpu 1.05/5.98GB alloc, 1.12GB reserved | rss 13.57GB
+2026-07-26 13:43:15,898 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6387.8/s, eta   0.0s | gpu 1.05/5.98GB alloc, 1.12GB reserved | rss 13.57GB
+2026-07-26 13:43:15,916 | INFO |     layer self_attn.k_proj       (1024, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 13.57GB
+2026-07-26 13:43:16,259 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6328.2/s, eta   0.2s | gpu 1.05/5.98GB alloc, 1.12GB reserved | rss 13.57GB
+2026-07-26 13:43:16,420 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6343.4/s, eta   0.0s | gpu 1.05/5.98GB alloc, 1.12GB reserved | rss 13.57GB
+2026-07-26 13:43:16,433 | INFO |     layer self_attn.v_proj       (1024, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 13.57GB
+2026-07-26 13:43:16,765 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6579.1/s, eta   0.2s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 13.57GB
+2026-07-26 13:43:16,929 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6458.6/s, eta   0.0s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 13.57GB
+2026-07-26 13:43:16,953 | INFO |     layer self_attn.o_proj       (3072, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 13.57GB
+2026-07-26 13:43:17,298 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6468.1/s, eta   0.2s | gpu 1.35/5.98GB alloc, 1.53GB reserved | rss 13.57GB
+2026-07-26 13:43:17,457 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6458.0/s, eta   0.0s | gpu 1.35/5.98GB alloc, 1.53GB reserved | rss 13.57GB
+2026-07-26 13:43:17,488 | INFO |     layer mlp.gate_proj          (8192, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 13.57GB
+2026-07-26 13:43:17,829 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6557.7/s, eta   0.2s | gpu 1.35/5.98GB alloc, 1.53GB reserved | rss 13.57GB
+2026-07-26 13:43:17,979 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6644.6/s, eta   0.0s | gpu 1.35/5.98GB alloc, 1.53GB reserved | rss 13.57GB
+2026-07-26 13:43:18,006 | INFO |     layer mlp.up_proj            (8192, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 13.57GB
+2026-07-26 13:43:18,456 | INFO |           gptq columns: 2048/8192 (25.0%)   0.3s elapsed, 6601.3/s, eta   0.9s | gpu 1.77/5.98GB alloc, 2.19GB reserved | rss 13.57GB
+2026-07-26 13:43:18,769 | INFO |           gptq columns: 4096/8192 (50.0%)   0.6s elapsed, 6571.6/s, eta   0.6s | gpu 1.77/5.98GB alloc, 2.19GB reserved | rss 13.57GB
+2026-07-26 13:43:19,081 | INFO |           gptq columns: 6144/8192 (75.0%)   0.9s elapsed, 6569.1/s, eta   0.3s | gpu 1.77/5.98GB alloc, 2.19GB reserved | rss 13.57GB
+2026-07-26 13:43:19,395 | INFO |           gptq columns: 8192/8192 (100.0%)   1.2s elapsed, 6555.7/s, eta   0.0s | gpu 1.77/5.98GB alloc, 2.19GB reserved | rss 13.57GB
+2026-07-26 13:43:19,425 | INFO |     layer mlp.down_proj          (3072, 8192) done in 1.4s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 13.57GB
+2026-07-26 13:43:19,425 | INFO |   [t+1m05s] START block 5: replay 128 samples through quantized block | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 13.57GB
+2026-07-26 13:43:19,671 | INFO |     replay samples: 32/128 (25.0%)   0.2s elapsed, 130.5/s, eta   0.7s | gpu 0.94/5.98GB alloc, 1.10GB reserved | rss 13.57GB
+2026-07-26 13:43:19,919 | INFO |     replay samples: 64/128 (50.0%)   0.5s elapsed, 129.8/s, eta   0.5s | gpu 0.94/5.98GB alloc, 1.10GB reserved | rss 13.57GB
+2026-07-26 13:43:20,164 | INFO |     replay samples: 96/128 (75.0%)   0.7s elapsed, 130.1/s, eta   0.2s | gpu 0.94/5.98GB alloc, 1.10GB reserved | rss 13.57GB
+2026-07-26 13:43:20,555 | INFO |     replay samples: 128/128 (100.0%)   1.1s elapsed, 113.3/s, eta   0.0s | gpu 0.94/5.98GB alloc, 1.10GB reserved | rss 13.93GB
+2026-07-26 13:43:20,556 | INFO |   [t+1m06s] END   block 5: replay 128 samples through quantized block in   1.1s | eta 5m05s for 23 more | gpu 0.94/5.98GB alloc, 1.10GB reserved | rss 13.93GB
+2026-07-26 13:43:20,574 | INFO | seq-gptq: block 5/28 COMPLETE in 8.9s | gpu 0.75/5.98GB alloc, 0.80GB reserved | rss 13.93GB
+2026-07-26 13:43:20,574 | INFO | seq-gptq: ===== block 6/28 ===== | gpu 0.75/5.98GB alloc, 0.80GB reserved | rss 13.93GB
+2026-07-26 13:43:20,607 | INFO |   [t+1m06s] END   block 6: move to cuda in   0.0s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 13.79GB
+2026-07-26 13:43:20,607 | INFO |   [t+1m06s] START block 6: hessians over 128 samples | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 13.79GB
+2026-07-26 13:43:20,996 | INFO |     hessian samples: 16/128 (12.5%)   0.4s elapsed, 41.2/s, eta   2.7s | gpu 1.40/5.98GB alloc, 1.82GB reserved | rss 13.79GB
+2026-07-26 13:43:21,379 | INFO |     hessian samples: 32/128 (25.0%)   0.8s elapsed, 41.5/s, eta   2.3s | gpu 1.40/5.98GB alloc, 1.82GB reserved | rss 13.79GB
+2026-07-26 13:43:21,760 | INFO |     hessian samples: 48/128 (37.5%)   1.2s elapsed, 41.7/s, eta   1.9s | gpu 1.40/5.98GB alloc, 1.82GB reserved | rss 13.79GB
+2026-07-26 13:43:22,140 | INFO |     hessian samples: 64/128 (50.0%)   1.5s elapsed, 41.8/s, eta   1.5s | gpu 1.40/5.98GB alloc, 1.82GB reserved | rss 13.79GB
+2026-07-26 13:43:22,522 | INFO |     hessian samples: 80/128 (62.5%)   1.9s elapsed, 41.8/s, eta   1.1s | gpu 1.40/5.98GB alloc, 1.82GB reserved | rss 13.79GB
+2026-07-26 13:43:22,904 | INFO |     hessian samples: 96/128 (75.0%)   2.3s elapsed, 41.8/s, eta   0.8s | gpu 1.40/5.98GB alloc, 1.82GB reserved | rss 13.79GB
+2026-07-26 13:43:23,286 | INFO |     hessian samples: 112/128 (87.5%)   2.7s elapsed, 41.8/s, eta   0.4s | gpu 1.40/5.98GB alloc, 1.82GB reserved | rss 13.79GB
+2026-07-26 13:43:23,667 | INFO |     hessian samples: 128/128 (100.0%)   3.1s elapsed, 41.8/s, eta   0.0s | gpu 1.40/5.98GB alloc, 1.82GB reserved | rss 13.79GB
+2026-07-26 13:43:23,668 | INFO |   [t+1m09s] END   block 6: hessians over 128 samples in   3.1s | gpu 1.40/5.98GB alloc, 1.82GB reserved | rss 13.79GB
+2026-07-26 13:43:23,719 | INFO |   block 6: quantizing 7 linears: self_attn.q_proj, self_attn.k_proj, self_attn.v_proj, self_attn.o_proj, mlp.gate_proj, mlp.up_proj, mlp.down_proj
+2026-07-26 13:43:24,059 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6416.5/s, eta   0.2s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 13.79GB
+2026-07-26 13:43:24,219 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6413.9/s, eta   0.0s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 13.79GB
+2026-07-26 13:43:24,239 | INFO |     layer self_attn.q_proj       (3072, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 13.79GB
+2026-07-26 13:43:24,574 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6508.2/s, eta   0.2s | gpu 1.05/5.98GB alloc, 1.14GB reserved | rss 13.79GB
+2026-07-26 13:43:24,739 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6404.1/s, eta   0.0s | gpu 1.05/5.98GB alloc, 1.14GB reserved | rss 13.79GB
+2026-07-26 13:43:24,752 | INFO |     layer self_attn.k_proj       (1024, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 13.79GB
+2026-07-26 13:43:25,085 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6558.8/s, eta   0.2s | gpu 1.05/5.98GB alloc, 1.14GB reserved | rss 13.79GB
+2026-07-26 13:43:25,243 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6529.0/s, eta   0.0s | gpu 1.05/5.98GB alloc, 1.14GB reserved | rss 13.79GB
+2026-07-26 13:43:25,257 | INFO |     layer self_attn.v_proj       (1024, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 13.79GB
+2026-07-26 13:43:25,590 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6576.1/s, eta   0.2s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 13.79GB
+2026-07-26 13:43:25,755 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6442.8/s, eta   0.0s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 13.79GB
+2026-07-26 13:43:25,780 | INFO |     layer self_attn.o_proj       (3072, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 13.79GB
+2026-07-26 13:43:26,125 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6459.9/s, eta   0.2s | gpu 1.35/5.98GB alloc, 1.51GB reserved | rss 13.79GB
+2026-07-26 13:43:26,289 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6379.8/s, eta   0.0s | gpu 1.35/5.98GB alloc, 1.51GB reserved | rss 13.79GB
+2026-07-26 13:43:26,321 | INFO |     layer mlp.gate_proj          (8192, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 13.79GB
+2026-07-26 13:43:26,791 | INFO |           gptq columns: 2048/3072 (66.7%)   0.4s elapsed, 4635.4/s, eta   0.2s | gpu 1.35/5.98GB alloc, 1.51GB reserved | rss 13.79GB
+2026-07-26 13:43:27,084 | INFO |           gptq columns: 3072/3072 (100.0%)   0.7s elapsed, 4181.9/s, eta   0.0s | gpu 1.35/5.98GB alloc, 1.51GB reserved | rss 13.79GB
+2026-07-26 13:43:27,115 | INFO |     layer mlp.up_proj            (8192, 3072) done in 0.8s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 13.79GB
+2026-07-26 13:43:27,882 | INFO |           gptq columns: 2048/8192 (25.0%)   0.6s elapsed, 3293.6/s, eta   1.9s | gpu 1.77/5.98GB alloc, 2.19GB reserved | rss 13.79GB
+2026-07-26 13:43:28,483 | INFO |           gptq columns: 4096/8192 (50.0%)   1.2s elapsed, 3349.0/s, eta   1.2s | gpu 1.77/5.98GB alloc, 2.19GB reserved | rss 13.79GB
+2026-07-26 13:43:29,067 | INFO |           gptq columns: 6144/8192 (75.0%)   1.8s elapsed, 3400.0/s, eta   0.6s | gpu 1.77/5.98GB alloc, 2.19GB reserved | rss 13.79GB
+2026-07-26 13:43:29,610 | INFO |           gptq columns: 8192/8192 (100.0%)   2.3s elapsed, 3486.1/s, eta   0.0s | gpu 1.77/5.98GB alloc, 2.19GB reserved | rss 13.79GB
+2026-07-26 13:43:29,641 | INFO |     layer mlp.down_proj          (3072, 8192) done in 2.5s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 13.79GB
+2026-07-26 13:43:29,641 | INFO |   [t+1m15s] START block 6: replay 128 samples through quantized block | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 13.79GB
+2026-07-26 13:43:29,981 | INFO |     replay samples: 32/128 (25.0%)   0.3s elapsed, 94.1/s, eta   1.0s | gpu 0.94/5.98GB alloc, 1.12GB reserved | rss 13.79GB
+2026-07-26 13:43:30,246 | INFO |     replay samples: 64/128 (50.0%)   0.6s elapsed, 105.9/s, eta   0.6s | gpu 0.94/5.98GB alloc, 1.12GB reserved | rss 13.79GB
+2026-07-26 13:43:30,507 | INFO |     replay samples: 96/128 (75.0%)   0.9s elapsed, 110.9/s, eta   0.3s | gpu 0.94/5.98GB alloc, 1.12GB reserved | rss 13.79GB
+2026-07-26 13:43:30,916 | INFO |     replay samples: 128/128 (100.0%)   1.3s elapsed, 100.4/s, eta   0.0s | gpu 0.94/5.98GB alloc, 1.12GB reserved | rss 14.14GB
+2026-07-26 13:43:30,916 | INFO |   [t+1m16s] END   block 6: replay 128 samples through quantized block in   1.3s | eta 4m41s for 22 more | gpu 0.94/5.98GB alloc, 1.12GB reserved | rss 14.14GB
+2026-07-26 13:43:30,938 | INFO | seq-gptq: block 6/28 COMPLETE in 10.4s | gpu 0.75/5.98GB alloc, 0.80GB reserved | rss 14.14GB
+2026-07-26 13:43:30,939 | INFO | seq-gptq: ===== block 7/28 ===== | gpu 0.75/5.98GB alloc, 0.80GB reserved | rss 14.14GB
+2026-07-26 13:43:30,963 | INFO |   [t+1m16s] END   block 7: move to cuda in   0.0s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 14.00GB
+2026-07-26 13:43:30,963 | INFO |   [t+1m16s] START block 7: hessians over 128 samples | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 14.00GB
+2026-07-26 13:43:31,363 | INFO |     hessian samples: 16/128 (12.5%)   0.4s elapsed, 40.0/s, eta   2.8s | gpu 1.40/5.98GB alloc, 1.88GB reserved | rss 14.00GB
+2026-07-26 13:43:31,752 | INFO |     hessian samples: 32/128 (25.0%)   0.8s elapsed, 40.6/s, eta   2.4s | gpu 1.40/5.98GB alloc, 1.88GB reserved | rss 14.00GB
+2026-07-26 13:43:32,140 | INFO |     hessian samples: 48/128 (37.5%)   1.2s elapsed, 40.8/s, eta   2.0s | gpu 1.40/5.98GB alloc, 1.88GB reserved | rss 14.00GB
+2026-07-26 13:43:32,533 | INFO |     hessian samples: 64/128 (50.0%)   1.6s elapsed, 40.8/s, eta   1.6s | gpu 1.40/5.98GB alloc, 1.88GB reserved | rss 14.00GB
+2026-07-26 13:43:32,921 | INFO |     hessian samples: 80/128 (62.5%)   2.0s elapsed, 40.9/s, eta   1.2s | gpu 1.40/5.98GB alloc, 1.88GB reserved | rss 14.00GB
+2026-07-26 13:43:33,311 | INFO |     hessian samples: 96/128 (75.0%)   2.3s elapsed, 40.9/s, eta   0.8s | gpu 1.40/5.98GB alloc, 1.88GB reserved | rss 14.00GB
+2026-07-26 13:43:33,699 | INFO |     hessian samples: 112/128 (87.5%)   2.7s elapsed, 41.0/s, eta   0.4s | gpu 1.40/5.98GB alloc, 1.88GB reserved | rss 14.00GB
+2026-07-26 13:43:34,085 | INFO |     hessian samples: 128/128 (100.0%)   3.1s elapsed, 41.0/s, eta   0.0s | gpu 1.40/5.98GB alloc, 1.88GB reserved | rss 14.00GB
+2026-07-26 13:43:34,085 | INFO |   [t+1m19s] END   block 7: hessians over 128 samples in   3.1s | gpu 1.40/5.98GB alloc, 1.88GB reserved | rss 14.00GB
+2026-07-26 13:43:34,138 | INFO |   block 7: quantizing 7 linears: self_attn.q_proj, self_attn.k_proj, self_attn.v_proj, self_attn.o_proj, mlp.gate_proj, mlp.up_proj, mlp.down_proj
+2026-07-26 13:43:34,748 | INFO |           gptq columns: 2048/3072 (66.7%)   0.6s elapsed, 3473.3/s, eta   0.3s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 14.00GB
+2026-07-26 13:43:34,989 | INFO |           gptq columns: 3072/3072 (100.0%)   0.8s elapsed, 3702.1/s, eta   0.0s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 14.00GB
+2026-07-26 13:43:35,012 | INFO |     layer self_attn.q_proj       (3072, 3072) done in 0.9s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 14.00GB
+2026-07-26 13:43:35,497 | INFO |           gptq columns: 2048/3072 (66.7%)   0.5s elapsed, 4404.7/s, eta   0.2s | gpu 1.05/5.98GB alloc, 1.14GB reserved | rss 14.00GB
+2026-07-26 13:43:35,815 | INFO |           gptq columns: 3072/3072 (100.0%)   0.8s elapsed, 3927.8/s, eta   0.0s | gpu 1.05/5.98GB alloc, 1.14GB reserved | rss 14.00GB
+2026-07-26 13:43:35,830 | INFO |     layer self_attn.k_proj       (1024, 3072) done in 0.8s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 14.00GB
+2026-07-26 13:43:36,413 | INFO |           gptq columns: 2048/3072 (66.7%)   0.6s elapsed, 3641.0/s, eta   0.3s | gpu 1.05/5.98GB alloc, 1.14GB reserved | rss 14.00GB
+2026-07-26 13:43:36,736 | INFO |           gptq columns: 3072/3072 (100.0%)   0.9s elapsed, 3468.6/s, eta   0.0s | gpu 1.05/5.98GB alloc, 1.14GB reserved | rss 14.00GB
+2026-07-26 13:43:36,748 | INFO |     layer self_attn.v_proj       (1024, 3072) done in 0.9s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 14.00GB
+2026-07-26 13:43:37,357 | INFO |           gptq columns: 2048/3072 (66.7%)   0.6s elapsed, 3544.4/s, eta   0.3s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 14.00GB
+2026-07-26 13:43:37,652 | INFO |           gptq columns: 3072/3072 (100.0%)   0.9s elapsed, 3519.0/s, eta   0.0s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 14.00GB
+2026-07-26 13:43:37,673 | INFO |     layer self_attn.o_proj       (3072, 3072) done in 0.9s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 14.00GB
+2026-07-26 13:43:38,249 | INFO |           gptq columns: 2048/3072 (66.7%)   0.5s elapsed, 3816.6/s, eta   0.3s | gpu 1.35/5.98GB alloc, 1.53GB reserved | rss 14.00GB
+2026-07-26 13:43:38,555 | INFO |           gptq columns: 3072/3072 (100.0%)   0.8s elapsed, 3645.7/s, eta   0.0s | gpu 1.35/5.98GB alloc, 1.53GB reserved | rss 14.00GB
+2026-07-26 13:43:38,587 | INFO |     layer mlp.gate_proj          (8192, 3072) done in 0.9s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 14.00GB
+2026-07-26 13:43:39,089 | INFO |           gptq columns: 2048/3072 (66.7%)   0.5s elapsed, 4395.3/s, eta   0.2s | gpu 1.35/5.98GB alloc, 1.53GB reserved | rss 14.00GB
+2026-07-26 13:43:39,357 | INFO |           gptq columns: 3072/3072 (100.0%)   0.7s elapsed, 4184.7/s, eta   0.0s | gpu 1.35/5.98GB alloc, 1.53GB reserved | rss 14.00GB
+2026-07-26 13:43:39,388 | INFO |     layer mlp.up_proj            (8192, 3072) done in 0.8s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 14.00GB
+2026-07-26 13:43:40,129 | INFO |           gptq columns: 2048/8192 (25.0%)   0.6s elapsed, 3675.5/s, eta   1.7s | gpu 1.77/5.98GB alloc, 2.21GB reserved | rss 14.00GB
+2026-07-26 13:43:40,651 | INFO |           gptq columns: 4096/8192 (50.0%)   1.1s elapsed, 3793.6/s, eta   1.1s | gpu 1.77/5.98GB alloc, 2.21GB reserved | rss 14.00GB
+2026-07-26 13:43:41,112 | INFO |           gptq columns: 6144/8192 (75.0%)   1.5s elapsed, 3987.1/s, eta   0.5s | gpu 1.77/5.98GB alloc, 2.21GB reserved | rss 14.00GB
+2026-07-26 13:43:41,717 | INFO |           gptq columns: 8192/8192 (100.0%)   2.1s elapsed, 3817.7/s, eta   0.0s | gpu 1.77/5.98GB alloc, 2.21GB reserved | rss 14.00GB
+2026-07-26 13:43:41,747 | INFO |     layer mlp.down_proj          (3072, 8192) done in 2.4s | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 14.00GB
+2026-07-26 13:43:41,748 | INFO |   [t+1m27s] START block 7: replay 128 samples through quantized block | gpu 0.94/5.98GB alloc, 0.96GB reserved | rss 14.00GB
+2026-07-26 13:43:42,059 | INFO |     replay samples: 32/128 (25.0%)   0.3s elapsed, 103.0/s, eta   0.9s | gpu 0.94/5.98GB alloc, 1.12GB reserved | rss 14.00GB
+2026-07-26 13:43:42,322 | INFO |     replay samples: 64/128 (50.0%)   0.6s elapsed, 111.5/s, eta   0.6s | gpu 0.94/5.98GB alloc, 1.12GB reserved | rss 14.00GB
+2026-07-26 13:43:42,586 | INFO |     replay samples: 96/128 (75.0%)   0.8s elapsed, 114.6/s, eta   0.3s | gpu 0.94/5.98GB alloc, 1.12GB reserved | rss 14.00GB
+2026-07-26 13:43:43,002 | INFO |     replay samples: 128/128 (100.0%)   1.3s elapsed, 102.1/s, eta   0.0s | gpu 0.94/5.98GB alloc, 1.12GB reserved | rss 14.35GB
+2026-07-26 13:43:43,002 | INFO |   [t+1m28s] END   block 7: replay 128 samples through quantized block in   1.3s | eta 4m26s for 21 more | gpu 0.94/5.98GB alloc, 1.12GB reserved | rss 14.35GB
+2026-07-26 13:43:43,022 | INFO | seq-gptq: block 7/28 COMPLETE in 12.1s | gpu 0.75/5.98GB alloc, 0.79GB reserved | rss 14.35GB
+2026-07-26 13:43:43,022 | INFO | seq-gptq: ===== block 8/28 ===== | gpu 0.75/5.98GB alloc, 0.79GB reserved | rss 14.35GB
+2026-07-26 13:43:43,047 | INFO |   [t+1m28s] END   block 8: move to cuda in   0.0s | gpu 0.94/5.98GB alloc, 0.98GB reserved | rss 14.21GB
+2026-07-26 13:43:43,047 | INFO |   [t+1m28s] START block 8: hessians over 128 samples | gpu 0.94/5.98GB alloc, 0.98GB reserved | rss 14.21GB
+2026-07-26 13:43:43,446 | INFO |     hessian samples: 16/128 (12.5%)   0.4s elapsed, 40.1/s, eta   2.8s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 14.21GB
+2026-07-26 13:43:43,832 | INFO |     hessian samples: 32/128 (25.0%)   0.8s elapsed, 40.8/s, eta   2.4s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 14.21GB
+2026-07-26 13:43:44,222 | INFO |     hessian samples: 48/128 (37.5%)   1.2s elapsed, 40.9/s, eta   2.0s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 14.21GB
+2026-07-26 13:43:44,609 | INFO |     hessian samples: 64/128 (50.0%)   1.6s elapsed, 41.0/s, eta   1.6s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 14.21GB
+2026-07-26 13:43:44,996 | INFO |     hessian samples: 80/128 (62.5%)   1.9s elapsed, 41.1/s, eta   1.2s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 14.21GB
+2026-07-26 13:43:45,387 | INFO |     hessian samples: 96/128 (75.0%)   2.3s elapsed, 41.0/s, eta   0.8s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 14.21GB
+2026-07-26 13:43:45,776 | INFO |     hessian samples: 112/128 (87.5%)   2.7s elapsed, 41.1/s, eta   0.4s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 14.21GB
+2026-07-26 13:43:46,162 | INFO |     hessian samples: 128/128 (100.0%)   3.1s elapsed, 41.1/s, eta   0.0s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 14.21GB
+2026-07-26 13:43:46,162 | INFO |   [t+1m32s] END   block 8: hessians over 128 samples in   3.1s | gpu 1.40/5.98GB alloc, 1.92GB reserved | rss 14.21GB
+2026-07-26 13:43:46,216 | INFO |   block 8: quantizing 7 linears: self_attn.q_proj, self_attn.k_proj, self_attn.v_proj, self_attn.o_proj, mlp.gate_proj, mlp.up_proj, mlp.down_proj
+2026-07-26 13:43:46,796 | INFO |           gptq columns: 2048/3072 (66.7%)   0.6s elapsed, 3651.0/s, eta   0.3s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 14.21GB
+2026-07-26 13:43:47,067 | INFO |           gptq columns: 3072/3072 (100.0%)   0.8s elapsed, 3696.0/s, eta   0.0s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 14.21GB
+2026-07-26 13:43:47,088 | INFO |     layer self_attn.q_proj       (3072, 3072) done in 0.9s | gpu 0.94/5.98GB alloc, 0.98GB reserved | rss 14.21GB
+2026-07-26 13:43:47,752 | INFO |           gptq columns: 2048/3072 (66.7%)   0.6s elapsed, 3178.9/s, eta   0.3s | gpu 1.05/5.98GB alloc, 1.12GB reserved | rss 14.21GB
+2026-07-26 13:43:47,975 | INFO |           gptq columns: 3072/3072 (100.0%)   0.9s elapsed, 3540.3/s, eta   0.0s | gpu 1.05/5.98GB alloc, 1.12GB reserved | rss 14.21GB
+2026-07-26 13:43:47,986 | INFO |     layer self_attn.k_proj       (1024, 3072) done in 0.9s | gpu 0.94/5.98GB alloc, 0.98GB reserved | rss 14.21GB
+2026-07-26 13:43:48,344 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6046.6/s, eta   0.2s | gpu 1.05/5.98GB alloc, 1.12GB reserved | rss 14.21GB
+2026-07-26 13:43:48,500 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6209.9/s, eta   0.0s | gpu 1.05/5.98GB alloc, 1.12GB reserved | rss 14.21GB
+2026-07-26 13:43:48,516 | INFO |     layer self_attn.v_proj       (1024, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.98GB reserved | rss 14.21GB
+2026-07-26 13:43:48,849 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6671.3/s, eta   0.2s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 14.21GB
+2026-07-26 13:43:49,005 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6626.4/s, eta   0.0s | gpu 1.14/5.98GB alloc, 1.20GB reserved | rss 14.21GB
+2026-07-26 13:43:49,024 | INFO |     layer self_attn.o_proj       (3072, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.98GB reserved | rss 14.21GB
+2026-07-26 13:43:49,358 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6737.3/s, eta   0.2s | gpu 1.35/5.98GB alloc, 1.51GB reserved | rss 14.21GB
+2026-07-26 13:43:49,511 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6718.9/s, eta   0.0s | gpu 1.35/5.98GB alloc, 1.51GB reserved | rss 14.21GB
+2026-07-26 13:43:49,541 | INFO |     layer mlp.gate_proj          (8192, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.98GB reserved | rss 14.21GB
+2026-07-26 13:43:49,886 | INFO |           gptq columns: 2048/3072 (66.7%)   0.3s elapsed, 6462.3/s, eta   0.2s | gpu 1.35/5.98GB alloc, 1.51GB reserved | rss 14.21GB
+2026-07-26 13:43:50,057 | INFO |           gptq columns: 3072/3072 (100.0%)   0.5s elapsed, 6296.9/s, eta   0.0s | gpu 1.35/5.98GB alloc, 1.51GB reserved | rss 14.21GB
+2026-07-26 13:43:50,087 | INFO |     layer mlp.up_proj            (8192, 3072) done in 0.5s | gpu 0.94/5.98GB alloc, 0.98GB reserved | rss 14.21GB
+2026-07-26 13:43:50,813 | INFO |           gptq columns: 2048/8192 (25.0%)   0.6s elapsed, 3502.5/s, eta   1.8s | gpu 1.77/5.98GB alloc, 2.21GB reserved | rss 14.21GB
+2026-07-26 13:43:51,384 | INFO |           gptq columns: 4096/8192 (50.0%)   1.2s elapsed, 3544.9/s, eta   1.2s | gpu 1.77/5.98GB alloc, 2.21GB reserved | rss 14.21GB
+2026-07-26 13:43:51,968 | INFO |           gptq columns: 6144/8192 (75.0%)   1.7s elapsed, 3531.3/s, eta   0.6s | gpu 1.77/5.98GB alloc, 2.21GB reserved | rss 14.21GB
+2026-07-26 13:43:52,599 | INFO |           gptq columns: 8192/8192 (100.0%)   2.4s elapsed, 3455.1/s, eta   0.0s | gpu 1.77/5.98GB alloc, 2.21GB reserved | rss 14.21GB
+2026-07-26 13:43:52,632 | INFO |     layer mlp.down_proj          (3072, 8192) done in 2.5s | gpu 0.94/5.98GB alloc, 0.98GB reserved | rss 14.21GB
+2026-07-26 13:43:52,633 | INFO |   [t+1m38s] START block 8: replay 128 samples through quantized block | gpu 0.94/5.98GB alloc, 0.98GB reserved | rss 14.21GB
+2026-07-26 13:43:52,978 | INFO |     replay samples: 32/128 (25.0%)   0.3s elapsed, 92.8/s, eta   1.0s | gpu 0.94/5.98GB alloc, 1.10GB reserved | rss 14.21GB
+2026-07-26 13:43:53,240 | INFO |     replay samples: 64/128 (50.0%)   0.6s elapsed, 105.6/s, eta   0.6s | gpu 0.94/5.98GB alloc, 1.10GB reserved | rss 14.21GB
+2026-07-26 13:43:53,496 | INFO |     replay samples: 96/128 (75.0%)   0.9s elapsed, 111.3/s, eta   0.3s | gpu 0.94/5.98GB alloc, 1.10GB reserved | rss 14.21GB
+2026-07-26 13:43:53,913 | INFO |     replay samples: 128/128 (100.0%)   1.3s elapsed, 100.0/s, eta   0.0s | gpu 0.94/5.98GB alloc, 1.10GB reserved | rss 14.58GB
+2026-07-26 13:43:53,914 | INFO |   [t+1m39s] END   block 8: replay 128 samples through quantized block in   1.3s | eta 4m09s for 20 more | gpu 0.94/5.98GB alloc, 1.10GB reserved | rss 14.58GB
+2026-07-26 13:43:53,933 | INFO | seq-gptq: block 8/28 COMPLETE in 10.9s | gpu 0.75/5.98GB alloc, 0.79GB reserved | rss 14.58GB
+2026-07-26 13:43:54,626 | INFO | seq-gptq: quantized 56 layers to 4-bit across 28 blocks
+2026-07-26 13:43:54,765 | INFO | ============ PHASE 3/3: rank correlations over 56 layers [t+1m40s] ============
+2026-07-26 13:43:55,357 | INFO |   residual_rms     median rho=+0.9881 (n=56)
+2026-07-26 13:43:55,358 | INFO |   residual_max     median rho=+0.5446 (n=56)
+2026-07-26 13:43:55,358 | INFO |   greedy_gain      median rho=+0.3897 (n=56)
+2026-07-26 13:43:55,358 | INFO |   hessian_diag     median rho=-0.1336 (n=56)
+2026-07-26 13:43:55,358 | INFO | wrote results/align_Llama-3.2-3B.json
