@@ -145,10 +145,13 @@ print("\n".join(json.load(open(sys.argv[1]))["models"][sys.argv[2]]["points"]))'
           mode="$(cfg "point_defs" "$point" "mode")"
           signal="$(cfg "point_defs" "$point" "signal")"
           kfrac="$(cfg "point_defs" "$point" "k_frac")"
+          # Exclude the (tied) lm_head so the exported checkpoint's quantized scope
+          # matches the GPTQ baseline (FP16 lm_head). Without this, SEQ exports quantize
+          # and untie lm_head, inflating params/storage vs the baseline (invalid compare).
           export_cmd=("$PYTHON" -m seq_core.channel_sweep --model "$model" --backend hqq
                       --base_bits "$bb" --protect_fracs "$kfrac" --seed "$SEED"
                       --ppl_mode canonical --calibration_prompts "$CALIB"
-                      --base_quantizer "$bq"
+                      --base_quantizer "$bq" --skip_lm_head
                       --out_dir "$pretrained/_sweep"
                       --save_model_path "$pretrained" --save_signal "$signal" --save_k_frac "$kfrac")
           if [[ "$bq" == "gptq_llmc" ]]; then

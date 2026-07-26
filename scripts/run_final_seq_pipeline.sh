@@ -13,6 +13,7 @@ RESUME=0
 DRY=0
 FAIL_FAST=1
 PUBLISH=0
+SKIP_LM_HEAD=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -26,6 +27,10 @@ while [[ $# -gt 0 ]]; do
     --dry-run) DRY=1; shift ;;
     --fail-fast) FAIL_FAST=1; shift ;;
     --publish) PUBLISH=1; shift ;;
+    # Exclude the (tied) lm_head from quantization so SEQ's quantized-linear scope
+    # matches the GPTQ baseline (which keeps lm_head in FP16). Required for the
+    # matched-storage / matched-PPL comparison to be valid.
+    --skip-lm-head) SKIP_LM_HEAD=1; shift ;;
     --skip-8b) shift ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
@@ -116,6 +121,7 @@ run_sweep_cell() {
   local cmd=("$PYTHON" -m seq_core.channel_sweep --model "$model" --backend hqq --base_bits "$base_bits"
              --protect_fracs "$fractions" --seed "$seed" --ppl_mode canonical
              --calibration_prompts "$CALIB" --out_dir "$out_dir" "${BASE_ARGS[@]}")
+  [[ "$SKIP_LM_HEAD" == 1 ]] && cmd+=(--skip_lm_head)
   if [[ "$mode" == "select" ]]; then
     cmd+=(--select "$selector_csv")
   else

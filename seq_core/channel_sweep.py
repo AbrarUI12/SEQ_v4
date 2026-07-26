@@ -69,6 +69,11 @@ def parse_args() -> argparse.Namespace:
                    help="also compute per-channel activation entropy as signal 'act_entropy' (memory-heavy; try 1B/3B first)")
     p.add_argument("--entropy_bins", type=int, default=32)
     p.add_argument("--skip_lm_head", action="store_true")
+    p.add_argument("--greedy_early_stop", action="store_true",
+                   help="F3 causal control: let the greedy objective STOP when the next "
+                        "marginal gain is non-positive (exact_k=False) instead of forcing the "
+                        "full budget. Isolates 'catastrophe from restoring genuinely useful "
+                        "columns' vs 'from being forced to protect harmful ones'.")
     p.add_argument("--base_quantizer", default="hqq", choices=["hqq", "gptq", "gptq_llmc"],
                    help="base quantizer under the protection: hqq (data-free RTN), gptq "
                         "(from-scratch, diagnostics only), gptq_llmc (load a saved LightCompress "
@@ -302,13 +307,16 @@ def main() -> int:
         weights = {n: m.weight.detach() for n, m in linear_items}
         k_by_layer = {n: int(_math.ceil(max_frac * in_features[n])) for n in weights if n in in_features}
         greedy_mode = "greedy" if args.select == "greedy" else "independent"
-        # Final comparison cells are fixed-cardinality budgets.  Do not let the
-        # greedy objective stop early on non-positive late gains: doing so
-        # underspends GPTQ cells and makes their actual storage incomparable to
-        # scalar/random selectors at the same declared fraction.
+        # Final comparison cells are fixed-cardinality budgets, so by default we do NOT
+        # let greedy stop early on non-positive late gains (underspending GPTQ cells makes
+        # their actual storage incomparable to scalar/random selectors at the same declared
+        # fraction). --greedy_early_stop flips this for the F3 causal control: if the
+        # catastrophe vanishes when we stop at the last positive-gain channel, it was driven
+        # by being forced to protect harmful (compensation) columns.
+        exact_k = not bool(args.greedy_early_stop)
         greedy_order = greedy_protected_map(
             weights, base_weights, hessians, k_by_layer,
-            mode=greedy_mode, device=device, logger=LOGGER, exact_k=True,
+            mode=greedy_mode, device=device, logger=LOGGER, exact_k=exact_k,
         )
         del hessians
 
@@ -424,11 +432,17 @@ def main() -> int:
         # complete low-bit base and stores sparse correction columns on top.
         from seq_core.storage_accounting import account_storage
         import math as _storage_math
+        # Charge scale/zero overhead at the BASE quantizer's true group size. An imported
+        # LightCompress GPTQ base is W4 g128; only HQQ bases we build here use
+        # args.group_size. Using args.group_size (default 64) for a g128 base double-counts
+        # the group metadata and inflates the reported effective bits (integrity fix).
+        base_group_size = (int(args.gptq_group_size)
+                           if args.base_quantizer == "gptq_llmc" else int(args.group_size))
         qvals = scales = residual16 = tier8 = indices = bias_values = 0
         for layer in info["per_layer"].values():
             in_f = int(layer["in_features"]); out_f = int(layer["out_features"])
             qvals += in_f * out_f
-            scales += _storage_math.ceil(in_f / max(1, int(args.group_size))) * out_f
+            scales += _storage_math.ceil(in_f / max(1, base_group_size)) * out_f
             tiers = {int(k): int(v) for k, v in layer.get("tier_counts", {}).items()}
             residual16 += tiers.get(16, 0) * out_f
             tier8 += tiers.get(8, 0) * out_f
@@ -447,6 +461,7 @@ def main() -> int:
             parameter_count=model_parameter_count,
         )
         storage["representation"] = "runtime_fake_quant_fp16_corrections"
+        storage["base_group_size"] = base_group_size
         storage["logical_int8_tier_values"] = tier8
         row = {
             "signal": sig_label,
@@ -582,7 +597,7 @@ def main() -> int:
         "base_bits": args.base_bits, "protect_bits": args.protect_bits, "protect_fracs": fracs,
         "baseline_fp16_ppl": baseline_fp16_ppl, "baseline_base_ppl": baseline_base_ppl,
         "select": args.select, "ppl_mode": args.ppl_mode,
-        "seed": args.seed,
+        "seed": args.seed, "greedy_early_stop": bool(args.greedy_early_stop),
         "skip_lm_head": bool(args.skip_lm_head), "results": results,
     }
     (out_dir / "channel_pareto.json").write_text(json.dumps(payload, indent=2))
