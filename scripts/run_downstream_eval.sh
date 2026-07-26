@@ -145,11 +145,16 @@ print("\n".join(json.load(open(sys.argv[1]))["models"][sys.argv[2]]["points"]))'
           mode="$(cfg "point_defs" "$point" "mode")"
           signal="$(cfg "point_defs" "$point" "signal")"
           kfrac="$(cfg "point_defs" "$point" "k_frac")"
+          # Per-point seed override (defaults to deterministic_seed). Lets a matched-bit
+          # random control be exported at several channel-selection seeds (random_hqq,
+          # random_hqq_s2, random_hqq_s3) so the paper reports channel-set uncertainty,
+          # not just example-bootstrap uncertainty.
+          pseed="$("$PYTHON" -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["point_defs"][sys.argv[2]].get("seed", d.get("deterministic_seed",1234)))' "$CONFIG" "$point")"
           # Exclude the (tied) lm_head so the exported checkpoint's quantized scope
           # matches the GPTQ baseline (FP16 lm_head). Without this, SEQ exports quantize
           # and untie lm_head, inflating params/storage vs the baseline (invalid compare).
           export_cmd=("$PYTHON" -m seq_core.channel_sweep --model "$model" --backend hqq
-                      --base_bits "$bb" --protect_fracs "$kfrac" --seed "$SEED"
+                      --base_bits "$bb" --protect_fracs "$kfrac" --seed "$pseed"
                       --ppl_mode canonical --calibration_prompts "$CALIB"
                       --base_quantizer "$bq" --skip_lm_head
                       --out_dir "$pretrained/_sweep"
