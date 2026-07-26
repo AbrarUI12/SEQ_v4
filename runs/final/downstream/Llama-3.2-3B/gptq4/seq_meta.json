@@ -8,7 +8,7 @@
   "base_bits": null,
   "signal": null,
   "k_frac": null,
-  "checkpoint": "/mnt/d/Abrar/SEQ/seq_v4/runs/final/llmc/Llama-3.2-3B/gptq/artifacts/fake_quant_model",
+  "checkpoint": "/mnt/e/seq v4/SEQ-clean-v4/runs/final/llmc/Llama-3.2-3B/gptq/artifacts/fake_quant_model",
   "expected_ppl": 8.304,
   "tasks": [
     "hellaswag",
