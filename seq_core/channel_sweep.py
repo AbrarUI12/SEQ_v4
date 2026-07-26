@@ -451,6 +451,12 @@ def main() -> int:
 
     results: List[Dict[str, Any]] = []
 
+    # Pass 2 reloads a fresh model for each operating point. Release the
+    # selection model first so 3B fits on 16GB GPUs instead of duplicating the
+    # full FP16 model during the first PPL evaluation.
+    unload_model(model, tokenizer)
+    LOGGER.info("unloaded selection model before pass 2 evaluation")
+
     def _protect_and_eval(sig_label, kind, label, value, *, scores=None,
                           explicit_protected=None, explicit_tiers=None):
         model, tokenizer = load_model_and_tokenizer(args.model, device, dtype, trust_remote_code=bool(args.trust_remote_code))

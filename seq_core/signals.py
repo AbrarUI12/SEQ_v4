@@ -111,7 +111,10 @@ def weight_signals_for_matrix(
     return_channels: bool = False,
 ) -> Dict[str, Any]:
     """Compute all weight-only signals for one [out, in] matrix, all granularities."""
-    w = weight.detach().to(dtype=torch.float32)
+    # Weight-only statistics are returned as Python scalars/lists.  Keeping the
+    # temporary full-precision matrix on CPU avoids large CUDA intermediates
+    # (notably bucketize/entropy) exhausting 16GB consumer GPUs.
+    w = weight.detach().to(device="cpu", dtype=torch.float32)
     flat = w.reshape(1, -1)
     out: Dict[str, Any] = {}
 

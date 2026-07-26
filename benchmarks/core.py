@@ -489,9 +489,34 @@ def compute_canonical_ppl(
         for start in range(0, usable_tokens, seq_len):
             seq = token_ids[start : start + seq_len]
             input_ids = torch.tensor([seq], dtype=torch.long, device=device)
-            outputs = model(input_ids=input_ids, labels=input_ids)
-            supervised_tokens = max(input_ids.shape[1] - 1, 0)
-            total_nll += float(outputs.loss.item()) * supervised_tokens
+            # Avoid the Transformers loss path here: it materializes the full
+            # [batch, seq, vocab] logits tensor and then allocates another
+            # large buffer for cross-entropy.  Run the backbone once (keeping
+            # the canonical 2048-token context) and score the LM head in
+            # sequence slices instead.
+            backbone = getattr(model, "model", None)
+            lm_head = getattr(model, "lm_head", None)
+            if backbone is not None and lm_head is not None:
+                hidden = backbone(input_ids=input_ids, use_cache=False,
+                                  return_dict=True).last_hidden_state
+                shift_hidden = hidden[:, :-1, :]
+                shift_labels = input_ids[:, 1:]
+                nll = 0.0
+                chunk = 64
+                for offset in range(0, shift_hidden.shape[1], chunk):
+                    logits = lm_head(shift_hidden[:, offset:offset + chunk])
+                    nll += float(torch.nn.functional.cross_entropy(
+                        logits.reshape(-1, logits.shape[-1]),
+                        shift_labels[:, offset:offset + chunk].reshape(-1),
+                        reduction="sum",
+                    ).item())
+                    del logits
+                supervised_tokens = max(input_ids.shape[1] - 1, 0)
+                total_nll += nll
+            else:
+                outputs = model(input_ids=input_ids, labels=input_ids)
+                supervised_tokens = max(input_ids.shape[1] - 1, 0)
+                total_nll += float(outputs.loss.item()) * supervised_tokens
             total_supervised_tokens += supervised_tokens
 
     avg_loss = total_nll / max(total_supervised_tokens, 1)
