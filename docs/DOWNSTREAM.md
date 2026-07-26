@@ -32,6 +32,6 @@ Zero-shot accuracy (acc_norm where the task reports it, else acc), WikiText-2-ma
 ### Paired contrasts (Δ accuracy points, 95% CI)
 
 - **resmax_gptq − gptq4** (safe activation-magnitude protection is >= GPTQ-4 (F4)): macro Δ = +0.37 [-0.06, +0.77] pts — paired bootstrap.
-- **greedy_gptq − gptq4** (F3 pre-registration (catastrophic on GPTQ) - FALSIFIED downstream, see FINDINGS_PAPER 7.2): macro Δ = +0.51 [+0.13, +0.86] pts — paired bootstrap.
-- **best_hqq − hqq4** (protection helps a data-free base (F1)): macro Δ = +1.28 [+0.84, +1.68] pts — paired bootstrap.
-- **best_hqq − random_hqq** (matched-bit (7.70) activation-signal protection beats a random-channel control downstream (F1 sharpening, mirrors paper 3)): macro Δ = +0.92 [+0.50, +1.34] pts — paired bootstrap.
+- **greedy_gptq − gptq4** (F3 pre-registration (catastrophic on GPTQ) - FALSIFIED downstream, see FINDINGS_PAPER 7.2): UNPAIRED approx (no sample logs); see JSON.
+- **best_hqq − hqq4** (protection helps a data-free base (F1)): macro Δ = +1.21 [+0.77, +1.63] pts — paired bootstrap.
+- **best_hqq − random_hqq** (matched-bit (7.70) activation-signal protection beats a random-channel control downstream (F1 sharpening, mirrors paper 3)): UNPAIRED approx (no sample logs); see JSON.
