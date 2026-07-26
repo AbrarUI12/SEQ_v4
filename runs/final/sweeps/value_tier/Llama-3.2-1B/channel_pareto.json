@@ -15,6 +15,7 @@
   "select": "topk",
   "ppl_mode": "canonical",
   "seed": 1234,
+  "greedy_early_stop": false,
   "skip_lm_head": false,
   "results": [
     {
@@ -50,6 +51,7 @@
         "actual_model_bits_per_parameter": 8.158184050938393,
         "serialized_checkpoint_bits_per_parameter": null,
         "representation": "runtime_fake_quant_fp16_corrections",
+        "base_group_size": 64,
         "logical_int8_tier_values": 19490304
       },
       "ppl": 10.63060241526386,
@@ -90,6 +92,7 @@
         "actual_model_bits_per_parameter": 8.413771414218834,
         "serialized_checkpoint_bits_per_parameter": null,
         "representation": "runtime_fake_quant_fp16_corrections",
+        "base_group_size": 64,
         "logical_int8_tier_values": 38704128
       },
       "ppl": 10.591748797998328,
@@ -130,6 +133,7 @@
         "actual_model_bits_per_parameter": 8.926829646911381,
         "serialized_checkpoint_bits_per_parameter": null,
         "representation": "runtime_fake_quant_fp16_corrections",
+        "base_group_size": 64,
         "logical_int8_tier_values": 77138176
       },
       "ppl": 10.55528690858961,
@@ -170,6 +174,7 @@
         "actual_model_bits_per_parameter": 9.958274342813937,
         "serialized_checkpoint_bits_per_parameter": null,
         "representation": "runtime_fake_quant_fp16_corrections",
+        "base_group_size": 64,
         "logical_int8_tier_values": 155624192
       },
       "ppl": 10.478462885576914,
