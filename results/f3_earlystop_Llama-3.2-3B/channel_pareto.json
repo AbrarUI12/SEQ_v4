@@ -1,0 +1,62 @@
+{
+  "model": "meta-llama/Llama-3.2-3B",
+  "backend": "hqq",
+  "base_quantizer": "gptq_llmc",
+  "base_bits": 4,
+  "protect_bits": 16,
+  "protect_fracs": [
+    0.02
+  ],
+  "baseline_fp16_ppl": 7.816627381856085,
+  "baseline_base_ppl": null,
+  "select": "greedy",
+  "ppl_mode": "canonical",
+  "seed": 1234,
+  "greedy_early_stop": true,
+  "skip_lm_head": true,
+  "results": [
+    {
+      "signal": "greedy",
+      "seed": 1234,
+      "k_frac": 0.02,
+      "tiers": null,
+      "effective_bits": 4.24169921875,
+      "actual_effective_bits": 4.572350819905599,
+      "actual_model_bits_per_param": 7.936621958398713,
+      "storage": {
+        "dense_quantized_weight_bytes": 1409286144,
+        "quantization_scale_bytes": 44040192,
+        "zero_point_bytes": 44040192,
+        "group_metadata_bytes": 0,
+        "fp16_residual_bytes": 113541120,
+        "int8_tier_bytes": 0,
+        "channel_index_bytes": 30016,
+        "layer_metadata_bytes": 0,
+        "bias_bytes": 0,
+        "unquantized_parameter_bytes": 788355072,
+        "embedding_bytes": 788004864,
+        "lm_head_bytes": 0,
+        "alignment_padding_bytes": 0,
+        "serialized_checkpoint_bytes": null,
+        "estimated_total_bytes": 3187297600,
+        "actual_total_bytes": 3187297600,
+        "total_parameters": 3212749824,
+        "quantized_linear_parameters": 2818572288,
+        "nominal_weight_bits": 7.71722012550953,
+        "quantized_linear_bits": 4.0,
+        "actual_weight_bits_per_param": 4.572350819905599,
+        "actual_model_bits_per_parameter": 7.936621958398713,
+        "serialized_checkpoint_bits_per_parameter": null,
+        "representation": "runtime_fake_quant_fp16_corrections",
+        "base_group_size": 128,
+        "logical_int8_tier_values": 0
+      },
+      "ppl": 55.34483870560949,
+      "delta_ppl_vs_fp16": 47.5282113237534,
+      "num_layers": 196,
+      "errors": 0,
+      "materialized_ppl": 55.185775605788585,
+      "materialized_ppl_delta": -0.15906309982090505
+    }
+  ]
+}
