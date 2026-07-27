@@ -3,20 +3,20 @@
 ## Abstract
 
 Post-training quantization of large language models is evaluated overwhelmingly by WikiText
-perplexity, and perplexity regressions are routinely read as utility loss. We show this inference
-can fail badly. Using outlier-channel protection — keeping a small fraction of input channels in
-FP16 on a low-bit base — we construct a controlled generator of extreme perplexity damage: on an
-error-compensated GPTQ-4 base, a selector that ranks channels by the Hessian-weighted residual
-objective raises Llama-3.2-3B WikiText-2 perplexity from 8.17 to 51.68 at matched weight-only
-storage. Disk reload verifies the evaluated checkpoint is that model (51.76). Yet on six
-zero-shot tasks it loses nothing: macro accuracy 67.61% versus 67.10% for its own base, a
-paired-bootstrap difference of +0.51 points whose interval excludes zero, and LAMBADA
-perplexity 4.17. The pattern replicates on
+perplexity, and regressions are routinely read as utility loss. We show this inference can fail
+badly. Using outlier-channel protection — keeping a small fraction of input channels in FP16 on a
+low-bit base — we construct a controlled generator of extreme perplexity damage: on an
+error-compensated GPTQ-4 base, a selector ranking channels by the Hessian-weighted residual
+objective raises Llama-3.2-3B WikiText-2 perplexity from 8.17 to 51.68 at matched storage. Disk
+reload verifies the evaluated checkpoint is that model (51.76). Yet on six zero-shot tasks it
+loses nothing: macro accuracy 67.61% versus 67.10% for its base, a paired-bootstrap difference of
++0.51 points whose interval excludes zero, and LAMBADA perplexity 4.17. The pattern replicates on
 Llama-3.2-1B (10.56 to 63.83 reload-verified, +0.32 points). A per-token decomposition rules out
-the obvious explanation: the damage is broad, not a tail artifact — 74.6% of tokens degrade, the
-median token worsens, and excluding the worst 5% still leaves a 4x gap. We further show the
-damage requires the selector's off-diagonal Hessian coupling, and report that the natural
-mechanism, protection destroying error compensation, is falsified by direct measurement.
+the obvious explanation: the damage is broad, not a tail artifact — 74.6% of tokens degrade and
+excluding the worst 5% still leaves a 4x gap. The damage requires the selector's off-diagonal
+Hessian coupling. A mechanism test we previously reported as falsifying the compensation account
+is withdrawn: it scored a diagonal proxy rather than the selector's objective, and is being
+re-run.
 
 _(200 words)_
 
@@ -59,9 +59,10 @@ LAMBADA perplexity **4.17**, comparable to the base's 4.28.
 3. A characterization of *what generates* the perplexity damage: it requires the selector's
    **off-diagonal Hessian coupling**. Selectors using no Hessian, only its diagonal, only residual
    magnitude, or random selection are all benign at every budget we tested (§5).
-4. A **falsified mechanism**, reported as such: the natural explanation — that protection destroys
-   the base's error compensation — predicts that harmful selectors target
-   compensation-bearing columns. Direct measurement shows the opposite ordering (§6).
+4. A **withdrawn mechanism result**, reported as such: our probe scored the greedy selector with
+   a diagonal proxy instead of its true first-step gain, so the correlations did not describe the
+   selector they were attributed to. The corrected measurement is in progress; no claim about the
+   compensation account is made here (§6).
 5. A quantification of how much the effect depends on the **selector's own Hessian estimate**,
    which is large on one model and negligible on another (§5.3), and a **model-scope boundary**:
    two of four checkpoints exhibit the collapse, and on Qwen2.5-3B no selector is harmful at all
@@ -150,6 +151,16 @@ CIs computed on per-example correctness. The imported GPTQ base measures 10.557 
 our evaluator versus 10.363 as reported by the producing toolkit, so we use the **reloaded k=0
 checkpoint** as the operational base for every contrast, keeping all comparisons inside one
 evaluator.
+
+**Scalar-signal calibration used padded prompts.** The activation statistics behind
+`act_max`, `act_scale`, `residual_max` and `residual_rms` were collected with prompts padded to
+the full sequence length, and the hooks accumulate every position, so with ~51 short prompts those
+statistics are dominated by pad/EOS states. The Hessian path used by `greedy`/`greedy_indep`
+deliberately avoids padding for exactly this reason, so the two calibration paths are not
+comparable. This weakens the description of the scalar selectors as "informed"; note it does not
+threaten §5.1's conclusion, since a selector closer to random would if anything reinforce the
+finding that only objective-coupled selectors do harm. A `--no_pad_calibration` path now exists
+and the robustness re-measurement is reported in §9.
 
 **Calibration provenance.** The base quantizer's Hessian came from 128 × 2048 ≈ 262k WikiText-2
 tokens. Our selectors' Hessian, by default, came from a 51-prompt instruction set of ≈500 tokens —
@@ -304,8 +315,8 @@ smoothly once present.
 ### 5.3 The selector's own Hessian estimate matters, model-dependently
 
 Our default selector Hessian used ≈500 tokens of out-of-distribution prompts, against 262k
-in-distribution tokens for the base. Re-running `greedy` with the selector Hessian estimated from
-the same 128 × 2048 WikiText-2 tokens as the base:
+in-distribution tokens for the base. Re-running `greedy` with the selector Hessian estimated from a WikiText-2 sample of the same
+size as the base's (128 × 2048 tokens):
 
 | model | selector H ≈500 tokens | selector H = 262,144 tokens |
 |---|---|---|
@@ -317,6 +328,13 @@ under-estimated Hessian. On 1B most of the collapse disappears (11.39 against a 
 moderate, not catastrophic, movement), so on that model the estimate quality was doing much of the
 work. Any study using Hessian-based selection should therefore report the selector's calibration
 size and distribution; we did not initially, and it materially changes one of our two models.
+
+**This is a size-matched, not a sample-matched, comparison.** The base was calibrated by
+LightCompress with its own preprocessing and seed (`wikitext2_gptq`, seed 0) while our selector
+draws an independent sample (seed 1234). The two therefore share a corpus and a token budget but
+not the same windows. This experiment consequently bounds the effect of *estimator quality* and
+does **not** eliminate calibration-sample mismatch as a confound; a sample-matched test requires
+persisting the base's exact calibration token ids and reusing them, which we did not do.
 
 ### 5.4 On which models the collapse occurs at all
 
@@ -350,7 +368,7 @@ them downstream would confirm that a healthy model scores healthily, which is un
 second *decoupling* datapoint can only come from a model that exhibits the collapse — i.e.
 Llama-3.2-1B, whose export failed reload validation (§9).
 
-## 6 A falsified mechanism
+## 6 The mechanism test (WITHDRAWN — being re-run)
 
 The natural explanation for §5 is that the coupled selectors identify columns carrying GPTQ's
 deposited error correction, and that restoring those columns to FP16 discards compensation the
@@ -407,8 +425,10 @@ a second corpus also unharmed. The construction uses only standard PTQ component
 decomposition shows the perplexity damage is broad rather than a tail artifact: three quarters of
 tokens degrade and the median token worsens, so the models really are pervasively worse at
 modelling the corpus while answering the benchmarks exactly as well. We further show that
-producing this damage requires the selector's off-diagonal Hessian coupling, and that the obvious
-mechanism — destroying error compensation — is falsified by direct measurement.
+producing this damage requires the selector's off-diagonal Hessian coupling. We previously
+reported the obvious mechanism — destroying error compensation — as falsified; that test measured
+a diagonal proxy rather than the selector's objective and is withdrawn pending a corrected re-run
+(§6), so we make no mechanism claim here.
 
 The practical consequence is narrow and concrete. Perplexity remains a useful diagnostic, but a
 perplexity delta, even a very large one, is not by itself evidence of utility loss for a quantized
@@ -427,6 +447,15 @@ regression gates should be expected to reject models that are downstream-equival
   an expected 63.95 (`FAIL`). It is a third distinct value for that configuration, so we exclude
   the 1B `greedy@GPTQ` downstream row entirely rather than report it. The 3B chain, by contrast,
   passed reload validation against the sweep value.
+- **A published analysis error, now corrected.** The §6 probe scored the greedy selector with a
+  diagonal expression (`‖ΔW_j‖²·H_jj`) rather than its true first-step gain, so the reported
+  correlations did not describe the selector they were attributed to. That section is withdrawn
+  pending a corrected re-run. The error was in the analysis probe only; the selector, the sweeps
+  and every perplexity in this paper are unaffected.
+- **Scalar-signal calibration was padded.** See §3: those statistics are dominated by pad states,
+  so the scalar selectors are less "informed" than described. A `--no_pad_calibration` robustness
+  re-measurement is outstanding.
+- **§5.3 is size-matched, not sample-matched.** It does not exclude calibration-sample mismatch.
 - **No causal mechanism, and no positive account of the decoupling.** §6 falsifies the
   compensation explanation and §4.3 falsifies the tail explanation; §5 gives a structural
   condition only. We can say what the decoupling is *not* caused by more confidently than what it

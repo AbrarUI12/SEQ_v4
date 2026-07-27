@@ -141,6 +141,37 @@ def greedy_independent_reference(
 # --------------------------------------------------------------------------- #
 # Torch entry point (lazy import) — runs on real layers.
 # --------------------------------------------------------------------------- #
+def _marginal_gains(A: "Any", RX: "Any", Hdiag: "Any") -> "Any":
+    """Exact reduction in ``tr(A H Aᵀ)`` obtained by zeroing each remaining column.
+
+    ``G_j = 2⟨A_j, (A H)_j⟩ − ‖A_j‖²H_jj``. The first term carries the **off-diagonal**
+    coupling; dropping it leaves a diagonal proxy that ranks channels differently (see
+    :func:`first_step_gains`). This is the single definition used by the selector and by any
+    analysis that claims to measure the selector's objective.
+    """
+    dot = (A * RX).sum(dim=0)                                # ⟨A_j, (A H)_j⟩
+    nrm = (A * A).sum(dim=0)                                 # ‖A_j‖²
+    return 2.0 * dot - nrm * Hdiag
+
+
+def first_step_gains(delta_w: "Any", H: "Any", *, dtype: "Any" = None) -> "Any":
+    """The gain vector :func:`greedy_select_channels` ranks by at step 0.
+
+    Use this — never ``‖ΔW_j‖²·H_jj`` — when correlating a selector's score against anything.
+    The diagonal-only expression omits ``2⟨ΔW_j,(ΔW H)_j⟩`` and disagrees with the true ranking
+    on realistic (correlated) Hessians; it was the source of a published analysis error.
+    """
+    import torch
+
+    work_dtype = torch.float64 if dtype is None else dtype
+    A = delta_w.detach().to(dtype=work_dtype)
+    Hf = H.detach().to(dtype=work_dtype, device=A.device)
+    if not bool(torch.isfinite(A).all()) or not bool(torch.isfinite(Hf).all()):
+        A = torch.nan_to_num(A)
+        Hf = torch.nan_to_num(Hf)
+    return _marginal_gains(A, A @ Hf, torch.diagonal(Hf))
+
+
 def greedy_select_channels(
     delta_w: "Any",
     H: "Any",
@@ -195,9 +226,7 @@ def greedy_select_channels(
         logger.info("      greedy: k=%d over [%d, %d] in %s (recompute_every=%d)",
                     k, out_f, in_f, str(work_dtype).replace("torch.", ""), recompute_every)
     for step in range(k):
-        dot = (A * RX).sum(dim=0)                            # [in]
-        nrm = (A * A).sum(dim=0)                             # [in]
-        G = 2.0 * dot - nrm * Hdiag                          # [in]
+        G = _marginal_gains(A, RX, Hdiag)                    # [in]
         G = torch.where(avail & torch.isfinite(G), G, neg_inf)
         gmax, jstar = torch.max(G, dim=0)
         if not bool(torch.isfinite(gmax)) or (not exact_k and float(gmax) <= 0.0):

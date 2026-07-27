@@ -78,6 +78,12 @@ def parse_args() -> argparse.Namespace:
                    help="also compute per-channel activation entropy as signal 'act_entropy' (memory-heavy; try 1B/3B first)")
     p.add_argument("--entropy_bins", type=int, default=32)
     p.add_argument("--skip_lm_head", action="store_true")
+    p.add_argument("--no_pad_calibration", action="store_true",
+                   help="collect scalar activation signals WITHOUT padding prompts to "
+                        "--calib_seq_len. The published runs padded (the default), which "
+                        "makes short-prompt statistics mostly pad/EOS states; the Hessian "
+                        "path already avoids this. Use for the robustness check that the "
+                        "scalar-selector ordering does not depend on pad tokens.")
     p.add_argument("--greedy_early_stop", action="store_true",
                    help="F3 causal control: let the greedy objective STOP when the next "
                         "marginal gain is non-positive (exact_k=False) instead of forcing the "
@@ -172,6 +178,7 @@ def main() -> int:
     signals = extract_all_signals(
         model, tokenizer=tokenizer, prompts=prompts, seq_len=args.calib_seq_len,
         device=device, max_prompts=args.max_calib_prompts, include_activation=bool(prompts),
+        pad_to_seq_len=not args.no_pad_calibration,
         return_channels=True,
     )
     in_features = {n: m.in_features for n, m in model.named_modules() if isinstance(m, torch.nn.Linear)}
@@ -365,7 +372,8 @@ def main() -> int:
         from seq_core.signals import collect_input_stats
         LOGGER.info("collecting activation E[x^2] for value-based tier allocation ...")
         _accs = collect_input_stats(model, tokenizer, prompts, seq_len=args.calib_seq_len,
-                                    device=device, max_prompts=args.max_calib_prompts)
+                                    device=device, max_prompts=args.max_calib_prompts,
+                                    pad_to_seq_len=not args.no_pad_calibration)
         tier_bits = [args.base_bits, 8, 16]
         dist_by_layer: Dict[str, List[List[float]]] = {}
         for n, m in linear_items:
@@ -646,7 +654,9 @@ def main() -> int:
         "selector_calib_source": selector_calib_source,
         "selector_hessian_tokens": selector_hessian_tokens,
         "selector_calib_samples": int(args.selector_calib_samples),
-        "skip_lm_head": bool(args.skip_lm_head), "results": results,
+        "skip_lm_head": bool(args.skip_lm_head),
+        "pad_calibration": not bool(args.no_pad_calibration),
+        "results": results,
     }
     (out_dir / "channel_pareto.json").write_text(json.dumps(payload, indent=2))
     _write_md(out_dir / "channel_pareto.md", payload)

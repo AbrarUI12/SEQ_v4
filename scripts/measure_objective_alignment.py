@@ -44,21 +44,31 @@ quiet_http_logs()
 def selector_scores(cols: dict, hdiag: torch.Tensor) -> dict:
     """Per-input-channel score for each selector, from the pass's column summaries.
 
-    `cols` holds `[in]`-sized vectors computed while ΔW was live on the GPU
-    (`residual_energy` = ‖ΔW_j‖², `residual_absmax` = max_j|ΔW|); `hdiag` is `[in]`.
-    `greedy_gain` is the first-step marginal gain of the Hessian-weighted objective, which
-    is exactly what `greedy`/`greedy_indep` rank by (an iterative selector's first pick is
-    its argmax).
+    `cols` holds `[in]`-sized vectors computed while ΔW and H were live on the GPU.
+
+    **Correction (2026-07-28).** An earlier version of this script scored `greedy_gain` as
+    ``‖ΔW_j‖²·H_jj`` and claimed that was the greedy objective. It is not: the true first-step
+    gain is ``2⟨ΔW_j,(ΔW H)_j⟩ − ‖ΔW_j‖²H_jj``, and the diagonal expression is only the
+    subtracted term. On correlated Hessians the two disagree on the top pick in ~80% of layers
+    (median Spearman ≈ 0.41), so the earlier run did not measure the catastrophic selector at
+    all. `greedy_gain` now comes from `greedy_select.first_step_gains`, computed in-pass against
+    the same damped Hessian the selector receives. The old expression is retained as
+    `diag_proxy` so the previously published correlation stays auditable.
     """
     energy = cols["residual_energy"].to(torch.float32)
-    return {
-        # --- share GPTQ's objective ---------------------------------------- #
-        "greedy_gain": (energy * hdiag),               # ∝ first-step gain, full coupling
+    scores = {
+        # --- the selector's actual objective (off-diagonal coupling included) --- #
         "hessian_diag": hdiag.clone(),                 # Hessian diagonal only
-        # --- read the residual but not the Hessian -------------------------- #
+        # --- read the residual but not the Hessian ------------------------------ #
         "residual_rms": energy.sqrt(),
         "residual_max": cols["residual_absmax"].to(torch.float32),
+        # --- superseded: what the published run actually measured --------------- #
+        "diag_proxy": (energy * hdiag),
     }
+    gain = cols.get("greedy_first_step_gain")
+    if gain is not None:
+        scores["greedy_gain"] = gain.to(torch.float32)
+    return scores
 
 
 def main() -> int:
@@ -137,8 +147,12 @@ def main() -> int:
         "target": "per-column compensation magnitude ||W_pre_quant - W_orig||_2",
         "summary": summary,
         "ranking_by_abs_median_rho": order,
-        "prediction": ("objective collision predicts greedy_gain > hessian_diag > "
-                       "residual_rms/residual_max in |rho|"),
+        "prediction": ("objective collision predicts greedy_gain (the TRUE first-step gain, "
+                       "including off-diagonal coupling) ranks compensation-bearing columns "
+                       "highly. diag_proxy is the superseded ||dW_j||^2*H_jj expression the "
+                       "earlier published run used by mistake; it is reported for audit only "
+                       "and must not be read as the greedy objective."),
+        "greedy_gain_definition": "2<dW_j,(dW H)_j> - ||dW_j||^2 H_jj  (greedy_select.first_step_gains)",
         "per_layer": per_layer,
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)

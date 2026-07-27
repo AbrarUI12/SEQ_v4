@@ -233,6 +233,7 @@ def collect_input_stats(
     seq_len: int,
     device: str,
     max_prompts: Optional[int] = None,
+    pad_to_seq_len: bool = True,
 ) -> Dict[str, _InputAccumulator]:
     """One calibration pass accumulating per-input-channel activation moments."""
     model.eval()
@@ -265,7 +266,9 @@ def collect_input_stats(
                 prompt,
                 return_tensors="pt",
                 truncation=True,
-                padding="max_length",
+                # Padding is retained by default to reproduce the published statistics; it
+                # makes short-prompt calibration mostly pad states. See pad_to_seq_len.
+                padding=("max_length" if pad_to_seq_len else False),
                 max_length=seq_len,
             )
             enc = {k: v.to(next(model.parameters()).device) for k, v in enc.items()}
@@ -284,6 +287,7 @@ def collect_channel_activation_entropy(
     seq_len: int,
     device: str,
     max_prompts: Optional[int] = None,
+    pad_to_seq_len: bool = True,
     bins: int = 32,
     clip: float = 6.0,
     eps: float = 1e-5,
@@ -333,7 +337,9 @@ def collect_channel_activation_entropy(
         for prompt in used:
             if not isinstance(prompt, str) or not prompt.strip():
                 continue
-            enc = tokenizer(prompt, return_tensors="pt", truncation=True, padding="max_length", max_length=seq_len)
+            enc = tokenizer(prompt, return_tensors="pt", truncation=True,
+                            padding=("max_length" if pad_to_seq_len else False),
+                            max_length=seq_len)
             enc = {k: v.to(next(model.parameters()).device) for k, v in enc.items()}
             model(**enc)
     for h in handles:
@@ -410,10 +416,12 @@ def extract_activation_signals(
     seq_len: int,
     device: str,
     max_prompts: Optional[int] = None,
+    pad_to_seq_len: bool = True,
     return_channels: bool = False,
 ) -> Dict[str, Dict[str, Any]]:
     accs = collect_input_stats(
-        model, tokenizer, prompts, seq_len=seq_len, device=device, max_prompts=max_prompts
+        model, tokenizer, prompts, seq_len=seq_len, device=device, max_prompts=max_prompts,
+        pad_to_seq_len=pad_to_seq_len,
     )
     results: Dict[str, Dict[str, Any]] = {}
     for name, module in model.named_modules():
@@ -443,6 +451,7 @@ def extract_all_signals(
     eps: float = 1e-5,
     outlier_k: float = 4.0,
     max_prompts: Optional[int] = None,
+    pad_to_seq_len: bool = True,
     include_activation: bool = True,
     return_channels: bool = False,
 ) -> Dict[str, Dict[str, Any]]:
@@ -462,6 +471,7 @@ def extract_all_signals(
             seq_len=seq_len,
             device=device,
             max_prompts=max_prompts,
+            pad_to_seq_len=pad_to_seq_len,
             return_channels=return_channels,
         )
         for name, sig in act.items():

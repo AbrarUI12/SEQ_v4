@@ -326,9 +326,19 @@ def gptq_quantize_model_sequential(
                             # Keep only [in]-sized summaries. Storing full dW per layer costs
                             # ~12.7 GB of CPU traffic on a 3B model and is never needed by the
                             # alignment analysis, which is entirely per-input-channel.
+                            #
+                            # greedy_first_step_gain is the EXACT quantity the greedy selector
+                            # ranks by, computed here because H_dev is still resident (it is the
+                            # same damped Hessian greedy itself receives below). Correlating a
+                            # selector's score against ||dW_j||^2 * H_jj instead is a diagonal
+                            # proxy that mis-ranks on correlated Hessians.
+                            from seq_core.greedy_select import first_step_gains
+
                             column_scores_out[full] = {
                                 "residual_energy": (_dW * _dW).sum(dim=0).detach().cpu(),
                                 "residual_absmax": _dW.abs().max(dim=0).values.detach().cpu(),
+                                "greedy_first_step_gain":
+                                    first_step_gains(_dW, H_dev).detach().float().cpu(),
                             }
                         if residual_out is not None:
                             residual_out[full] = _dW.detach().cpu()
