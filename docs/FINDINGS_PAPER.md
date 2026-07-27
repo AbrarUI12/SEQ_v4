@@ -8,14 +8,15 @@ can fail badly. Using outlier-channel protection — keeping a small fraction of
 FP16 on a low-bit base — we construct a controlled generator of extreme perplexity damage: on an
 error-compensated GPTQ-4 base, a selector that ranks channels by the Hessian-weighted residual
 objective raises Llama-3.2-3B WikiText-2 perplexity from 8.17 to 51.68 at matched weight-only
-storage. We verify by materialization and disk reload that the evaluated checkpoint is that model
-(reload 51.76). Yet on six zero-shot tasks the same checkpoint loses nothing: macro accuracy
-67.61% versus 67.10% for its own base, a paired-bootstrap difference of +0.51 points with a
-confidence interval excluding zero, and LAMBADA perplexity of 4.17. We characterize what produces
-the perplexity damage — it requires the selector's off-diagonal Hessian coupling, since
-diagonal-only, residual-magnitude, activation and random selection are all benign — and we report
-that the natural mechanism, protection destroying error compensation, is falsified by direct
-measurement. Perplexity gaps of this size cannot be assumed to be utility gaps.
+storage. Disk reload verifies the evaluated checkpoint is that model (51.76). Yet on six
+zero-shot tasks it loses nothing: macro accuracy 67.61% versus 67.10% for its own base, a
+paired-bootstrap difference of +0.51 points whose interval excludes zero, and LAMBADA
+perplexity 4.17. The pattern replicates on
+Llama-3.2-1B (10.56 to 63.83 reload-verified, +0.32 points). A per-token decomposition rules out
+the obvious explanation: the damage is broad, not a tail artifact — 74.6% of tokens degrade, the
+median token worsens, and excluding the worst 5% still leaves a 4x gap. We further show the
+damage requires the selector's off-diagonal Hessian coupling, and report that the natural
+mechanism, protection destroying error compensation, is falsified by direct measurement.
 
 _(200 words)_
 
@@ -49,19 +50,23 @@ bootstrap difference of **+0.51 points [+0.13, +0.86]** — statistically *favou
 LAMBADA perplexity **4.17**, comparable to the base's 4.28.
 
 **Contributions.**
-1. A reload-verified demonstration that a **6.3× WikiText-2 perplexity collapse can carry zero
-   downstream cost** on six tasks, including a token-level task on a second corpus (§4).
-2. A characterization of *what generates* the perplexity damage: it requires the selector's
+1. A reload-verified demonstration that a **~6× WikiText-2 perplexity collapse can carry zero
+   downstream cost** on six tasks, on **two models**, including a token-level task on a second
+   corpus (§4.1–4.2).
+2. A **per-token decomposition falsifying the tail explanation**: the degradation is broad
+   (74.6% of tokens worse, median ΔNLL +0.287), so the decoupling is not an artifact of a few
+   catastrophic tokens (§4.3).
+3. A characterization of *what generates* the perplexity damage: it requires the selector's
    **off-diagonal Hessian coupling**. Selectors using no Hessian, only its diagonal, only residual
    magnitude, or random selection are all benign at every budget we tested (§5).
-3. A **falsified mechanism**, reported as such: the natural explanation — that protection destroys
+4. A **falsified mechanism**, reported as such: the natural explanation — that protection destroys
    the base's error compensation — predicts that harmful selectors target
    compensation-bearing columns. Direct measurement shows the opposite ordering (§6).
-4. A quantification of how much the effect depends on the **selector's own Hessian estimate**,
+5. A quantification of how much the effect depends on the **selector's own Hessian estimate**,
    which is large on one model and negligible on another (§5.3), and a **model-scope boundary**:
    two of four checkpoints exhibit the collapse, and on Qwen2.5-3B no selector is harmful at all
    (§5.4).
-5. Supporting audits under matched storage with random controls, including a matched-bit
+6. Supporting audits under matched storage with random controls, including a matched-bit
    downstream signal-versus-random test (§7), plus code, pinned environment and all result JSON.
 
 **Scope of the claim.** We do not claim perplexity is uninformative, nor that this configuration
@@ -207,16 +212,56 @@ evaluation, and passed against the sweep value.
 So the downstream evaluation scored a checkpoint whose WikiText-2 perplexity is 51.76. The
 decoupling is a property of the weights, not an artifact of an evaluation path.
 
-### 4.3 Reading
+**It replicates on a second model.** Llama-3.2-1B reproduces the pattern under the same
+verification discipline: the exported `greedy@GPTQ` checkpoint reloads at **63.83** against a
+sweep value of 63.95 (`PASS`, Δ = 0.124), a **6.0×** increase over its 10.557 base, and that
+checkpoint scores macro **58.67%** against the base's **58.35%** — a contrast of **+0.32 pts
+[−0.07, +0.73]**. The interval includes zero, so on 1B we claim no degradation rather than an
+improvement; on 3B the interval excludes zero on the favourable side. Both models show a ~6×
+perplexity collapse with no measurable downstream cost.
 
-Perplexity is `exp` of a mean negative log-likelihood over a continuous WikiText-2 stream; the six
-downstream tasks are dominated by *relative* comparisons among a few candidate continuations, and
-LAMBADA scores a single final token given long context. A perturbation that inflates loss on part
-of the WikiText token distribution can therefore leave decision-relevant behaviour intact. We do
-not claim this is the only possible reading — a per-token loss decomposition would identify which
-tokens carry the increase, and we list it as the natural follow-up (§9) — but the empirical
-conclusion does not depend on the explanation: the gap between the two metrics is real, verified,
-and large.
+| model | base PPL | greedy@GPTQ PPL (reload-verified) | ratio | macro Δ vs base |
+|---|---|---|---|---|
+| Llama-3.2-3B | 8.172 | 51.76 (`PASS`) | 6.3× | **+0.51 [+0.13, +0.86]** |
+| Llama-3.2-1B | 10.557 | 63.83 (`PASS`) | 6.0× | +0.32 [−0.07, +0.73] |
+
+### 4.3 The damage is broad, not a tail artifact
+
+The obvious explanation is that perplexity, being `exp` of a *mean* negative log-likelihood, is
+dominated by its worst tokens: if a small minority of tokens became catastrophically improbable,
+perplexity would explode while the bulk of the model's behaviour — and therefore task accuracy —
+stayed intact. We pre-registered this hypothesis and tested it directly, scoring both checkpoints
+on the identical token stream (141 windows, 288,627 supervised targets) and decomposing the
+per-token negative log-likelihood.
+
+**The hypothesis is false.** The degradation is broad:
+
+| statistic | value |
+|---|---|
+| tokens with higher NLL | **74.6%** |
+| tokens with lower NLL | 25.4% |
+| median ΔNLL | **+0.287** |
+| share of total increase carried by the worst 1% of tokens | 6.9% |
+| share carried by the worst 10% | 46.3% |
+
+Perplexity after excluding the worst-k% of tokens for both models:
+
+| excluded | base | greedy@GPTQ |
+|---|---|---|
+| 0% | 8.17 | 51.76 |
+| 1% | 8.30 | 46.85 |
+| 5% | 8.59 | **34.56** |
+
+Removing the worst 5% of tokens — fifty times more than a tail explanation would require — still
+leaves a 4× gap. The *median* token is meaningfully worse, and three quarters of all tokens
+degrade. This is not a small set of outliers dragging up a mean; the model is genuinely and
+broadly worse at next-token prediction on WikiText-2.
+
+That makes the result more surprising, not less, and it removes the most comfortable way to
+dismiss it. A model can be substantially and pervasively worse at modelling a corpus while
+answering six downstream benchmarks exactly as well as before. Whatever the tasks measure, a broad
+degradation in next-token likelihood on WikiText-2 is not sufficient to disturb it. We do not have
+a positive account of why, and we do not offer one.
 
 ## 5 What generates the perplexity damage
 
@@ -355,13 +400,15 @@ at comparable storage, and the best protection on GPTQ buys ≈0.07 PPL (`residu
 
 ## 8 Conclusion
 
-We constructed, verified and evaluated a checkpoint whose WikiText-2 perplexity is 6.3× its base's
-and whose downstream accuracy is not worse — indeed slightly better, with a confidence interval
-excluding zero — across six zero-shot tasks, with a token-level metric on a second corpus also
-unharmed. The construction uses only standard PTQ components: outlier-channel protection on an
-error-compensated base. We further show that producing this damage requires the selector's
-off-diagonal Hessian coupling, and that the obvious mechanism — destroying error compensation — is
-falsified by direct measurement.
+We constructed, verified and evaluated checkpoints whose WikiText-2 perplexity is ~6× their
+base's and whose downstream accuracy is not worse — on 3B slightly better, with a confidence
+interval excluding zero — across six zero-shot tasks, on two models, with a token-level metric on
+a second corpus also unharmed. The construction uses only standard PTQ components. A per-token
+decomposition shows the perplexity damage is broad rather than a tail artifact: three quarters of
+tokens degrade and the median token worsens, so the models really are pervasively worse at
+modelling the corpus while answering the benchmarks exactly as well. We further show that
+producing this damage requires the selector's off-diagonal Hessian coupling, and that the obvious
+mechanism — destroying error compensation — is falsified by direct measurement.
 
 The practical consequence is narrow and concrete. Perplexity remains a useful diagnostic, but a
 perplexity delta, even a very large one, is not by itself evidence of utility loss for a quantized
@@ -370,23 +417,25 @@ regression gates should be expected to reject models that are downstream-equival
 
 ## 9 Limitations
 
-- **Scale and family.** The verified decoupling is established on one model, Llama-3.2-3B, and we
-  do not claim it generalizes. The constraint is not simply that we tested few models: of the four
-  checkpoints we ran, only Llama-3.2-1B and 3B exhibit the perplexity collapse at all (§5.4), so
-  Qwen2.5-3B and Llama-2-7B cannot supply a replication — a model that is healthy in perplexity
-  has no decoupling to demonstrate. The only available second datapoint is Llama-3.2-1B, whose
-  exported checkpoint failed reload validation (below). Establishing the decoupling more broadly
-  requires first finding further *susceptible* models, which in turn requires a predictor for
-  susceptibility that we do not have.
+- **Scale and family.** The decoupling is verified on both susceptible checkpoints we have,
+  Llama-3.2-3B and 1B, but both come from one model family. Of the four checkpoints tested only
+  these two exhibit the perplexity collapse at all (§5.4), so Qwen2.5-3B and Llama-2-7B cannot
+  supply further replication — a model healthy in perplexity has no decoupling to demonstrate.
+  Broadening the claim requires finding further *susceptible* models, which in turn requires a
+  predictor for susceptibility that we do not have.
 - **A known export failure.** The Llama-3.2-1B `greedy@GPTQ` checkpoint reloads at 203.72 against
   an expected 63.95 (`FAIL`). It is a third distinct value for that configuration, so we exclude
   the 1B `greedy@GPTQ` downstream row entirely rather than report it. The 3B chain, by contrast,
   passed reload validation against the sweep value.
-- **No causal mechanism.** §6 falsifies the compensation explanation; §5 gives a structural
-  condition only. The ordering intervention that would test causality did not complete at 3B
-  scale, and a numerical-conditioning explanation for the collapse is not excluded.
-- **No per-token decomposition.** We do not yet show which tokens carry the perplexity increase,
-  which is the most direct route to explaining the decoupling.
+- **No causal mechanism, and no positive account of the decoupling.** §6 falsifies the
+  compensation explanation and §4.3 falsifies the tail explanation; §5 gives a structural
+  condition only. We can say what the decoupling is *not* caused by more confidently than what it
+  is caused by, and a numerical-conditioning explanation for the collapse is not excluded.
+- **The ordering intervention did not produce a usable result.** Our internal sequential GPTQ
+  yields a degenerate base at 3B (perplexity 3437 unprotected), so all three arms are
+  uninterpretable and we exclude the experiment entirely rather than report its arms. The causal
+  test of whether ordering matters therefore remains open, and would need a working
+  reimplementation or an instrumented external GPTQ.
 - **Task battery.** Six zero-shot tasks, five of them multiple-choice. A perturbation invisible
   here could still harm long-form generation, instruction following or reasoning chains; our claim
   is about the *inference from perplexity*, not a guarantee of preserved capability.
@@ -424,6 +473,16 @@ recorded values for Llama-3.2-3B `greedy@GPTQ` at 2% arise from distinct runs:
 
 All are catastrophic relative to the 8.172 base. Tables in §4–§5 use the matrix-sweep value except
 §5.3, which reports the matched-calibration run explicitly.
+
+**Llama-3.2-1B `greedy@GPTQ`.** An earlier export of this point reloaded at 203.72 against a sweep
+value of 63.95 and was excluded. It was re-exported from scratch and now reloads at **63.83**
+(`PASS`, Δ = 0.124); §4.2 uses the repaired checkpoint, and its downstream row is the one reported
+in §4.2. The discarded export is retained in the artifacts for audit.
+
+**Excluded experiment.** The ordering intervention (§9) ran to completion but on a degenerate
+internal base: unprotected sequential-GPTQ perplexity 3437.3 against an FP16 reference of 7.82.
+Its three arms (3437.3 / 3434.8 / 3448.6) are mutually indistinguishable because all are broken,
+not because ordering is irrelevant, so no conclusion is drawn from them.
 
 **Environment.** Pinned in `requirements.txt`; `run_manifest.json` records the git commit,
 hardware, package versions and the resolved revision of every model. lm-eval-harness v0.4.12.
