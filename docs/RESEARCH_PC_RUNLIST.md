@@ -44,15 +44,40 @@ downstream cost (macro 67.61% vs 67.10% for its base; +0.51 pts [+0.13, +0.86]).
    **Report `reload_ppl`.** If it lands near 63.95 the row can be included; if it disagrees again,
    that itself is a finding about export determinism and should be reported.
 
-2. **Per-token loss decomposition** (explains *how* the decoupling is possible). Compute per-token
-   NLL on WikiText-2 for the base and for the greedy@GPTQ checkpoint and report the loss
-   distribution — the hypothesis is that a small fraction of tokens carries the entire perplexity
-   increase. Script not yet written; ask and I will add it.
+2. **Per-token loss decomposition** (explains *how* the decoupling is possible) — **script ready**:
+   `scripts/per_token_loss_decomposition.py`. It scores the base and the damaged checkpoint on the
+   *same* token stream (verified to reproduce the paper's exact 141 windows / 288,627 supervised
+   targets) and reports what share of the perplexity increase the worst-k% of tokens carry, plus
+   the perplexity with those tokens excluded.
+   ```bash
+   python scripts/per_token_loss_decomposition.py \
+     --base  runs/final/llmc/Llama-3.2-3B/gptq/artifacts/fake_quant_model \
+     --other runs/final/downstream/checkpoints/Llama-3.2-3B/greedy_gptq \
+     --tokenizer meta-llama/Llama-3.2-3B \
+     --out results/pertoken_Llama-3.2-3B.json 2>&1 | tee results/pertoken_Llama-3.2-3B.log
+   ```
+   **Report** `frac_tokens_worse`, `median_delta_nll`, the `concentration` block and the
+   `trimmed_perplexity` block. If excluding the worst ~1% of tokens collapses the 8.17→51.76 gap,
+   the damage is concentrated in a tail and the decoupling is explained.
 
 3. **Ordering intervention (E2) — never produced a result.** Its log predates the instrumentation
-   fix and stalled at `block 1/28`. Now that the sequential pass is instrumented and selection runs
-   in float32, size it first with the bounded diagnostic below, then decide. It is listed as future
-   work in the paper, not as a finding.
+   fix and stalled at `block 1/28`. The sequential pass is now instrumented and in-pass selection
+   runs in float32, so **size it before committing hours**: run the 2-block diagnostic, multiply
+   the per-block time by 28, and only launch the full job if the estimate is acceptable.
+   ```bash
+   # (a) size it first — minutes, prints which sub-step dominates
+   python scripts/measure_objective_alignment.py --model meta-llama/Llama-3.2-3B \
+     --base_bits 4 --group_size 128 --seed 1234 --n_calib 128 --max_blocks 2 \
+     --out results/align_diag_3B.json 2>&1 | tee results/align_diag_3B.log
+   # (b) only if (a) projects an acceptable runtime:
+   python scripts/run_protect_then_gptq.py --model meta-llama/Llama-3.2-3B --base_bits 4 \
+     --group_size 128 --protect_frac 0.02 --seed 1234 --n_calib 128 \
+     --out results/owq_seq_Llama-3.2-3B.json 2>&1 | tee results/owq_seq_Llama-3.2-3B.log
+   ```
+   **Sanity-check `ppl_base_gptq` first** — it must be near FP16 (~8 on 3B). If it is in the
+   hundreds or thousands the internal base is degenerate and all three arms are uninformative
+   (this is exactly how the first attempt failed). It stays future work in the paper unless it
+   returns a clean result.
 
 ---
 
