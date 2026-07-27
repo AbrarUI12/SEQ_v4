@@ -58,7 +58,9 @@ LAMBADA perplexity **4.17**, comparable to the base's 4.28.
    the base's error compensation — predicts that harmful selectors target
    compensation-bearing columns. Direct measurement shows the opposite ordering (§6).
 4. A quantification of how much the effect depends on the **selector's own Hessian estimate**,
-   which is large on one model and negligible on another (§5.3).
+   which is large on one model and negligible on another (§5.3), and a **model-scope boundary**:
+   two of four checkpoints exhibit the collapse, and on Qwen2.5-3B no selector is harmful at all
+   (§5.4).
 5. Supporting audits under matched storage with random controls, including a matched-bit
    downstream signal-versus-random test (§7), plus code, pinned environment and all result JSON.
 
@@ -271,6 +273,38 @@ moderate, not catastrophic, movement), so on that model the estimate quality was
 work. Any study using Hessian-based selection should therefore report the selector's calibration
 size and distribution; we did not initially, and it materially changes one of our two models.
 
+### 5.4 On which models the collapse occurs at all
+
+The perplexity collapse is not a universal property of the recipe. Running the identical
+configuration (`greedy`, 2%, GPTQ-4 base, matched scope and storage) across four checkpoints:
+
+| model | FP16 | GPTQ-4 base | greedy@GPTQ 2% | Δ vs base |
+|---|---|---|---|---|
+| Llama-3.2-1B | 9.757 | 10.557 | **63.95** | +53.4 |
+| Llama-3.2-3B | 7.817 | 8.172 | **51.68** | +43.5 |
+| Qwen2.5-3B | 8.030 | 8.290 | 8.335 | +0.045 |
+| Llama-2-7B | 5.469 | —¹ | 5.571 | — |
+
+¹ The unprotected base was not measured in the Llama-2-7B run, so we compare only against FP16
+and treat that row as weaker evidence.
+
+On Qwen2.5-3B the *entire* selector panel is benign at 2% — `greedy` 8.335, `greedy_indep` 8.357,
+`residual_rms` 8.339, `residual_max` 8.351, `act_max` 8.366, `act_scale` 8.372, `random` 8.300,
+against a base of 8.290. The spread across every selector is under 0.09 perplexity, so on this
+model the choice of selection signal is immaterial and no configuration we tested is harmful.
+
+The collapse therefore requires something beyond the structural condition of §5.1: the selector
+must use off-diagonal coupling **and** the model must be susceptible. Two of four checkpoints are,
+both from the same family. We have no predictor for susceptibility, and identifying one is the
+clearest route to turning this from an observed boundary into a diagnostic.
+
+**These models cannot supply the decoupling replication.** The decoupling claim of §4 requires a
+checkpoint that is simultaneously catastrophic in perplexity and intact downstream. Qwen2.5-3B and
+Llama-2-7B are not catastrophic in perplexity at all, so there is nothing to decouple: evaluating
+them downstream would confirm that a healthy model scores healthily, which is uninformative. A
+second *decoupling* datapoint can only come from a model that exhibits the collapse — i.e.
+Llama-3.2-1B, whose export failed reload validation (§9).
+
 ## 6 A falsified mechanism
 
 The natural explanation for §5 is that the coupled selectors identify columns carrying GPTQ's
@@ -336,9 +370,14 @@ regression gates should be expected to reject models that are downstream-equival
 
 ## 9 Limitations
 
-- **Scale and family.** The verified decoupling is established on one model, Llama-3.2-3B. The 1B
-  replication is unavailable because its exported checkpoint failed reload validation (below), and
-  we do not claim the decoupling generalizes without further models.
+- **Scale and family.** The verified decoupling is established on one model, Llama-3.2-3B, and we
+  do not claim it generalizes. The constraint is not simply that we tested few models: of the four
+  checkpoints we ran, only Llama-3.2-1B and 3B exhibit the perplexity collapse at all (§5.4), so
+  Qwen2.5-3B and Llama-2-7B cannot supply a replication — a model that is healthy in perplexity
+  has no decoupling to demonstrate. The only available second datapoint is Llama-3.2-1B, whose
+  exported checkpoint failed reload validation (below). Establishing the decoupling more broadly
+  requires first finding further *susceptible* models, which in turn requires a predictor for
+  susceptibility that we do not have.
 - **A known export failure.** The Llama-3.2-1B `greedy@GPTQ` checkpoint reloads at 203.72 against
   an expected 63.95 (`FAIL`). It is a third distinct value for that configuration, so we exclude
   the 1B `greedy@GPTQ` downstream row entirely rather than report it. The 3B chain, by contrast,
