@@ -1,0 +1,54 @@
+{
+  "base": "runs/final/llmc/Llama-3.2-3B/gptq/artifacts/fake_quant_model",
+  "other": "runs/final/downstream/checkpoints/Llama-3.2-3B/greedy_gptq",
+  "dataset": "wikitext2",
+  "split": "test",
+  "seq_len": 2048,
+  "protocol": "canonical continuous stream, non-overlapping windows, tail dropped",
+  "n_tokens": 288627,
+  "base_ppl": 8.1715,
+  "other_ppl": 51.759,
+  "mean_nll_base": 2.100657,
+  "mean_nll_other": 3.946599,
+  "median_delta_nll": 0.286566,
+  "frac_tokens_worse": 0.7461,
+  "frac_tokens_better": 0.2539,
+  "delta_nll_quantiles": {
+    "0.01": -1.531495,
+    "0.25": -0.000116,
+    "0.5": 0.286566,
+    "0.75": 2.984146,
+    "0.9": 6.392177,
+    "0.99": 11.766054,
+    "0.999": 14.924976
+  },
+  "concentration": {
+    "worst_0.1pct_share_of_increase": 0.0083,
+    "worst_0.5pct_share_of_increase": 0.0368,
+    "worst_1.0pct_share_of_increase": 0.0687,
+    "worst_5.0pct_share_of_increase": 0.2723,
+    "worst_10.0pct_share_of_increase": 0.4628
+  },
+  "trimmed_perplexity": {
+    "excl_worst_0.0pct": {
+      "base_ppl": 8.1715,
+      "other_ppl": 51.759
+    },
+    "excl_worst_0.1pct": {
+      "base_ppl": 8.1865,
+      "other_ppl": 51.1267
+    },
+    "excl_worst_0.5pct": {
+      "base_ppl": 8.2395,
+      "other_ppl": 49.0597
+    },
+    "excl_worst_1.0pct": {
+      "base_ppl": 8.2966,
+      "other_ppl": 46.8534
+    },
+    "excl_worst_5.0pct": {
+      "base_ppl": 8.5907,
+      "other_ppl": 34.5627
+    }
+  }
+}

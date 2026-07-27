@@ -1,0 +1,94 @@
+2026-07-27 01:23:21,080 | INFO | ============ PHASE 1/3: base: runs/final/llmc/Llama-3.2-3B/gptq/artifacts/fake_quant_model [t+  0.1s] ============
+Loading weights:   0%|          | 0/254 [00:00<?, ?it/s]Loading weights:   0%|          | 1/254 [00:04<20:20,  4.82s/it]Loading weights:  39%|███▊      | 98/254 [00:04<00:05, 27.93it/s]Loading weights:  57%|█████▋    | 145/254 [00:06<00:03, 28.21it/s]Loading weights:  68%|██████▊   | 172/254 [00:07<00:02, 27.85it/s]Loading weights:  75%|███████▍  | 190/254 [00:08<00:02, 27.97it/s]Loading weights:  80%|███████▉  | 203/254 [00:08<00:01, 26.33it/s]Loading weights:  83%|████████▎ | 212/254 [00:09<00:01, 26.48it/s]Loading weights:  86%|████████▌ | 219/254 [00:09<00:01, 25.54it/s]Loading weights:  90%|████████▉ | 228/254 [00:09<00:01, 25.72it/s]Loading weights:  93%|█████████▎| 237/254 [00:10<00:00, 26.05it/s]Loading weights:  97%|█████████▋| 246/254 [00:10<00:00, 26.16it/s]Loading weights: 100%|██████████| 254/254 [00:10<00:00, 24.05it/s]
+[transformers] [1mLlamaForCausalLM LOAD REPORT[0m from: runs/final/llmc/Llama-3.2-3B/gptq/artifacts/fake_quant_model
+Key                                                | Status     |  | 
+---------------------------------------------------+------------+--+-
+model.layers.{0...27}.mlp.up_proj.buf_scales       | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.o_proj.buf_zeros   | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.gate_proj.buf_qmin       | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.down_proj.buf_qmin       | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.o_proj.buf_invperm | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.v_proj.buf_scales  | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.q_proj.buf_scales  | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.k_proj.buf_perm    | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.q_proj.buf_zeros   | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.v_proj.buf_qmax    | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.o_proj.buf_perm    | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.up_proj.buf_perm         | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.v_proj.buf_qmin    | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.down_proj.buf_scales     | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.k_proj.buf_invperm | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.k_proj.buf_scales  | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.down_proj.buf_perm       | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.down_proj.buf_zeros      | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.o_proj.buf_scales  | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.k_proj.buf_zeros   | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.down_proj.buf_qmax       | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.gate_proj.buf_invperm    | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.q_proj.buf_qmin    | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.down_proj.buf_invperm    | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.up_proj.buf_invperm      | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.o_proj.buf_qmin    | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.gate_proj.buf_qmax       | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.v_proj.buf_invperm | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.gate_proj.buf_scales     | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.v_proj.buf_zeros   | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.k_proj.buf_qmax    | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.gate_proj.buf_perm       | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.q_proj.buf_perm    | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.q_proj.buf_invperm | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.gate_proj.buf_zeros      | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.o_proj.buf_qmax    | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.k_proj.buf_qmin    | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.up_proj.buf_qmin         | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.up_proj.buf_qmax         | UNEXPECTED |  | 
+model.layers.{0...27}.mlp.up_proj.buf_zeros        | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.v_proj.buf_perm    | UNEXPECTED |  | 
+model.layers.{0...27}.self_attn.q_proj.buf_qmax    | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (289076 > 131072). Running this sequence through the model will result in indexing errors
+2026-07-27 01:23:46,927 | INFO | stream: 289076 tokens -> 141 non-overlapping windows of 2048 (tail 308 dropped)
+2026-07-27 01:23:46,933 | INFO |   [t+ 25.9s] START per-token NLL (base) | gpu 5.98/5.98GB alloc, 6.03GB reserved | rss 1.29GB
+2026-07-27 01:23:50,987 | INFO |     windows: 14/141 (9.9%)   4.1s elapsed, 3.5/s, eta  36.8s | gpu 6.02/7.97GB alloc, 8.68GB reserved | rss 1.72GB
+2026-07-27 01:23:52,111 | INFO |     windows: 28/141 (19.9%)   5.2s elapsed, 5.4/s, eta  20.9s | gpu 6.02/7.97GB alloc, 8.68GB reserved | rss 1.72GB
+2026-07-27 01:23:53,241 | INFO |     windows: 42/141 (29.8%)   6.3s elapsed, 6.7/s, eta  14.9s | gpu 6.02/7.97GB alloc, 8.68GB reserved | rss 1.72GB
+2026-07-27 01:23:54,370 | INFO |     windows: 56/141 (39.7%)   7.4s elapsed, 7.5/s, eta  11.3s | gpu 6.02/7.97GB alloc, 8.68GB reserved | rss 1.72GB
+2026-07-27 01:23:55,499 | INFO |     windows: 70/141 (49.6%)   8.6s elapsed, 8.2/s, eta   8.7s | gpu 6.02/7.97GB alloc, 8.68GB reserved | rss 1.72GB
+2026-07-27 01:23:56,622 | INFO |     windows: 84/141 (59.6%)   9.7s elapsed, 8.7/s, eta   6.6s | gpu 6.02/7.97GB alloc, 8.68GB reserved | rss 1.72GB
+2026-07-27 01:23:57,744 | INFO |     windows: 98/141 (69.5%)  10.8s elapsed, 9.1/s, eta   4.7s | gpu 6.02/7.97GB alloc, 8.68GB reserved | rss 1.72GB
+2026-07-27 01:23:58,869 | INFO |     windows: 112/141 (79.4%)  11.9s elapsed, 9.4/s, eta   3.1s | gpu 6.02/7.97GB alloc, 8.68GB reserved | rss 1.72GB
+2026-07-27 01:23:59,992 | INFO |     windows: 126/141 (89.4%)  13.1s elapsed, 9.6/s, eta   1.6s | gpu 6.02/7.97GB alloc, 8.68GB reserved | rss 1.72GB
+2026-07-27 01:24:01,118 | INFO |     windows: 140/141 (99.3%)  14.2s elapsed, 9.9/s, eta   0.1s | gpu 6.02/7.97GB alloc, 8.68GB reserved | rss 1.72GB
+2026-07-27 01:24:01,199 | INFO |     windows: 141/141 (100.0%)  14.3s elapsed, 9.9/s, eta   0.0s | gpu 6.02/7.97GB alloc, 8.68GB reserved | rss 1.72GB
+2026-07-27 01:24:01,224 | INFO |   [t+ 40.2s] END   per-token NLL (base) in  14.3s | gpu 6.02/7.97GB alloc, 8.68GB reserved | rss 1.72GB
+2026-07-27 01:24:01,436 | INFO | ============ PHASE 2/3: other: runs/final/downstream/checkpoints/Llama-3.2-3B/greedy_gptq [t+ 40.4s] ============
+Loading weights:   0%|          | 0/254 [00:00<?, ?it/s]Loading weights:  30%|██▉       | 76/254 [00:00<00:00, 758.81it/s]Loading weights:  64%|██████▍   | 163/254 [00:00<00:00, 820.37it/s]Loading weights: 100%|██████████| 254/254 [00:00<00:00, 1189.43it/s]
+2026-07-27 01:24:30,456 | INFO |   [t+1m09s] START per-token NLL (other) | gpu 6.02/12.00GB alloc, 12.09GB reserved | rss 1.91GB
+2026-07-27 01:24:31,772 | INFO |     windows: 14/141 (9.9%)   1.3s elapsed, 10.6/s, eta  11.9s | gpu 6.02/12.00GB alloc, 14.05GB reserved | rss 1.91GB
+2026-07-27 01:24:32,904 | INFO |     windows: 28/141 (19.9%)   2.4s elapsed, 11.4/s, eta   9.9s | gpu 6.02/12.00GB alloc, 14.05GB reserved | rss 1.91GB
+2026-07-27 01:24:34,038 | INFO |     windows: 42/141 (29.8%)   3.6s elapsed, 11.7/s, eta   8.4s | gpu 6.02/12.00GB alloc, 14.05GB reserved | rss 1.91GB
+2026-07-27 01:24:35,170 | INFO |     windows: 56/141 (39.7%)   4.7s elapsed, 11.9/s, eta   7.2s | gpu 6.02/12.00GB alloc, 14.05GB reserved | rss 1.91GB
+2026-07-27 01:24:36,303 | INFO |     windows: 70/141 (49.6%)   5.8s elapsed, 12.0/s, eta   5.9s | gpu 6.02/12.00GB alloc, 14.05GB reserved | rss 1.91GB
+2026-07-27 01:24:37,437 | INFO |     windows: 84/141 (59.6%)   7.0s elapsed, 12.0/s, eta   4.7s | gpu 6.02/12.00GB alloc, 14.05GB reserved | rss 1.91GB
+2026-07-27 01:24:38,572 | INFO |     windows: 98/141 (69.5%)   8.1s elapsed, 12.1/s, eta   3.6s | gpu 6.02/12.00GB alloc, 14.05GB reserved | rss 1.91GB
+2026-07-27 01:24:39,707 | INFO |     windows: 112/141 (79.4%)   9.3s elapsed, 12.1/s, eta   2.4s | gpu 6.02/12.00GB alloc, 14.05GB reserved | rss 1.91GB
+2026-07-27 01:24:40,841 | INFO |     windows: 126/141 (89.4%)  10.4s elapsed, 12.1/s, eta   1.2s | gpu 6.02/12.00GB alloc, 14.05GB reserved | rss 1.91GB
+2026-07-27 01:24:41,975 | INFO |     windows: 140/141 (99.3%)  11.5s elapsed, 12.2/s, eta   0.1s | gpu 6.02/12.00GB alloc, 14.05GB reserved | rss 1.91GB
+2026-07-27 01:24:42,056 | INFO |     windows: 141/141 (100.0%)  11.6s elapsed, 12.2/s, eta   0.0s | gpu 6.02/12.00GB alloc, 14.05GB reserved | rss 1.91GB
+2026-07-27 01:24:42,057 | INFO |   [t+1m21s] END   per-token NLL (other) in  11.6s | gpu 6.02/12.00GB alloc, 14.05GB reserved | rss 1.91GB
+2026-07-27 01:24:42,317 | INFO | ============ PHASE 3/3: decomposition [t+1m21s] ============
+2026-07-27 01:24:42,644 | INFO | base ppl=8.171  other ppl=51.759  (6.3x)
+2026-07-27 01:24:42,644 | INFO | tokens worse: 74.6%  better: 25.4%  median dNLL=+0.2866
+2026-07-27 01:24:42,644 | INFO |   worst_0.1pct_share_of_increase = 0.8%
+2026-07-27 01:24:42,644 | INFO |   worst_0.5pct_share_of_increase = 3.7%
+2026-07-27 01:24:42,644 | INFO |   worst_1.0pct_share_of_increase = 6.9%
+2026-07-27 01:24:42,644 | INFO |   worst_5.0pct_share_of_increase = 27.2%
+2026-07-27 01:24:42,644 | INFO |   worst_10.0pct_share_of_increase = 46.3%
+2026-07-27 01:24:42,644 | INFO |   excl_worst_0.0pct      base=   8.171  other=  51.759
+2026-07-27 01:24:42,644 | INFO |   excl_worst_0.1pct      base=   8.187  other=  51.127
+2026-07-27 01:24:42,644 | INFO |   excl_worst_0.5pct      base=   8.239  other=  49.060
+2026-07-27 01:24:42,644 | INFO |   excl_worst_1.0pct      base=   8.297  other=  46.853
+2026-07-27 01:24:42,644 | INFO |   excl_worst_5.0pct      base=   8.591  other=  34.563
+2026-07-27 01:24:42,644 | INFO | wrote results/pertoken_Llama-3.2-3B.json
