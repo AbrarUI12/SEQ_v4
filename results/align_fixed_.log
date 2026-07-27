@@ -1,0 +1,7 @@
+usage: measure_objective_alignment.py [-h] --model MODEL
+                                      [--base_bits BASE_BITS]
+                                      [--group_size GROUP_SIZE] [--seed SEED]
+                                      [--n_calib N_CALIB] [--seq_len SEQ_LEN]
+                                      [--device DEVICE]
+                                      [--max_blocks MAX_BLOCKS] --out OUT
+measure_objective_alignment.py: error: argument --model: expected one argument
