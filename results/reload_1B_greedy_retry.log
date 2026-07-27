@@ -1,0 +1,10 @@
+Loading weights:   0%|          | 0/146 [00:00<?, ?it/s]Loading weights:  51%|█████▏    | 75/146 [00:00<00:00, 748.86it/s]Loading weights: 100%|██████████| 146/146 [00:00<00:00, 1060.88it/s]
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (289076 > 131072). Running this sequence through the model will result in indexing errors
+{
+  "model_path": "runs/final/downstream/checkpoints/Llama-3.2-1B/greedy_gptq",
+  "reload_ppl": 63.825909605084576,
+  "expected_ppl": 63.95,
+  "absolute_difference": 0.12409039491542728,
+  "tolerance": 0.5,
+  "status": "PASS"
+}

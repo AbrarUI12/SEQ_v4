@@ -1,0 +1,22 @@
+{
+  "model": "meta-llama/Llama-3.2-1B",
+  "point": "greedy_gptq",
+  "kind": "export",
+  "nominal_bits": 4.82,
+  "note": "F3 probe: residual-driven greedy on GPTQ. Catastrophic in PPL and REPRODUCES on the regenerated base (63.95 on 1B / 51.68 on 3B) with verify_materialized delta~0 => not an export bug; but Llama-2-7B is healthy => F3 is model-dependent. Downstream-healthy is being closed by reloading the on-disk checkpoint - see FINDINGS_PAPER 7.2",
+  "base_quantizer": "gptq_llmc",
+  "base_bits": 4,
+  "signal": "greedy",
+  "k_frac": 0.02,
+  "checkpoint": "/mnt/d/Abrar/SEQ/seq_v4/runs/final/downstream/checkpoints/Llama-3.2-1B/greedy_gptq",
+  "expected_ppl": 104.16,
+  "tasks": [
+    "hellaswag",
+    "arc_easy",
+    "arc_challenge",
+    "piqa",
+    "winogrande",
+    "lambada_openai"
+  ],
+  "limit": null
+}
