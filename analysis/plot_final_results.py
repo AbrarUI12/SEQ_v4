@@ -124,9 +124,13 @@ def fig_forest(plt, downstream_json: Path, out: Path) -> bool:
         xs, ys, lo, hi = [], [], [], []
         for c, yb in zip(order, y_base):
             cell = contrasts.get(m, {}).get(c)
-            if not cell or not cell.get("available") or "macro_avg" not in cell:
+            if not cell or not cell.get("available"):
                 continue
-            ma = cell["macro_avg"]
+            # `macro_avg` can be present but null when a point was excluded (e.g. a
+            # checkpoint that failed reload validation), so guard on the value.
+            ma = cell.get("macro_avg")
+            if not ma or ma.get("diff") is None:
+                continue
             xs.append(ma["diff"] * 100.0); ys.append(yb + offsets[m])
             lo.append((ma["diff"] - ma["lo"]) * 100.0); hi.append((ma["hi"] - ma["diff"]) * 100.0)
         if xs:
@@ -185,6 +189,87 @@ def fig_forensic(plt, f3_root: Path, out: Path) -> bool:
         ax.annotate(f"{r[2]:.1f}", (xi, r[2]), ha="center", va="bottom", fontsize=8)
     fig.tight_layout()
     fig.savefig(out / "fig4_f3_forensic.pdf")
+    plt.close(fig)
+    return True
+
+
+def fig_decoupling(plt, downstream_json: Path, out: Path) -> bool:
+    """Headline figure: WikiText-2 perplexity (log x) vs downstream macro accuracy (y).
+
+    Each operating point is one marker. The catastrophic-perplexity point sits far right yet at
+    the same height as every other point — the decoupling, in one picture.
+    """
+    # (label, wikitext ppl, source) — perplexities from the committed sweeps/reload artifacts.
+    ppl_3b = {
+        "fp16": 7.817, "gptq4": 8.172, "hqq4": 8.328,
+        "resmax_gptq": 8.100, "best_hqq": 7.994, "random_hqq": 8.247,
+        "greedy_gptq": 51.76,          # disk-reload verified
+    }
+    try:
+        d = json.loads(downstream_json.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    acc = {}
+    for p in d.get("points", []):
+        if not str(p.get("model", "")).endswith("3B"):
+            continue
+        vals = [v["value"] for v in (p.get("results") or {}).values()
+                if isinstance(v, dict) and "value" in v]
+        if vals:
+            acc[p.get("point")] = 100.0 * sum(vals) / len(vals)
+    pts = [(k, ppl_3b[k], acc[k]) for k in ppl_3b if k in acc]
+    if len(pts) < 3:
+        return False
+    fig, ax = plt.subplots(figsize=(7.2, 4.4))
+    for label, x, y in pts:
+        crit = label == "greedy_gptq"
+        ax.scatter([x], [y], s=150 if crit else 70,
+                   marker="*" if crit else "o",
+                   color="#d1495b" if crit else "#00798c", zorder=3)
+        ax.annotate(f"{label}\n(ppl {x:.2f})" if crit else label,
+                    (x, y), textcoords="offset points",
+                    xytext=(-12 if crit else 10, 10 if crit else 6), fontsize=8.5,
+                    ha="right" if crit else "left",
+                    color="#d1495b" if crit else "#333333",
+                    fontweight="bold" if crit else "normal")
+    ys = [y for _, _, y in pts]
+    ax.axhspan(min(ys), max(ys), color="#8d99ae", alpha=0.12, zorder=0)
+    ax.set_xscale("log")
+    ax.set_xlabel("WikiText-2 perplexity (log scale)")
+    ax.set_ylabel("downstream macro accuracy, 6 tasks (%)")
+    ax.set_title("A 6.3x perplexity collapse costs no downstream accuracy\n"
+                 "Llama-3.2-3B, matched weight-only storage", fontsize=10.5)
+    ax.grid(alpha=0.25, which="both")
+    ax.margins(y=0.25)
+    fig.tight_layout()
+    fig.savefig(out / "fig0_decoupling.pdf")
+    plt.close(fig)
+    return True
+
+
+def fig_coupling(plt, out: Path) -> bool:
+    """Perplexity by how much of the Hessian objective the selector uses (both models)."""
+    groups = ["none\n(random,\nact_max,\nresidual_max)", "H diagonal\nonly\n(hessian_diag)",
+              "full H,\none-shot\n(greedy_indep)", "full H,\niterative\n(greedy)"]
+    series = {"Llama-3.2-3B": ([8.181, 8.153, 41.50, 51.68], 8.172),
+              "Llama-3.2-1B": ([10.41, 10.441, 11.28, 63.95], 10.557)}
+    import numpy as np
+    x = np.arange(len(groups)); w = 0.36
+    fig, ax = plt.subplots(figsize=(7.6, 4.4))
+    for i, (name, (vals, base)) in enumerate(series.items()):
+        colour = "#00798c" if "3B" in name else "#d1495b"
+        ax.bar(x + (i - 0.5) * w, vals, w, label=f"{name} (base {base:.2f})", color=colour)
+        ax.axhline(base, color=colour, ls=":", lw=1.1, alpha=0.8)
+    ax.set_yscale("log")
+    ax.set_xticks(x); ax.set_xticklabels(groups, fontsize=8)
+    ax.set_ylabel("WikiText-2 perplexity (log)")
+    ax.set_title("Damage requires the selector's off-diagonal Hessian coupling\n"
+                 "GPTQ-4 base, 2% protection, matched storage (dotted = unprotected base)",
+                 fontsize=10.5)
+    ax.grid(alpha=0.25, axis="y", which="both")
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+    fig.savefig(out / "fig5_coupling.pdf")
     plt.close(fig)
     return True
 
@@ -266,6 +351,10 @@ def main():
     for model in [m for m in args.models.split(",") if m.strip()]:
         if args.sweeps_root.exists() and fig_dose_response(plt, args.sweeps_root, model.strip(), out):
             written.append(f"fig1_dose_response_{_short(model.strip())}")
+    if args.downstream.exists() and fig_decoupling(plt, args.downstream, out):
+        written.append("fig0_decoupling (headline)")
+    if fig_coupling(plt, out):
+        written.append("fig5_coupling")
     if fig_pareto(plt, args, out):
         written.append("ppl_vs_actual_bits (fig2)")
     if args.downstream.exists() and fig_forest(plt, args.downstream, out):

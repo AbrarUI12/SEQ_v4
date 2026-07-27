@@ -20,7 +20,43 @@ local box then pulls and rebuilds `COMPARISON.md`/`DOWNSTREAM.md`/figures and th
 
 ---
 
-## 🛑 READ FIRST (2026-07-27) — stalled jobs, and the rules that prevent it
+## ✅ ALL PLANNED EXPERIMENTS ARE DONE — remaining work only
+
+E1–E5 have returned and the paper (`docs/FINDINGS_PAPER.md`, v3.0) is written on them. Headline:
+a reload-verified 6.3× WikiText-2 perplexity collapse (8.172 → 51.76 on Llama-3.2-3B) with **no**
+downstream cost (macro 67.61% vs 67.10% for its base; +0.51 pts [+0.13, +0.86]).
+
+**Three items remain, in priority order.** None blocks the current draft; each strengthens it.
+
+1. **Repair the Llama-3.2-1B export (highest value).** Its `greedy_gptq` checkpoint reloads at
+   **203.72** against an expected 63.95 (`FAIL`), so the 1B downstream row is excluded from the
+   paper and the decoupling rests on one model. Re-export fresh and reload-validate; if it passes,
+   run downstream for that point to replicate the headline on a second model.
+   ```bash
+   rm -rf runs/final/downstream/checkpoints/Llama-3.2-1B/greedy_gptq \
+          runs/final/downstream/Llama-3.2-1B/greedy_gptq
+   bash scripts/run_downstream_eval.sh --models meta-llama/Llama-3.2-1B --points greedy_gptq 2>&1 \
+     | tee results/reexport_1B_greedy.log
+   python scripts/validate_saved_seq_reload.py \
+     runs/final/downstream/checkpoints/Llama-3.2-1B/greedy_gptq \
+     --expected 63.95 --tolerance 0.5 2>&1 | tee results/reload_1B_greedy_retry.log
+   ```
+   **Report `reload_ppl`.** If it lands near 63.95 the row can be included; if it disagrees again,
+   that itself is a finding about export determinism and should be reported.
+
+2. **Per-token loss decomposition** (explains *how* the decoupling is possible). Compute per-token
+   NLL on WikiText-2 for the base and for the greedy@GPTQ checkpoint and report the loss
+   distribution — the hypothesis is that a small fraction of tokens carries the entire perplexity
+   increase. Script not yet written; ask and I will add it.
+
+3. **Ordering intervention (E2) — never produced a result.** Its log predates the instrumentation
+   fix and stalled at `block 1/28`. Now that the sequential pass is instrumented and selection runs
+   in float32, size it first with the bounded diagnostic below, then decide. It is listed as future
+   work in the paper, not as a finding.
+
+---
+
+## 🛑 REFERENCE — stalled jobs, and the rules that prevent it
 
 **One GPU job at a time.** E1 was holding 23.7 GiB while E4 ran, so lm_eval was starved onto CPU
 (that is the "only 620 MiB" observation) — correct results, but glacial. Before launching
