@@ -1,8 +1,9 @@
 % When Perplexity Lies — ACL/ARR submission source.
 %
-% Compiles out of the box with a plain two-column fallback. To use the official ACL style,
-% drop `acl.sty` and `acl_natbib.bst` (from https://github.com/acl-org/acl-style-files)
-% into this directory and recompile: the \IfFileExists switch below picks them up.
+% Compiles out of the box with a plain single-column fallback. `acl.sty` and `acl_natbib.bst`
+% (from the ROOT of https://github.com/acl-org/acl-style-files — not a latex/ subdirectory)
+% are committed alongside this file, so the \IfFileExists switch below selects the real ACL
+% two-column layout. Delete them to proof-read in the fallback.
 %
 % ANONYMITY: this source is anonymous, as ARR requires. See the marked blocks below for
 % where to add author information and the artifact link when preparing a camera-ready.
@@ -20,6 +21,9 @@
   \usepackage{natbib}
   \bibliographystyle{plainnat}
   \setlength{\bibsep}{2pt}
+  % acl.sty loads hyperref itself (plain), so loading it with options here would be an
+  % option clash under the real style. Fallback-only.
+  \usepackage[hidelinks]{hyperref}
   \newcommand{\aclfallback}{}
 }
 
@@ -35,9 +39,13 @@
 \usepackage{amssymb}
 \usepackage{xcolor}
 \usepackage{url}
-\usepackage[hidelinks]{hyperref}
 
 \graphicspath{{figures/}}
+
+% Captions carry long unbreakable tokens (\texttt{acc\_norm}, model names like Llama-3.2-3B)
+% that cannot hyphenate in a narrow ACL column. Let TeX stretch interword space as a last
+% resort rather than push text into the margin.
+\setlength{\emergencystretch}{1.5em}
 
 \newcommand{\ppl}{\mbox{PPL}}
 \newcommand{\best}[1]{\textbf{#1}}
@@ -238,10 +246,11 @@ input channels with \texttt{greedy} gives 51.68 perplexity at 4.57 bits. Entries
 Table~\ref{tab:operating} share identical storage at a given budget.
 
 \begin{table}[t]
-\centering\small
+\centering\footnotesize\setlength{\tabcolsep}{3.5pt}
+\resizebox{\columnwidth}{!}{%
 \begin{tabular}{lrrr}
 \toprule
-point & WT2 \ppl & macro acc & LAMB.\ \ppl \\
+point & WT2 \ppl & acc & LAMB. \\
 \midrule
 FP16                    & 7.817  & 68.43\% & --- \\
 GPTQ-4 (base)           & 8.172  & 67.10\% & 4.28 \\
@@ -251,15 +260,16 @@ HQQ-4 (base)            & 8.328  & 66.86\% & --- \\
 best greedy@HQQ, 20\%   & 7.994  & 68.14\% & --- \\
 random@HQQ, 20\%        & 8.247  & 67.21\% & --- \\
 \bottomrule
-\end{tabular}
-\caption{Llama-3.2-3B operating points. Accuracy is \texttt{acc\_norm} where the task provides
-it and \texttt{acc} otherwise, macro-averaged over six tasks, from the same artifact the
-confidence intervals are computed from.}
+\end{tabular}}
+\caption{Llama-3.2-3B operating points. \emph{acc} is macro accuracy over six tasks
+(\texttt{acc\_norm} where the task provides it, \texttt{acc} otherwise); \emph{LAMB.} is LAMBADA
+perplexity. Both come from the same artifact the confidence intervals are computed from.}
 \label{tab:operating}
 \end{table}
 
 \begin{table}[t]
-\centering\small
+\centering\footnotesize\setlength{\tabcolsep}{3.5pt}
+\resizebox{\columnwidth}{!}{%
 \begin{tabular}{lrl}
 \toprule
 contrast & $\Delta$ (pts) & 95\% CI \\
@@ -269,7 +279,7 @@ resmax@GPTQ $-$ GPTQ-4        & $+0.37$ & $[-0.06, +0.77]$ \\
 best@HQQ $-$ HQQ-4            & $+1.28$ & $[+0.84, +1.68]$ \\
 best@HQQ $-$ random@HQQ       & $+0.92$ & $[+0.50, +1.34]$ \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \caption{Paired-bootstrap macro-$\Delta$ accuracy, Llama-3.2-3B.}
 \label{tab:contrasts}
 \end{table}
@@ -307,7 +317,7 @@ The interval includes zero, so on 1B we claim no degradation rather than an impr
 the interval excludes zero on the favourable side.
 
 \begin{table}[t]
-\centering\small
+\centering\small\setlength{\tabcolsep}{2.5pt}
 \begin{tabular}{lrrl}
 \toprule
 model & base & greedy (reload) & macro $\Delta$ \\

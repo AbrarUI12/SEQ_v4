@@ -20,13 +20,16 @@ pdflatex main && bibtex main && pdflatex main && pdflatex main
 
 ## ACL style
 
-`main.tex` compiles **out of the box** with a plain fallback layout, so the content can be
-proof-read anywhere. To produce the real ACL layout, drop the two official style files into this
-directory and rebuild — the preamble switches automatically:
+`acl.sty` and `acl_natbib.bst` are **committed in this directory**, so `make` produces the real
+ACL two-column layout and the build is reproducible for a reviewer. Delete them and `main.tex`
+falls back to a plain single-column layout that compiles anywhere for proof-reading — the preamble
+switches automatically on `\IfFileExists{acl.sty}`.
+
+Note the files live at the **root** of the style repo, not under `latex/`:
 
 ```bash
-curl -O https://raw.githubusercontent.com/acl-org/acl-style-files/master/latex/acl.sty
-curl -O https://raw.githubusercontent.com/acl-org/acl-style-files/master/latex/acl_natbib.bst
+curl -O https://raw.githubusercontent.com/acl-org/acl-style-files/master/acl.sty
+curl -O https://raw.githubusercontent.com/acl-org/acl-style-files/master/acl_natbib.bst
 make
 ```
 
