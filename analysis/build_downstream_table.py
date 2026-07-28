@@ -36,9 +36,14 @@ _ACC_NORM_TASKS = {"hellaswag", "arc_challenge", "arc_easy", "piqa"}
 # Loading
 # --------------------------------------------------------------------------- #
 def _find_results_json(lm_dir: str) -> Optional[str]:
-    """Newest lm-eval results file (a JSON with a top-level 'results' dict)."""
+    """Newest lm-eval results file (a JSON with a top-level 'results' dict).
+
+    Ordered by the ISO timestamp lm-eval puts in the filename, not by mtime: a fresh
+    clone or a directory rename resets mtimes to checkout time, which would silently
+    change which run is read wherever a point has more than one results file.
+    """
     cands = sorted(glob.glob(os.path.join(lm_dir, "**", "*.json"), recursive=True),
-                   key=os.path.getmtime, reverse=True)
+                   key=lambda p: (os.path.basename(p), p), reverse=True)
     for path in cands:
         if os.path.basename(path).startswith("samples_"):
             continue
@@ -53,10 +58,14 @@ def _find_results_json(lm_dir: str) -> Optional[str]:
 
 
 def _sample_files(lm_dir: str) -> Dict[str, str]:
-    """Map task -> newest samples_<task>_*.jsonl path (per-example logs)."""
+    """Map task -> newest samples_<task>_*.jsonl path (per-example logs).
+
+    Ordered by filename timestamp rather than mtime, for the same reason as
+    :func:`_find_results_json`.
+    """
     out: Dict[str, str] = {}
     for path in sorted(glob.glob(os.path.join(lm_dir, "**", "samples_*.jsonl"), recursive=True),
-                       key=os.path.getmtime):
+                       key=lambda p: (os.path.basename(p), p)):
         base = os.path.basename(path)
         task = base[len("samples_"):].rsplit("_", 1)[0]  # strip 'samples_' and trailing _<ts>
         out[task] = path  # newest wins (sorted ascending by mtime)
