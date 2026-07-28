@@ -88,9 +88,15 @@ def load_points(root: str) -> List[Dict[str, Any]]:
             lm_dir = os.path.join(point_dir, "lm_eval")
             res_path = _find_results_json(lm_dir) if os.path.isdir(lm_dir) else None
             results: Dict[str, Dict[str, Any]] = {}
+            n_samples: Dict[str, Dict[str, Any]] = {}
             if res_path:
                 with open(res_path, encoding="utf-8") as fh:
-                    raw = json.load(fh)["results"]
+                    payload = json.load(fh)
+                raw = payload["results"]
+                # Evaluation scope is read from the run's own output, never from
+                # seq_meta.json: the sidecar is written from the *current* config and
+                # silently misreports reused or resumed evaluations.
+                n_samples = payload.get("n-samples") or {}
                 for task, metrics in raw.items():
                     base = _primary_metric_base(task, metrics)
                     if base is None:
@@ -105,9 +111,27 @@ def load_points(root: str) -> List[Dict[str, Any]]:
                 "point": meta.get("point") or os.path.basename(point_dir),
                 "meta": meta,
                 "results": results,
+                "n_samples": n_samples,
                 "samples": _sample_files(lm_dir) if os.path.isdir(lm_dir) else {},
             })
     return points
+
+
+def eval_scope(point: Dict[str, Any]) -> Tuple[str, bool]:
+    """Return (label, is_full) describing how many examples per task were scored.
+
+    ``is_full`` is False whenever any task was truncated, which makes the point
+    incomparable with full-set points even though its own contrasts stay internally
+    matched.
+    """
+    ns = point.get("n_samples") or {}
+    if not ns:
+        return "?", False
+    pairs = [(t, v.get("effective"), v.get("original")) for t, v in sorted(ns.items())]
+    if all(e == o for _, e, o in pairs if e is not None and o is not None):
+        return "full", True
+    eff = {e for _, e, _ in pairs if e is not None}
+    return (str(next(iter(eff))) if len(eff) == 1 else "mixed"), False
 
 
 def _as_float(v: Any) -> Optional[float]:
@@ -257,12 +281,17 @@ def render_markdown(points: List[Dict[str, Any]], config: Dict[str, Any]) -> str
              "",
              "Zero-shot accuracy (acc_norm where the task reports it, else acc), WikiText-2-"
              "matched checkpoints. Higher is better. `avg` is the macro-average across tasks.",
+             "",
+             "`n/task` is the number of examples actually scored per task, read from each run's "
+             "own lm-eval output rather than from its sidecar metadata. `full` means every task "
+             "used its complete set. **A point that is not `full` is internally matched but not "
+             "comparable with `full` points**, and is marked ⚠ below.",
              ""]
     pkey = {(p["model"], p["point"]): p for p in points}
     for model in sorted(by_model):
         lines += [f"## {model}", "",
-                  "| point | bits | " + " | ".join(tasks) + " | avg | note |",
-                  "|" + "---|" * (len(tasks) + 4)]
+                  "| point | bits | n/task | " + " | ".join(tasks) + " | avg | note |",
+                  "|" + "---|" * (len(tasks) + 5)]
         pts = sorted(by_model[model], key=lambda p: order.index(p["point"]) if p["point"] in order else 99)
         point_defs = (config or {}).get("point_defs", {})
         for p in pts:
@@ -271,8 +300,13 @@ def render_markdown(points: List[Dict[str, Any]], config: Dict[str, Any]) -> str
             # Prefer the current config's note (presentation, kept in sync) over the
             # note copied into seq_meta.json at run time on the eval box (historical).
             note = point_defs.get(p["point"], {}).get("note") or p["meta"].get("note") or ""
+            scope, is_full = eval_scope(p)
+            if not is_full:
+                scope = f"⚠ {scope}"
+                note = (f"**Scored on {eval_scope(p)[0]} examples/task, not the full sets — "
+                        f"not comparable with `full` rows.** " + note).rstrip()
             row = [p["point"], (f"{bits:g}" if isinstance(bits, (int, float)) else "—"),
-                   *cells, _fmt(_macro_avg(p["results"])), str(note)]
+                   scope, *cells, _fmt(_macro_avg(p["results"])), str(note)]
             lines.append("| " + " | ".join(row) + " |")
         lines.append("")
 
@@ -286,6 +320,16 @@ def render_markdown(points: List[Dict[str, Any]], config: Dict[str, Any]) -> str
                     continue
                 macro = ci.get("macro_avg")
                 tag = "paired bootstrap" if ci.get("paired") else "UNPAIRED approx (no sample logs)"
+                # A contrast is only reportable as-is when both arms were scored on the
+                # same set. Mixed scopes are not like-for-like; equal reduced scopes are
+                # internally matched but low-powered.
+                sa, fa = eval_scope(pkey[(model, c["a"])])
+                sb, fb = eval_scope(pkey[(model, c["b"])])
+                if sa != sb:
+                    tag += (f"; **⚠ NOT LIKE-FOR-LIKE: {c['a']} scored on {sa}/task, "
+                            f"{c['b']} on {sb}/task**")
+                elif not (fa and fb):
+                    tag += f"; **⚠ both arms scored on {sa} examples/task, not the full sets**"
                 if macro and macro["diff"] is not None:
                     lines.append(
                         f"- **{c['a']} − {c['b']}** ({c.get('claim','')}): "
@@ -300,11 +344,15 @@ def render_markdown(points: List[Dict[str, Any]], config: Dict[str, Any]) -> str
 def write_csv(points: List[Dict[str, Any]], path: str) -> None:
     with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
-        w.writerow(["model", "point", "nominal_bits", "task", "metric", "value", "stderr"])
+        w.writerow(["model", "point", "nominal_bits", "task", "metric", "value", "stderr",
+                    "n_effective", "n_original"])
         for p in points:
+            ns = p.get("n_samples") or {}
             for task, r in sorted(p["results"].items()):
+                scope = ns.get(task) or {}
                 w.writerow([p["model"], p["point"], p["meta"].get("nominal_bits"),
-                            task, r["metric"], r["value"], r["stderr"]])
+                            task, r["metric"], r["value"], r["stderr"],
+                            scope.get("effective"), scope.get("original")])
 
 
 def build_json(points: List[Dict[str, Any]], config: Dict[str, Any]) -> Dict[str, Any]:
@@ -316,6 +364,8 @@ def build_json(points: List[Dict[str, Any]], config: Dict[str, Any]) -> Dict[str
             "model": p["model"], "point": p["point"],
             "nominal_bits": p["meta"].get("nominal_bits"),
             "results": p["results"], "macro_avg": _macro_avg(p["results"]),
+            "n_samples": p.get("n_samples") or {},
+            "eval_scope": eval_scope(p)[0], "eval_scope_full": eval_scope(p)[1],
         })
     for model in models:
         out["contrasts"][model] = {}

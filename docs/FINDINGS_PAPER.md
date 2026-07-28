@@ -14,9 +14,9 @@ loses nothing: macro accuracy 67.61% versus 67.10% for its base, a paired-bootst
 Llama-3.2-1B (10.56 to 63.83 reload-verified, +0.32 points). A per-token decomposition rules out
 the obvious explanation: the damage is broad, not a tail artifact — 74.6% of tokens degrade and
 excluding the worst 5% still leaves a 4x gap. The damage requires the selector's off-diagonal
-Hessian coupling. A mechanism test we previously reported as falsifying the compensation account
-is withdrawn: it scored a diagonal proxy rather than the selector's objective, and is being
-re-run.
+Hessian coupling, and the natural mechanism is refuted: scored by its exact objective, the
+harmful selector is *anti*-correlated with GPTQ's compensation while the safest selector tracks
+it almost perfectly.
 
 _(200 words)_
 
@@ -59,10 +59,11 @@ LAMBADA perplexity **4.17**, comparable to the base's 4.28.
 3. A characterization of *what generates* the perplexity damage: it requires the selector's
    **off-diagonal Hessian coupling**. Selectors using no Hessian, only its diagonal, only residual
    magnitude, or random selection are all benign at every budget we tested (§5).
-4. A **withdrawn mechanism result**, reported as such: our probe scored the greedy selector with
-   a diagonal proxy instead of its true first-step gain, so the correlations did not describe the
-   selector they were attributed to. The corrected measurement is in progress; no claim about the
-   compensation account is made here (§6).
+4. A **refuted mechanism**, measured on the selector's exact objective: the harmful selector is
+   anti-correlated with compensation magnitude (ρ = −0.23 / −0.14, positive in under a third of
+   layers) while the safest selector is almost perfectly aligned with it (ρ ≈ 0.99 in every
+   layer). Protecting compensation-bearing columns is neither sufficient nor necessary for the
+   collapse (§6).
 5. A quantification of how much the effect depends on the **selector's own Hessian estimate**,
    which is large on one model and negligible on another (§5.3), and a **model-scope boundary**:
    two of four checkpoints exhibit the collapse, and on Qwen2.5-3B no selector is harmful at all
@@ -303,6 +304,16 @@ on 3B and `random` reaches 9.048 at the 10% budget — moderate movements, one t
 magnitude smaller than the collapse. Throughout we call a change **indistinguishable** if within
 ±0.1 PPL of the base, **moderate** up to ~1 PPL, and **catastrophic** above 5× the base.
 
+**The ordering does not depend on pad tokens.** The scalar statistics above were collected with
+prompts padded to the full sequence length (§3), so we re-measured them on real tokens only
+(`--no_pad_calibration`, Llama-3.2-3B). Three of the four scalars are unmoved — `act_max`
+8.181→8.178, `residual_max` 8.100→8.100, `residual_rms` 8.146→8.146 — and only `act_scale` shifts
+materially, 8.586→8.142, so its apparent weakness was a padding artifact rather than a property of
+the signal. Under honest calibration all four scalars sit within 8.10–8.15 against a base of
+8.172, which sharpens rather than weakens the finding: every Hessian-free selector is benign, and
+the gap to the coupled selectors is unchanged. The HQQ result of §7 also survives, with informed
+selectors at 8.100–8.141 against a random control at 8.319.
+
 ### 5.2 Severity within the coupled selectors
 
 Among the two coupled selectors, iterative re-scoring is at least as harmful as one-shot
@@ -368,7 +379,7 @@ them downstream would confirm that a healthy model scores healthily, which is un
 second *decoupling* datapoint can only come from a model that exhibits the collapse — i.e.
 Llama-3.2-1B, whose export failed reload validation (§9).
 
-## 6 The mechanism test (WITHDRAWN — being re-run)
+## 6 The compensation account, tested directly and refuted
 
 The natural explanation for §5 is that the coupled selectors identify columns carrying GPTQ's
 deposited error correction, and that restoring those columns to FP16 discards compensation the
@@ -377,33 +388,47 @@ compensation-bearing columns highly.
 
 We tested it directly. During a sequential GPTQ pass we recorded, per input channel, the
 compensation magnitude `comp_j = ‖W_pre_quant[:,j] − W_orig[:,j]‖₂` — how far compensation moved
-that column before it was itself quantized — and rank-correlated each selector's score against it
-(Spearman, median over 56 layers per model):
+that column before it was itself quantized — and rank-correlated each selector's score against it.
+Crucially, the harmful selector is scored by its **exact first-step gain**
+`2⟨ΔW_j,(ΔW H)_j⟩ − ‖ΔW_j‖²H_jj`, computed in-pass against the same Hessian the selector itself
+receives (Spearman, median over 56 layers per model):
 
-| selector | 3B median ρ | 1B median ρ | perplexity verdict |
-|---|---|---|---|
-| `residual_rms` | **+0.988** | **+0.980** | benign |
-| `residual_max` | +0.545 | +0.614 | benign |
-| `greedy_gain` | +0.390 | +0.386 | **catastrophic** |
-| `hessian_diag` | −0.134 | −0.083 | benign |
+| selector | 3B median ρ | 1B median ρ | layers with ρ>0 | perplexity verdict |
+|---|---|---|---|---|
+| `residual_rms` | **+0.988** | **+0.981** | 100% | benign |
+| `residual_max` | +0.548 | +0.615 | 100% | benign |
+| `hessian_diag` | −0.133 | −0.092 | ~33% | benign |
+| **`greedy` (true objective)** | **−0.230** | **−0.142** | **29%** | **catastrophic** |
 
-The prediction fails, and fails in the informative direction: the selector most nearly *identical*
-to compensation magnitude (`residual_rms`, ρ ≈ 0.99) is one of the safest, while the catastrophic
-selector is only moderately aligned. Protecting compensation-bearing columns is therefore not
-sufficient — and evidently not even necessary — for the collapse. We report this as a negative
-result and do **not** substitute a new mechanism for it: what §5 establishes is a structural
-condition (off-diagonal coupling), not a causal account.
+**The prediction fails, and fails in the strongest possible direction.** The selector most nearly
+*identical* to compensation magnitude (`residual_rms`, ρ ≈ 0.99 in every single layer) is among the
+safest, while the catastrophic selector is *anti*-correlated with compensation and ranks it
+positively in fewer than a third of layers. Protecting compensation-bearing columns is therefore
+neither sufficient nor necessary for the collapse; if anything the harmful selector systematically
+*avoids* them. Both models agree.
+
+We report this as a negative result and do **not** substitute a new mechanism for it: what §5
+establishes is a structural condition (off-diagonal coupling), not a causal account.
+
+> **Correction.** An earlier version of this section scored the harmful selector as
+> `‖ΔW_j‖²·H_jj` — only the subtracted term of the gain above, with the off-diagonal coupling
+> dropped — and reported ρ = +0.390 (3B) / +0.386 (1B). That expression disagrees with the true
+> ranking on the majority of layers, so it did not describe the selector it was attributed to. The
+> table above uses the selector's actual objective; the superseded column reproduces at +0.388 /
+> +0.384 and is retained in the released artifacts as `diag_proxy`. The corrected measurement
+> **strengthens** the refutation rather than reversing it. `greedy_select.first_step_gains` is now
+> the single definition shared by selector and analysis, pinned by `tests/test_first_step_gains.py`.
 
 The clean causal test remains the ordering intervention — hold the protected set fixed and vary
 only whether it is made exact before or after compensation. We implemented it but do not report a
-result: our internal sequential GPTQ did not complete at 3B scale within the available compute
-(§9).
+result: our internal sequential GPTQ produced a degenerate base at 3B, so all arms were
+uninformative (§9).
 
 ## 7 Supporting audits
 
 **Protection helps a calibration-free base.** On HQQ-4, every informative signal beats the
 matched-bit random control at both budgets and both sizes (3B at 2%: `greedy` 8.100, `act_max`
-8.108, `residual_rms` 8.141 vs `random` 8.319). Downstream this reproduces at matched storage:
+8.108, `residual_rms` 8.141 vs `random` 8.318). Downstream this reproduces at matched storage:
 best@HQQ − random@HQQ = **+0.92 pts [+0.50, +1.34]**, so the gain is a selection effect and not a
 budget effect.
 
@@ -425,10 +450,9 @@ a second corpus also unharmed. The construction uses only standard PTQ component
 decomposition shows the perplexity damage is broad rather than a tail artifact: three quarters of
 tokens degrade and the median token worsens, so the models really are pervasively worse at
 modelling the corpus while answering the benchmarks exactly as well. We further show that
-producing this damage requires the selector's off-diagonal Hessian coupling. We previously
-reported the obvious mechanism — destroying error compensation — as falsified; that test measured
-a diagonal proxy rather than the selector's objective and is withdrawn pending a corrected re-run
-(§6), so we make no mechanism claim here.
+producing this damage requires the selector's off-diagonal Hessian coupling. The obvious mechanism — destroying
+error compensation — is refuted by direct measurement against the selector's exact objective: the
+harmful selector avoids compensation-bearing columns rather than targeting them (§6).
 
 The practical consequence is narrow and concrete. Perplexity remains a useful diagnostic, but a
 perplexity delta, even a very large one, is not by itself evidence of utility loss for a quantized
@@ -447,15 +471,17 @@ regression gates should be expected to reject models that are downstream-equival
   an expected 63.95 (`FAIL`). It is a third distinct value for that configuration, so we exclude
   the 1B `greedy@GPTQ` downstream row entirely rather than report it. The 3B chain, by contrast,
   passed reload validation against the sweep value.
-- **A published analysis error, now corrected.** The §6 probe scored the greedy selector with a
-  diagonal expression (`‖ΔW_j‖²·H_jj`) rather than its true first-step gain, so the reported
-  correlations did not describe the selector they were attributed to. That section is withdrawn
-  pending a corrected re-run. The error was in the analysis probe only; the selector, the sweeps
-  and every perplexity in this paper are unaffected.
-- **Scalar-signal calibration was padded.** See §3: those statistics are dominated by pad states,
-  so the scalar selectors are less "informed" than described. A `--no_pad_calibration` robustness
-  re-measurement is outstanding.
-- **§5.3 is size-matched, not sample-matched.** It does not exclude calibration-sample mismatch.
+- **A published analysis error, corrected.** The §6 probe originally scored the greedy selector
+  with a diagonal expression rather than its true first-step gain. It has been corrected, re-run on
+  both models, and the refutation is stronger on the right quantity (§6). The error was confined to
+  the analysis probe; the selector, the sweeps and every perplexity here are unaffected. The two
+  definitions are now shared and regression-tested.
+- **Scalar-signal calibration was padded.** See §3. Re-measuring on real tokens leaves the ordering
+  intact on Llama-3.2-3B (§5.1); we have not repeated it on 1B.
+- **§5.3 is size-matched, not sample-matched.** It does not establish token identity with the
+  base's calibration set. The released code can now consume a saved token set
+  (`--selector_calib_tokens`) so future bases can be made token-identical, but the base used here
+  predates that and its calibration tokens were never persisted.
 - **No causal mechanism, and no positive account of the decoupling.** §6 falsifies the
   compensation explanation and §4.3 falsifies the tail explanation; §5 gives a structural
   condition only. We can say what the decoupling is *not* caused by more confidently than what it

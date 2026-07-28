@@ -65,8 +65,9 @@ excludes zero, and LAMBADA perplexity 4.17. The pattern replicates on Llama-3.2-
 63.83 reload-verified, $+0.32$ points). A per-token decomposition rules out the obvious
 explanation: the damage is broad, not a tail artifact---74.6\% of tokens degrade, the median
 token worsens, and excluding the worst 5\% still leaves a $4\times$ gap. We further show the
-damage requires the selector's off-diagonal Hessian coupling, and report that the natural
-mechanism, protection destroying error compensation, is falsified by direct measurement.
+damage requires the selector's off-diagonal Hessian coupling, and refute the natural mechanism:
+scored by its exact objective, the harmful selector is \emph{anti}-correlated with the base's
+error compensation while the safest selector tracks it almost perfectly.
 \end{abstract}
 
 \section{Introduction}
@@ -478,7 +479,7 @@ establishes a structural condition, not a causal account.
 
 \paragraph{Protection helps a calibration-free base.} On HQQ-4, every informative signal beats
 the matched-bit random control at both budgets and both sizes (3B at 2\%: \texttt{greedy} 8.100,
-\texttt{act\_max} 8.108, \texttt{residual\_rms} 8.141 vs \texttt{random} 8.319). Downstream this
+\texttt{act\_max} 8.108, \texttt{residual\_rms} 8.141 vs \texttt{random} 8.318). Downstream this
 reproduces at matched storage: best@HQQ $-$ random@HQQ $= +0.92$ pts $[+0.50, +1.34]$
 (Figure~\ref{fig:forest}), so the gain is a selection effect, not a budget effect.
 

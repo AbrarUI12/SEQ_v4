@@ -2,162 +2,268 @@
 
 Points from SEQ sweeps + external baselines, sorted by **weight-only bits/param** — quantized linear weights plus their inline overhead (group scales/zeros, FP16/INT8 protection residual, channel index), divided by the quantized-linear parameter count. Embeddings, lm_head, norms and biases are FP16 in every method, common to the axis, and excluded — so this axis is directly comparable to GPTQ-4 = 4.0. ★ = on the Pareto frontier (no method has both fewer bits and lower PPL).
 
-## meta-llama/Llama-3.2-1B  (FP16 PPL 9.7571)
+## meta-llama/Llama-3.2-1B  (FP16 PPL 9.7572)
 
 Axis = **weight-only bits/param** (quantized linear weights + inline overhead; FP16 embeddings/lm_head/norms excluded, common to all methods — so it is comparable to GPTQ-4 = 4.0). *full-model bits* is the deployment average including FP16 embeddings, shown for reference only, not the frontier axis.
 
 | method | weight bits | nominal bits | full-model bits | PPL | Δ vs FP16 | frontier |
 |---|---|---|---|---|---|---|
-| AWQ-4 g128 | 4.00 | 4.00 | — | 11.263 | +1.506 | ★ |
+| GPTQ-4 g128 | 4.00 | 4.00 | — | 10.431 | +0.673 | ★ |
+| AWQ-4 g128 | 4.00 | 4.00 | — | 11.263 | +1.506 |  |
 | RTN-4 g128 | 4.00 | 4.00 | — | 11.711 | +1.954 |  |
-| GPTQ-4 g128 | 4.29 | 4.00 | 6.78 | 10.405 | +0.648 | ★ |
-| SEQ:residual_max(gptq_llmc-4b k=0.0) | 4.50 | 4.00 | 7.90 | 10.779 | +1.022 |  |
-| SEQ:residual_max(hqq-4b k=0.0) | 4.50 | 4.00 | 7.90 | 11.187 | +1.430 |  |
-| HQQ-4 uniform | 4.50 | 4.00 | 7.90 | 11.187 | +1.430 |  |
-| SEQ:tier_alloc(hqq-4b [budget=0.25]) | 4.76 | 4.07 | 8.16 | 10.631 | +0.874 |  |
-| SEQ:residual_max(gptq_llmc-4b k=0.02) | 4.82 | 4.24 | 8.22 | 10.391 | +0.634 | ★ |
-| SEQ:residual_rms(gptq_llmc-4b k=0.02) | 4.82 | 4.24 | 8.22 | 10.400 | +0.643 |  |
-| SEQ:greedy(hqq-4b k=0.02) | 4.82 | 4.24 | 8.22 | 10.495 | +0.738 |  |
-| SEQ:greedy_indep(hqq-4b k=0.02) | 4.82 | 4.24 | 8.22 | 10.506 | +0.749 |  |
-| SEQ:residual_max(hqq-4b k=0.02) | 4.82 | 4.24 | 8.22 | 10.533 | +0.776 |  |
-| SEQ:act_max(hqq-4b k=0.02) | 4.82 | 4.24 | 8.22 | 10.538 | +0.781 |  |
-| SEQ:residual_rms(hqq-4b k=0.02) | 4.82 | 4.24 | 8.22 | 10.614 | +0.857 |  |
-| SEQ:act_scale(hqq-4b k=0.02) | 4.82 | 4.24 | 8.22 | 10.621 | +0.864 |  |
-| SEQ:random(gptq_llmc-4b k=0.02) | 4.82 | 4.24 | 8.22 | 10.680 [10.409, 10.952] | +0.923 |  |
-| SEQ:act_max(gptq_llmc-4b k=0.02) | 4.82 | 4.24 | 8.22 | 10.692 | +0.935 |  |
-| SEQ:act_scale(gptq_llmc-4b k=0.02) | 4.82 | 4.24 | 8.22 | 10.935 | +1.178 |  |
-| SEQ:random(hqq-4b k=0.02) | 4.82 | 4.24 | 8.22 | 11.164 [11.155, 11.174] | +1.407 |  |
-| SEQ:greedy_indep(gptq_llmc-4b k=0.02) | 4.82 | 4.24 | 8.22 | 15.639 | +5.882 |  |
-| SEQ:greedy(gptq_llmc-4b k=0.02) | 4.82 | 4.24 | 8.22 | 104.163 | +94.406 |  |
+| SEQ:residual_max(gptq_llmc-4b k=0.0) | 4.25 | 4.00 | 10.15 | 10.557 | +0.800 |  |
+| SEQ:residual_max(hqq-4b k=0.0) | 4.50 | 4.00 | 10.35 | 11.072 | +1.315 |  |
+| HQQ-4 uniform | 4.50 | 4.00 | 10.35 | 11.072 | +1.315 |  |
+| SEQ:residual_max(gptq_llmc-4b k=0.02) | 4.57 | 4.24 | 10.40 | 10.423 | +0.666 | ★ |
+| SEQ:residual_rms(gptq_llmc-4b k=0.02) | 4.57 | 4.24 | 10.40 | 10.434 | +0.677 |  |
+| SEQ:random(gptq_llmc-4b k=0.02) | 4.57 | 4.24 | 10.40 | 10.557 [10.158, 10.957] | +0.800 |  |
+| SEQ:act_max(gptq_llmc-4b k=0.02) | 4.57 | 4.24 | 10.40 | 10.711 | +0.954 |  |
+| SEQ:act_scale(gptq_llmc-4b k=0.02) | 4.57 | 4.24 | 10.40 | 10.930 | +1.172 |  |
+| SEQ:greedy_indep(gptq_llmc-4b k=0.02) | 4.57 | 4.24 | 10.40 | 11.275 | +1.518 |  |
+| SEQ:greedy(gptq_llmc-4b k=0.02) | 4.57 | 4.24 | 10.40 | 63.946 | +54.189 |  |
+| SEQ:tier_alloc(hqq-4b [budget=0.25]) | 4.76 | 4.07 | 8.16 | 10.631 | +0.873 |  |
+| SEQ:greedy(hqq-4b k=0.02) | 4.82 | 4.24 | 10.60 | 10.398 | +0.641 | ★ |
+| SEQ:greedy_indep(hqq-4b k=0.02) | 4.82 | 4.24 | 10.60 | 10.406 | +0.649 |  |
+| SEQ:residual_max(hqq-4b k=0.02) | 4.82 | 4.24 | 10.60 | 10.432 | +0.675 |  |
+| SEQ:act_max(hqq-4b k=0.02) | 4.82 | 4.24 | 10.60 | 10.434 | +0.677 |  |
+| SEQ:residual_rms(hqq-4b k=0.02) | 4.82 | 4.24 | 10.60 | 10.512 | +0.755 |  |
+| SEQ:act_scale(hqq-4b k=0.02) | 4.82 | 4.24 | 10.60 | 10.521 | +0.763 |  |
+| SEQ:random(hqq-4b k=0.02) | 4.82 | 4.24 | 10.60 | 11.052 [11.048, 11.055] | +1.294 |  |
 | SEQ:tier_alloc(hqq-4b [budget=0.5]) | 5.01 | 4.13 | 8.41 | 10.592 | +0.835 |  |
-| SEQ:greedy(hqq-4b k=0.05) | 5.30 | 4.60 | 8.71 | 10.381 | +0.624 | ★ |
-| SEQ:residual_max(gptq_llmc-4b k=0.05) | 5.30 | 4.60 | 8.71 | 10.400 | +0.643 |  |
-| SEQ:greedy_indep(hqq-4b k=0.05) | 5.30 | 4.60 | 8.71 | 10.405 | +0.648 |  |
-| SEQ:residual_rms(gptq_llmc-4b k=0.05) | 5.30 | 4.60 | 8.71 | 10.424 | +0.667 |  |
-| SEQ:act_max(hqq-4b k=0.05) | 5.30 | 4.60 | 8.71 | 10.425 | +0.668 |  |
-| SEQ:residual_max(hqq-4b k=0.05) | 5.30 | 4.60 | 8.71 | 10.428 | +0.671 |  |
-| SEQ:act_scale(gptq_llmc-4b k=0.05) | 5.30 | 4.60 | 8.71 | 10.456 | +0.699 |  |
-| SEQ:residual_rms(hqq-4b k=0.05) | 5.30 | 4.60 | 8.71 | 10.567 | +0.810 |  |
-| SEQ:act_scale(hqq-4b k=0.05) | 5.30 | 4.60 | 8.71 | 10.571 | +0.814 |  |
-| SEQ:act_max(gptq_llmc-4b k=0.05) | 5.30 | 4.60 | 8.71 | 10.657 | +0.900 |  |
-| SEQ:random(gptq_llmc-4b k=0.05) | 5.30 | 4.60 | 8.71 | 10.689 [10.282, 11.097] | +0.932 |  |
-| SEQ:random(hqq-4b k=0.05) | 5.30 | 4.60 | 8.71 | 11.133 [11.123, 11.143] | +1.376 |  |
-| SEQ:greedy_indep(gptq_llmc-4b k=0.05) | 5.30 | 4.60 | 8.71 | 14.884 | +5.127 |  |
-| SEQ:greedy(gptq_llmc-4b k=0.05) | 5.30 | 4.60 | 8.71 | 98.410 | +88.653 |  |
-| SEQ:act_max(hqq-5b k=0.0) | 5.50 | 5.00 | 8.90 | 10.064 | +0.307 | ★ |
-| HQQ-5 uniform | 5.50 | 5.00 | 8.90 | 10.064 | +0.307 | ★ |
+| SEQ:residual_max(gptq_llmc-4b k=0.05) | 5.05 | 4.60 | 10.78 | 10.436 | +0.678 |  |
+| SEQ:residual_rms(gptq_llmc-4b k=0.05) | 5.05 | 4.60 | 10.78 | 10.436 | +0.679 |  |
+| SEQ:act_scale(gptq_llmc-4b k=0.05) | 5.05 | 4.60 | 10.78 | 10.476 | +0.719 |  |
+| SEQ:random(gptq_llmc-4b k=0.05) | 5.05 | 4.60 | 10.78 | 10.553 [10.232, 10.874] | +0.796 |  |
+| SEQ:act_max(gptq_llmc-4b k=0.05) | 5.05 | 4.60 | 10.78 | 10.687 | +0.930 |  |
+| SEQ:greedy_indep(gptq_llmc-4b k=0.05) | 5.05 | 4.60 | 10.78 | 11.283 | +1.526 |  |
+| SEQ:greedy(gptq_llmc-4b k=0.05) | 5.05 | 4.60 | 10.78 | 66.839 | +57.082 |  |
+| SEQ:greedy(hqq-4b k=0.05) | 5.30 | 4.60 | 10.98 | 10.289 | +0.532 | ★ |
+| SEQ:greedy_indep(hqq-4b k=0.05) | 5.30 | 4.60 | 10.98 | 10.312 | +0.555 |  |
+| SEQ:act_max(hqq-4b k=0.05) | 5.30 | 4.60 | 10.98 | 10.329 | +0.572 |  |
+| SEQ:residual_max(hqq-4b k=0.05) | 5.30 | 4.60 | 10.98 | 10.332 | +0.575 |  |
+| SEQ:residual_rms(hqq-4b k=0.05) | 5.30 | 4.60 | 10.98 | 10.465 | +0.708 |  |
+| SEQ:act_scale(hqq-4b k=0.05) | 5.30 | 4.60 | 10.98 | 10.467 | +0.710 |  |
+| SEQ:random(hqq-4b k=0.05) | 5.30 | 4.60 | 10.98 | 11.025 [11.016, 11.034] | +1.268 |  |
+| SEQ:act_max(hqq-5b k=0.0) | 5.50 | 5.00 | 8.90 | 10.064 | +0.306 | ★ |
+| HQQ-5 uniform | 5.50 | 5.00 | 8.90 | 10.064 | +0.306 | ★ |
 | SEQ:tier_alloc(hqq-4b [budget=1.0]) | 5.53 | 4.27 | 8.93 | 10.555 | +0.798 |  |
-| SEQ:greedy(hqq-4b k=0.1) | 6.10 | 5.20 | 9.50 | 10.299 | +0.542 |  |
-| SEQ:greedy_indep(hqq-4b k=0.1) | 6.10 | 5.20 | 9.50 | 10.323 | +0.566 |  |
-| SEQ:act_max(hqq-4b k=0.1) | 6.10 | 5.20 | 9.50 | 10.332 | +0.575 |  |
-| SEQ:residual_max(hqq-4b k=0.1) | 6.10 | 5.20 | 9.50 | 10.337 | +0.580 |  |
-| SEQ:residual_max(gptq_llmc-4b k=0.1) | 6.10 | 5.20 | 9.50 | 10.391 | +0.634 |  |
-| SEQ:residual_rms(gptq_llmc-4b k=0.1) | 6.10 | 5.20 | 9.50 | 10.411 | +0.654 |  |
-| SEQ:act_scale(gptq_llmc-4b k=0.1) | 6.10 | 5.20 | 9.50 | 10.460 | +0.703 |  |
-| SEQ:residual_rms(hqq-4b k=0.1) | 6.10 | 5.20 | 9.50 | 10.501 | +0.744 |  |
-| SEQ:act_scale(hqq-4b k=0.1) | 6.10 | 5.20 | 9.50 | 10.504 | +0.746 |  |
-| SEQ:random(gptq_llmc-4b k=0.1) | 6.10 | 5.20 | 9.50 | 10.602 [10.130, 11.075] | +0.845 |  |
-| SEQ:act_max(gptq_llmc-4b k=0.1) | 6.10 | 5.20 | 9.50 | 10.638 | +0.881 |  |
-| SEQ:random(hqq-4b k=0.1) | 6.10 | 5.20 | 9.50 | 11.080 [11.035, 11.124] | +1.323 |  |
-| SEQ:greedy_indep(gptq_llmc-4b k=0.1) | 6.10 | 5.20 | 9.50 | 14.864 | +5.107 |  |
-| SEQ:greedy(gptq_llmc-4b k=0.1) | 6.10 | 5.20 | 9.50 | 103.532 | +93.775 |  |
+| SEQ:residual_max(gptq_llmc-4b k=0.1) | 5.85 | 5.20 | 11.41 | 10.413 | +0.656 |  |
+| SEQ:residual_rms(gptq_llmc-4b k=0.1) | 5.85 | 5.20 | 11.41 | 10.441 | +0.684 |  |
+| SEQ:act_scale(gptq_llmc-4b k=0.1) | 5.85 | 5.20 | 11.41 | 10.484 | +0.727 |  |
+| SEQ:random(gptq_llmc-4b k=0.1) | 5.85 | 5.20 | 11.41 | 10.485 [10.290, 10.680] | +0.728 |  |
+| SEQ:act_max(gptq_llmc-4b k=0.1) | 5.85 | 5.20 | 11.41 | 10.646 | +0.888 |  |
+| SEQ:greedy_indep(gptq_llmc-4b k=0.1) | 5.85 | 5.20 | 11.41 | 11.251 | +1.494 |  |
+| SEQ:greedy(gptq_llmc-4b k=0.1) | 5.85 | 5.20 | 11.41 | 77.987 | +68.230 |  |
+| SEQ:greedy(hqq-4b k=0.1) | 6.10 | 5.20 | 11.61 | 10.216 | +0.459 |  |
+| SEQ:greedy_indep(hqq-4b k=0.1) | 6.10 | 5.20 | 11.61 | 10.239 | +0.481 |  |
+| SEQ:act_max(hqq-4b k=0.1) | 6.10 | 5.20 | 11.61 | 10.246 | +0.489 |  |
+| SEQ:residual_max(hqq-4b k=0.1) | 6.10 | 5.20 | 11.61 | 10.250 | +0.493 |  |
+| SEQ:residual_rms(hqq-4b k=0.1) | 6.10 | 5.20 | 11.61 | 10.400 | +0.643 |  |
+| SEQ:act_scale(hqq-4b k=0.1) | 6.10 | 5.20 | 11.61 | 10.403 | +0.646 |  |
+| SEQ:random(hqq-4b k=0.1) | 6.10 | 5.20 | 11.61 | 10.976 [10.943, 11.011] | +1.219 |  |
 | SEQ:act_max(hqq-6b k=0.0) | 6.50 | 6.00 | 9.90 | 9.829 | +0.072 | ★ |
 | HQQ-6 uniform | 6.50 | 6.00 | 9.90 | 9.829 | +0.072 | ★ |
-| SEQ:tier_alloc(hqq-4b [budget=2.0]) | 6.56 | 4.54 | 9.96 | 10.479 | +0.722 |  |
-| SEQ:greedy(hqq-4b k=0.2) | 7.70 | 6.40 | 11.11 | 10.207 | +0.450 |  |
-| SEQ:act_max(hqq-4b k=0.2) | 7.70 | 6.40 | 11.11 | 10.227 | +0.470 |  |
-| SEQ:greedy_indep(hqq-4b k=0.2) | 7.70 | 6.40 | 11.11 | 10.230 | +0.473 |  |
-| SEQ:residual_max(hqq-4b k=0.2) | 7.70 | 6.40 | 11.11 | 10.232 | +0.475 |  |
-| SEQ:residual_max(gptq_llmc-4b k=0.2) | 7.70 | 6.40 | 11.11 | 10.350 | +0.592 |  |
-| SEQ:act_max(gptq_llmc-4b k=0.2) | 7.70 | 6.40 | 11.11 | 10.362 | +0.605 |  |
-| SEQ:residual_rms(hqq-4b k=0.2) | 7.70 | 6.40 | 11.11 | 10.395 | +0.638 |  |
-| SEQ:act_scale(hqq-4b k=0.2) | 7.70 | 6.40 | 11.11 | 10.399 | +0.642 |  |
-| SEQ:residual_rms(gptq_llmc-4b k=0.2) | 7.70 | 6.40 | 11.11 | 10.403 | +0.646 |  |
-| SEQ:act_scale(gptq_llmc-4b k=0.2) | 7.70 | 6.40 | 11.11 | 10.449 | +0.692 |  |
-| SEQ:random(gptq_llmc-4b k=0.2) | 7.70 | 6.40 | 11.11 | 10.649 [10.251, 11.048] | +0.892 |  |
-| SEQ:random(hqq-4b k=0.2) | 7.70 | 6.40 | 11.11 | 10.975 [10.932, 11.018] | +1.218 |  |
-| SEQ:greedy_indep(gptq_llmc-4b k=0.2) | 7.70 | 6.40 | 11.11 | 15.607 | +5.850 |  |
-| SEQ:greedy(gptq_llmc-4b k=0.2) | 7.70 | 6.40 | 11.11 | 106.824 | +97.067 |  |
+| SEQ:tier_alloc(hqq-4b [budget=2.0]) | 6.56 | 4.54 | 9.96 | 10.479 | +0.721 |  |
+| SEQ:residual_max(gptq_llmc-4b k=0.2) | 7.45 | 6.40 | 12.67 | 10.355 | +0.598 |  |
+| SEQ:act_max(gptq_llmc-4b k=0.2) | 7.45 | 6.40 | 12.67 | 10.383 | +0.626 |  |
+| SEQ:residual_rms(gptq_llmc-4b k=0.2) | 7.45 | 6.40 | 12.67 | 10.453 | +0.695 |  |
+| SEQ:act_scale(gptq_llmc-4b k=0.2) | 7.45 | 6.40 | 12.67 | 10.479 | +0.722 |  |
+| SEQ:random(gptq_llmc-4b k=0.2) | 7.45 | 6.40 | 12.67 | 10.508 [10.334, 10.682] | +0.751 |  |
+| SEQ:greedy_indep(gptq_llmc-4b k=0.2) | 7.45 | 6.40 | 12.67 | 11.385 | +1.628 |  |
+| SEQ:greedy(gptq_llmc-4b k=0.2) | 7.45 | 6.40 | 12.67 | 64.995 | +55.238 |  |
+| SEQ:greedy(hqq-4b k=0.2) | 7.70 | 6.40 | 12.87 | 10.128 | +0.371 |  |
+| SEQ:greedy_indep(hqq-4b k=0.2) | 7.70 | 6.40 | 12.87 | 10.155 | +0.397 |  |
+| SEQ:residual_max(hqq-4b k=0.2) | 7.70 | 6.40 | 12.87 | 10.157 | +0.400 |  |
+| SEQ:act_max(hqq-4b k=0.2) | 7.70 | 6.40 | 12.87 | 10.158 | +0.401 |  |
+| SEQ:residual_rms(hqq-4b k=0.2) | 7.70 | 6.40 | 12.87 | 10.308 | +0.550 |  |
+| SEQ:act_scale(hqq-4b k=0.2) | 7.70 | 6.40 | 12.87 | 10.309 | +0.552 |  |
+| SEQ:random(hqq-4b k=0.2) | 7.70 | 6.40 | 12.87 | 10.884 [10.836, 10.933] | +1.127 |  |
 | SEQ:act_max(hqq-8b k=0.0) | 8.50 | 8.00 | 11.90 | 9.762 | +0.005 | ★ |
 | HQQ-8 uniform | 8.50 | 8.00 | 11.90 | 9.762 | +0.005 | ★ |
 | FP16 | 16.00 | 16.00 | — | 9.757 | +0.000 | ★ |
 
-> SEQ is on the Pareto frontier (5 point(s)). At ~8.5 bits, best SEQ (9.762) **loses to** HQQ-8 uniform (9.762).
+> SEQ is on the Pareto frontier (6 point(s)). At ~8.5 bits, best SEQ (9.762) **loses to** HQQ-8 uniform (9.762).
 
-## meta-llama/Llama-3.2-3B  (FP16 PPL 7.8166)
+## meta-llama/Llama-3.2-3B  (FP16 PPL 7.8167)
 
 Axis = **weight-only bits/param** (quantized linear weights + inline overhead; FP16 embeddings/lm_head/norms excluded, common to all methods — so it is comparable to GPTQ-4 = 4.0). *full-model bits* is the deployment average including FP16 embeddings, shown for reference only, not the frontier axis.
 
 | method | weight bits | nominal bits | full-model bits | PPL | Δ vs FP16 | frontier |
 |---|---|---|---|---|---|---|
-| AWQ-4 g128 | 4.00 | 4.00 | — | 8.409 | +0.593 | ★ |
+| GPTQ-4 g128 | 4.00 | 4.00 | — | 8.271 | +0.455 | ★ |
+| AWQ-4 g128 | 4.00 | 4.00 | — | 8.409 | +0.593 |  |
 | RTN-4 g128 | 4.00 | 4.00 | — | 8.497 | +0.680 |  |
-| GPTQ-4 g128 | 4.28 | 4.00 | 6.16 | 8.326 | +0.510 | ★ |
-| SEQ:residual_max(gptq_llmc-4b k=0.0) | 4.50 | 4.00 | 6.46 | 8.162 | +0.345 | ★ |
-| SEQ:residual_max(hqq-4b k=0.0) | 4.50 | 4.00 | 6.46 | 8.387 | +0.571 |  |
-| HQQ-4 uniform | 4.50 | 4.00 | 6.46 | 8.387 | +0.571 |  |
-| SEQ:residual_max(gptq_llmc-4b k=0.02) | 4.82 | 4.24 | 6.79 | 8.098 | +0.282 | ★ |
-| SEQ:residual_rms(gptq_llmc-4b k=0.02) | 4.82 | 4.24 | 6.79 | 8.137 | +0.321 |  |
-| SEQ:greedy(hqq-4b k=0.02) | 4.82 | 4.24 | 6.79 | 8.149 | +0.333 |  |
-| SEQ:greedy_indep(hqq-4b k=0.02) | 4.82 | 4.24 | 6.79 | 8.151 | +0.334 |  |
-| SEQ:act_max(hqq-4b k=0.02) | 4.82 | 4.24 | 6.79 | 8.160 | +0.344 |  |
-| SEQ:residual_max(hqq-4b k=0.02) | 4.82 | 4.24 | 6.79 | 8.161 | +0.344 |  |
-| SEQ:random(gptq_llmc-4b k=0.02) | 4.82 | 4.24 | 6.79 | 8.161 [8.128, 8.193] | +0.344 |  |
-| SEQ:act_max(gptq_llmc-4b k=0.02) | 4.82 | 4.24 | 6.79 | 8.168 | +0.352 |  |
-| SEQ:residual_rms(hqq-4b k=0.02) | 4.82 | 4.24 | 6.79 | 8.200 | +0.384 |  |
-| SEQ:act_scale(hqq-4b k=0.02) | 4.82 | 4.24 | 6.79 | 8.205 | +0.388 |  |
-| SEQ:random(hqq-4b k=0.02) | 4.82 | 4.24 | 6.79 | 8.376 [8.370, 8.382] | +0.559 |  |
-| SEQ:act_scale(gptq_llmc-4b k=0.02) | 4.82 | 4.24 | 6.79 | 8.577 | +0.760 |  |
-| SEQ:greedy_indep(gptq_llmc-4b k=0.02) | 4.82 | 4.24 | 6.79 | 44.878 | +37.062 |  |
-| SEQ:greedy(gptq_llmc-4b k=0.02) | 4.82 | 4.24 | 6.79 | 55.345 | +47.528 |  |
-| SEQ:residual_max(gptq_llmc-4b k=0.05) | 5.30 | 4.60 | 7.26 | 8.098 | +0.281 | ★ |
-| SEQ:greedy_indep(hqq-4b k=0.05) | 5.30 | 4.60 | 7.26 | 8.111 | +0.294 |  |
-| SEQ:greedy(hqq-4b k=0.05) | 5.30 | 4.60 | 7.26 | 8.112 | +0.295 |  |
-| SEQ:act_max(hqq-4b k=0.05) | 5.30 | 4.60 | 7.26 | 8.125 | +0.309 |  |
-| SEQ:residual_max(hqq-4b k=0.05) | 5.30 | 4.60 | 7.26 | 8.126 | +0.310 |  |
-| SEQ:residual_rms(gptq_llmc-4b k=0.05) | 5.30 | 4.60 | 7.26 | 8.147 | +0.330 |  |
-| SEQ:residual_rms(hqq-4b k=0.05) | 5.30 | 4.60 | 7.26 | 8.168 | +0.351 |  |
-| SEQ:act_max(gptq_llmc-4b k=0.05) | 5.30 | 4.60 | 7.26 | 8.168 | +0.351 |  |
-| SEQ:act_scale(hqq-4b k=0.05) | 5.30 | 4.60 | 7.26 | 8.171 | +0.354 |  |
-| SEQ:random(gptq_llmc-4b k=0.05) | 5.30 | 4.60 | 7.26 | 8.193 [8.099, 8.286] | +0.376 |  |
-| SEQ:act_scale(gptq_llmc-4b k=0.05) | 5.30 | 4.60 | 7.26 | 8.210 | +0.393 |  |
-| SEQ:random(hqq-4b k=0.05) | 5.30 | 4.60 | 7.26 | 8.361 [8.351, 8.371] | +0.544 |  |
-| SEQ:greedy_indep(gptq_llmc-4b k=0.05) | 5.30 | 4.60 | 7.26 | 45.597 | +37.781 |  |
-| SEQ:greedy(gptq_llmc-4b k=0.05) | 5.30 | 4.60 | 7.26 | 47.193 | +39.377 |  |
+| SEQ:residual_max(gptq_llmc-4b k=0.0) | 4.25 | 4.00 | 7.65 | 8.171 | +0.355 | ★ |
+| SEQ:residual_max(hqq-4b k=0.0) | 4.50 | 4.00 | 7.87 | 8.328 | +0.511 |  |
+| HQQ-4 uniform | 4.50 | 4.00 | 7.87 | 8.328 | +0.511 |  |
+| SEQ:residual_max(gptq_llmc-4b k=0.02) | 4.57 | 4.24 | 7.94 | 8.100 | +0.283 | ★ |
+| SEQ:residual_rms(gptq_llmc-4b k=0.02) | 4.57 | 4.24 | 7.94 | 8.146 | +0.329 |  |
+| SEQ:random(gptq_llmc-4b k=0.02) | 4.57 | 4.24 | 7.94 | 8.170 [8.143, 8.197] | +0.353 |  |
+| SEQ:act_max(gptq_llmc-4b k=0.02) | 4.57 | 4.24 | 7.94 | 8.181 | +0.365 |  |
+| SEQ:act_scale(gptq_llmc-4b k=0.02) | 4.57 | 4.24 | 7.94 | 8.586 | +0.769 |  |
+| SEQ:greedy_indep(gptq_llmc-4b k=0.02) | 4.57 | 4.24 | 7.94 | 41.502 | +33.685 |  |
+| SEQ:greedy(gptq_llmc-4b k=0.02) | 4.57 | 4.24 | 7.94 | 51.683 | +43.866 |  |
+| SEQ:greedy(hqq-4b k=0.02) | 4.82 | 4.24 | 8.16 | 8.101 | +0.284 |  |
+| SEQ:greedy_indep(hqq-4b k=0.02) | 4.82 | 4.24 | 8.16 | 8.101 | +0.285 |  |
+| SEQ:act_max(hqq-4b k=0.02) | 4.82 | 4.24 | 8.16 | 8.108 | +0.292 |  |
+| SEQ:residual_max(hqq-4b k=0.02) | 4.82 | 4.24 | 8.16 | 8.110 | +0.293 |  |
+| SEQ:residual_rms(hqq-4b k=0.02) | 4.82 | 4.24 | 8.16 | 8.141 | +0.324 |  |
+| SEQ:act_scale(hqq-4b k=0.02) | 4.82 | 4.24 | 8.16 | 8.146 | +0.329 |  |
+| SEQ:random(hqq-4b k=0.02) | 4.82 | 4.24 | 8.16 | 8.318 [8.312, 8.325] | +0.501 |  |
+| SEQ:residual_max(gptq_llmc-4b k=0.05) | 5.05 | 4.60 | 8.36 | 8.100 | +0.283 |  |
+| SEQ:residual_rms(gptq_llmc-4b k=0.05) | 5.05 | 4.60 | 8.36 | 8.153 | +0.336 |  |
+| SEQ:act_max(gptq_llmc-4b k=0.05) | 5.05 | 4.60 | 8.36 | 8.173 | +0.356 |  |
+| SEQ:random(gptq_llmc-4b k=0.05) | 5.05 | 4.60 | 8.36 | 8.193 [8.091, 8.295] | +0.376 |  |
+| SEQ:act_scale(gptq_llmc-4b k=0.05) | 5.05 | 4.60 | 8.36 | 8.204 | +0.388 |  |
+| SEQ:greedy_indep(gptq_llmc-4b k=0.05) | 5.05 | 4.60 | 8.36 | 43.296 | +35.479 |  |
+| SEQ:greedy(gptq_llmc-4b k=0.05) | 5.05 | 4.60 | 8.36 | 55.047 | +47.230 |  |
+| SEQ:greedy(hqq-4b k=0.05) | 5.30 | 4.60 | 8.58 | 8.064 | +0.247 | ★ |
+| SEQ:greedy_indep(hqq-4b k=0.05) | 5.30 | 4.60 | 8.58 | 8.064 | +0.247 | ★ |
+| SEQ:act_max(hqq-4b k=0.05) | 5.30 | 4.60 | 8.58 | 8.075 | +0.259 |  |
+| SEQ:residual_max(hqq-4b k=0.05) | 5.30 | 4.60 | 8.58 | 8.078 | +0.261 |  |
+| SEQ:residual_rms(hqq-4b k=0.05) | 5.30 | 4.60 | 8.58 | 8.111 | +0.294 |  |
+| SEQ:act_scale(hqq-4b k=0.05) | 5.30 | 4.60 | 8.58 | 8.114 | +0.297 |  |
+| SEQ:random(hqq-4b k=0.05) | 5.30 | 4.60 | 8.58 | 8.304 [8.297, 8.312] | +0.488 |  |
 | SEQ:act_max(hqq-5b k=0.0) | 5.50 | 5.00 | 7.46 | 7.957 | +0.140 | ★ |
 | HQQ-5 uniform | 5.50 | 5.00 | 7.46 | 7.957 | +0.140 | ★ |
-| SEQ:greedy(hqq-4b k=0.1) | 6.10 | 5.20 | 8.07 | 8.073 | +0.257 |  |
-| SEQ:greedy_indep(hqq-4b k=0.1) | 6.10 | 5.20 | 8.07 | 8.076 | +0.260 |  |
-| SEQ:act_max(hqq-4b k=0.1) | 6.10 | 5.20 | 8.07 | 8.091 | +0.274 |  |
-| SEQ:residual_max(gptq_llmc-4b k=0.1) | 6.10 | 5.20 | 8.07 | 8.094 | +0.277 |  |
-| SEQ:residual_max(hqq-4b k=0.1) | 6.10 | 5.20 | 8.07 | 8.095 | +0.278 |  |
-| SEQ:act_max(gptq_llmc-4b k=0.1) | 6.10 | 5.20 | 8.07 | 8.134 | +0.317 |  |
-| SEQ:residual_rms(hqq-4b k=0.1) | 6.10 | 5.20 | 8.07 | 8.142 | +0.325 |  |
-| SEQ:act_scale(hqq-4b k=0.1) | 6.10 | 5.20 | 8.07 | 8.146 | +0.329 |  |
-| SEQ:residual_rms(gptq_llmc-4b k=0.1) | 6.10 | 5.20 | 8.07 | 8.148 | +0.331 |  |
-| SEQ:act_scale(gptq_llmc-4b k=0.1) | 6.10 | 5.20 | 8.07 | 8.189 | +0.373 |  |
-| SEQ:random(hqq-4b k=0.1) | 6.10 | 5.20 | 8.07 | 8.332 [8.323, 8.342] | +0.516 |  |
-| SEQ:random(gptq_llmc-4b k=0.1) | 6.10 | 5.20 | 8.07 | 8.434 [7.337, 9.530] | +0.617 |  |
-| SEQ:greedy(gptq_llmc-4b k=0.1) | 6.10 | 5.20 | 8.07 | 46.027 | +38.210 |  |
-| SEQ:greedy_indep(gptq_llmc-4b k=0.1) | 6.10 | 5.20 | 8.07 | 46.778 | +38.961 |  |
+| SEQ:residual_max(gptq_llmc-4b k=0.1) | 5.85 | 5.20 | 9.06 | 8.101 | +0.284 |  |
+| SEQ:act_max(gptq_llmc-4b k=0.1) | 5.85 | 5.20 | 9.06 | 8.136 | +0.319 |  |
+| SEQ:residual_rms(gptq_llmc-4b k=0.1) | 5.85 | 5.20 | 9.06 | 8.160 | +0.343 |  |
+| SEQ:act_scale(gptq_llmc-4b k=0.1) | 5.85 | 5.20 | 9.06 | 8.187 | +0.370 |  |
+| SEQ:random(gptq_llmc-4b k=0.1) | 5.85 | 5.20 | 9.06 | 8.464 [7.207, 9.721] | +0.647 |  |
+| SEQ:greedy(gptq_llmc-4b k=0.1) | 5.85 | 5.20 | 9.06 | 38.385 | +30.568 |  |
+| SEQ:greedy_indep(gptq_llmc-4b k=0.1) | 5.85 | 5.20 | 9.06 | 44.829 | +37.012 |  |
+| SEQ:greedy(hqq-4b k=0.1) | 6.10 | 5.20 | 9.28 | 8.031 | +0.214 |  |
+| SEQ:greedy_indep(hqq-4b k=0.1) | 6.10 | 5.20 | 9.28 | 8.035 | +0.219 |  |
+| SEQ:act_max(hqq-4b k=0.1) | 6.10 | 5.20 | 9.28 | 8.045 | +0.228 |  |
+| SEQ:residual_max(hqq-4b k=0.1) | 6.10 | 5.20 | 9.28 | 8.047 | +0.230 |  |
+| SEQ:residual_rms(hqq-4b k=0.1) | 6.10 | 5.20 | 9.28 | 8.087 | +0.270 |  |
+| SEQ:act_scale(hqq-4b k=0.1) | 6.10 | 5.20 | 9.28 | 8.090 | +0.273 |  |
+| SEQ:random(hqq-4b k=0.1) | 6.10 | 5.20 | 9.28 | 8.281 [8.275, 8.286] | +0.464 |  |
 | SEQ:act_max(hqq-6b k=0.0) | 6.50 | 6.00 | 8.46 | 7.845 | +0.028 | ★ |
 | HQQ-6 uniform | 6.50 | 6.00 | 8.46 | 7.845 | +0.028 | ★ |
-| SEQ:greedy(hqq-4b k=0.2) | 7.70 | 6.40 | 9.67 | 8.028 | +0.211 |  |
-| SEQ:greedy_indep(hqq-4b k=0.2) | 7.70 | 6.40 | 9.67 | 8.037 | +0.221 |  |
-| SEQ:act_max(hqq-4b k=0.2) | 7.70 | 6.40 | 9.67 | 8.047 | +0.230 |  |
-| SEQ:residual_max(hqq-4b k=0.2) | 7.70 | 6.40 | 9.67 | 8.048 | +0.232 |  |
-| SEQ:residual_max(gptq_llmc-4b k=0.2) | 7.70 | 6.40 | 9.67 | 8.070 | +0.253 |  |
-| SEQ:residual_rms(hqq-4b k=0.2) | 7.70 | 6.40 | 9.67 | 8.090 | +0.274 |  |
-| SEQ:act_scale(hqq-4b k=0.2) | 7.70 | 6.40 | 9.67 | 8.096 | +0.279 |  |
-| SEQ:act_max(gptq_llmc-4b k=0.2) | 7.70 | 6.40 | 9.67 | 8.106 | +0.290 |  |
-| SEQ:residual_rms(gptq_llmc-4b k=0.2) | 7.70 | 6.40 | 9.67 | 8.129 | +0.312 |  |
-| SEQ:act_scale(gptq_llmc-4b k=0.2) | 7.70 | 6.40 | 9.67 | 8.152 | +0.336 |  |
-| SEQ:random(hqq-4b k=0.2) | 7.70 | 6.40 | 9.67 | 8.243 [8.025, 8.462] | +0.427 |  |
-| SEQ:random(gptq_llmc-4b k=0.2) | 7.70 | 6.40 | 9.67 | 8.342 [7.907, 8.777] | +0.525 |  |
-| SEQ:greedy(gptq_llmc-4b k=0.2) | 7.70 | 6.40 | 9.67 | 43.209 | +35.392 |  |
-| SEQ:greedy_indep(gptq_llmc-4b k=0.2) | 7.70 | 6.40 | 9.67 | 45.410 | +37.594 |  |
+| SEQ:residual_max(gptq_llmc-4b k=0.2) | 7.45 | 6.40 | 10.46 | 8.075 | +0.259 |  |
+| SEQ:act_max(gptq_llmc-4b k=0.2) | 7.45 | 6.40 | 10.46 | 8.101 | +0.285 |  |
+| SEQ:residual_rms(gptq_llmc-4b k=0.2) | 7.45 | 6.40 | 10.46 | 8.139 | +0.322 |  |
+| SEQ:act_scale(gptq_llmc-4b k=0.2) | 7.45 | 6.40 | 10.46 | 8.154 | +0.337 |  |
+| SEQ:random(gptq_llmc-4b k=0.2) | 7.45 | 6.40 | 10.46 | 8.336 [7.899, 8.773] | +0.519 |  |
+| SEQ:greedy(gptq_llmc-4b k=0.2) | 7.45 | 6.40 | 10.46 | 40.652 | +32.835 |  |
+| SEQ:greedy_indep(gptq_llmc-4b k=0.2) | 7.45 | 6.40 | 10.46 | 43.039 | +35.223 |  |
+| SEQ:greedy(hqq-4b k=0.2) | 7.70 | 6.40 | 10.68 | 7.994 | +0.178 |  |
+| SEQ:greedy_indep(hqq-4b k=0.2) | 7.70 | 6.40 | 10.68 | 8.002 | +0.185 |  |
+| SEQ:residual_max(hqq-4b k=0.2) | 7.70 | 6.40 | 10.68 | 8.007 | +0.190 |  |
+| SEQ:act_max(hqq-4b k=0.2) | 7.70 | 6.40 | 10.68 | 8.007 | +0.190 |  |
+| SEQ:residual_rms(hqq-4b k=0.2) | 7.70 | 6.40 | 10.68 | 8.040 | +0.224 |  |
+| SEQ:act_scale(hqq-4b k=0.2) | 7.70 | 6.40 | 10.68 | 8.046 | +0.229 |  |
+| SEQ:random(hqq-4b k=0.2) | 7.70 | 6.40 | 10.68 | 8.198 [7.983, 8.413] | +0.381 |  |
 | SEQ:act_max(hqq-8b k=0.0) | 8.50 | 8.00 | 10.46 | 7.820 | +0.003 | ★ |
 | HQQ-8 uniform | 8.50 | 8.00 | 10.46 | 7.820 | +0.003 | ★ |
 | FP16 | 16.00 | 16.00 | — | 7.817 | +0.000 | ★ |
 
-> SEQ is on the Pareto frontier (6 point(s)). At ~8.5 bits, best SEQ (7.820) **loses to** HQQ-8 uniform (7.820).
+> SEQ is on the Pareto frontier (7 point(s)). At ~8.5 bits, best SEQ (7.820) **loses to** HQQ-8 uniform (7.820).
+
+## Qwen/Qwen2.5-3B  (FP16 PPL 8.0304)
+
+Axis = **weight-only bits/param** (quantized linear weights + inline overhead; FP16 embeddings/lm_head/norms excluded, common to all methods — so it is comparable to GPTQ-4 = 4.0). *full-model bits* is the deployment average including FP16 embeddings, shown for reference only, not the frontier axis.
+
+| method | weight bits | nominal bits | full-model bits | PPL | Δ vs FP16 | frontier |
+|---|---|---|---|---|---|---|
+| GPTQ-4 g128 | 4.00 | 4.00 | — | 8.291 | +0.261 | ★ |
+| SEQ:residual_max(gptq_llmc-4b k=0.0) | 4.25 | 4.00 | 7.05 | 8.290 | +0.260 | ★ |
+| SEQ:residual_max(hqq-4b k=0.0) | 4.50 | 4.00 | 7.27 | 8.666 | +0.635 |  |
+| HQQ-4 uniform | 4.50 | 4.00 | 7.27 | 8.666 | +0.635 |  |
+| SEQ:random(gptq_llmc-4b k=0.02) | 4.57 | 4.24 | 7.34 | 8.292 [8.275, 8.309] | +0.261 |  |
+| SEQ:greedy(gptq_llmc-4b k=0.02) | 4.57 | 4.24 | 7.34 | 8.335 | +0.304 |  |
+| SEQ:residual_rms(gptq_llmc-4b k=0.02) | 4.57 | 4.24 | 7.34 | 8.339 | +0.309 |  |
+| SEQ:residual_max(gptq_llmc-4b k=0.02) | 4.57 | 4.24 | 7.34 | 8.351 | +0.320 |  |
+| SEQ:greedy_indep(gptq_llmc-4b k=0.02) | 4.57 | 4.24 | 7.34 | 8.357 | +0.327 |  |
+| SEQ:act_max(gptq_llmc-4b k=0.02) | 4.57 | 4.24 | 7.34 | 8.366 | +0.335 |  |
+| SEQ:act_scale(gptq_llmc-4b k=0.02) | 4.57 | 4.24 | 7.34 | 8.373 | +0.342 |  |
+| SEQ:greedy_indep(hqq-4b k=0.02) | 4.82 | 4.24 | 7.56 | 8.272 | +0.241 | ★ |
+| SEQ:greedy(hqq-4b k=0.02) | 4.82 | 4.24 | 7.56 | 8.274 | +0.243 |  |
+| SEQ:residual_rms(hqq-4b k=0.02) | 4.82 | 4.24 | 7.56 | 8.279 | +0.249 |  |
+| SEQ:act_max(hqq-4b k=0.02) | 4.82 | 4.24 | 7.56 | 8.286 | +0.255 |  |
+| SEQ:residual_max(hqq-4b k=0.02) | 4.82 | 4.24 | 7.56 | 8.287 | +0.257 |  |
+| SEQ:act_scale(hqq-4b k=0.02) | 4.82 | 4.24 | 7.56 | 8.300 | +0.270 |  |
+| SEQ:random(hqq-4b k=0.02) | 4.82 | 4.24 | 7.56 | 8.654 [8.640, 8.667] | +0.623 |  |
+| SEQ:random(gptq_llmc-4b k=0.05) | 5.05 | 4.60 | 7.77 | 8.302 [8.253, 8.351] | +0.272 |  |
+| SEQ:residual_rms(gptq_llmc-4b k=0.05) | 5.05 | 4.60 | 7.77 | 8.326 | +0.296 |  |
+| SEQ:residual_max(gptq_llmc-4b k=0.05) | 5.05 | 4.60 | 7.77 | 8.332 | +0.301 |  |
+| SEQ:act_max(gptq_llmc-4b k=0.05) | 5.05 | 4.60 | 7.77 | 8.352 | +0.321 |  |
+| SEQ:greedy(gptq_llmc-4b k=0.05) | 5.05 | 4.60 | 7.77 | 8.354 | +0.323 |  |
+| SEQ:act_scale(gptq_llmc-4b k=0.05) | 5.05 | 4.60 | 7.77 | 8.357 | +0.326 |  |
+| SEQ:greedy_indep(gptq_llmc-4b k=0.05) | 5.05 | 4.60 | 7.77 | 8.370 | +0.339 |  |
+| SEQ:greedy(hqq-4b k=0.05) | 5.30 | 4.60 | 8.00 | 8.245 | +0.214 | ★ |
+| SEQ:greedy_indep(hqq-4b k=0.05) | 5.30 | 4.60 | 8.00 | 8.246 | +0.216 |  |
+| SEQ:residual_rms(hqq-4b k=0.05) | 5.30 | 4.60 | 8.00 | 8.261 | +0.231 |  |
+| SEQ:residual_max(hqq-4b k=0.05) | 5.30 | 4.60 | 8.00 | 8.263 | +0.232 |  |
+| SEQ:act_max(hqq-4b k=0.05) | 5.30 | 4.60 | 8.00 | 8.267 | +0.237 |  |
+| SEQ:act_scale(hqq-4b k=0.05) | 5.30 | 4.60 | 8.00 | 8.281 | +0.251 |  |
+| SEQ:random(hqq-4b k=0.05) | 5.30 | 4.60 | 8.00 | 8.645 [8.622, 8.669] | +0.615 |  |
+| SEQ:act_max(hqq-5b k=0.0) | 5.50 | 5.00 | 7.11 | 8.241 | +0.210 | ★ |
+| HQQ-5 uniform | 5.50 | 5.00 | 7.11 | 8.241 | +0.210 | ★ |
+| SEQ:residual_max(gptq_llmc-4b k=0.1) | 5.85 | 5.20 | 8.49 | 8.296 | +0.266 |  |
+| SEQ:residual_rms(gptq_llmc-4b k=0.1) | 5.85 | 5.20 | 8.49 | 8.307 | +0.277 |  |
+| SEQ:act_max(gptq_llmc-4b k=0.1) | 5.85 | 5.20 | 8.49 | 8.320 | +0.289 |  |
+| SEQ:act_scale(gptq_llmc-4b k=0.1) | 5.85 | 5.20 | 8.49 | 8.320 | +0.290 |  |
+| SEQ:random(gptq_llmc-4b k=0.1) | 5.85 | 5.20 | 8.49 | 8.340 [8.307, 8.374] | +0.310 |  |
+| SEQ:greedy(gptq_llmc-4b k=0.1) | 5.85 | 5.20 | 8.49 | 8.342 | +0.311 |  |
+| SEQ:greedy_indep(gptq_llmc-4b k=0.1) | 5.85 | 5.20 | 8.49 | 8.364 | +0.334 |  |
+| SEQ:greedy(hqq-4b k=0.1) | 6.10 | 5.20 | 8.71 | 8.217 | +0.187 | ★ |
+| SEQ:greedy_indep(hqq-4b k=0.1) | 6.10 | 5.20 | 8.71 | 8.220 | +0.189 |  |
+| SEQ:residual_rms(hqq-4b k=0.1) | 6.10 | 5.20 | 8.71 | 8.238 | +0.208 |  |
+| SEQ:act_max(hqq-4b k=0.1) | 6.10 | 5.20 | 8.71 | 8.239 | +0.209 |  |
+| SEQ:residual_max(hqq-4b k=0.1) | 6.10 | 5.20 | 8.71 | 8.239 | +0.209 |  |
+| SEQ:act_scale(hqq-4b k=0.1) | 6.10 | 5.20 | 8.71 | 8.241 | +0.211 |  |
+| SEQ:random(hqq-4b k=0.1) | 6.10 | 5.20 | 8.71 | 8.617 [8.613, 8.622] | +0.587 |  |
+| SEQ:act_max(hqq-6b k=0.0) | 6.50 | 6.00 | 8.11 | 8.080 | +0.050 | ★ |
+| HQQ-6 uniform | 6.50 | 6.00 | 8.11 | 8.080 | +0.050 | ★ |
+| SEQ:residual_max(gptq_llmc-4b k=0.2) | 7.45 | 6.40 | 9.93 | 8.263 | +0.232 |  |
+| SEQ:act_max(gptq_llmc-4b k=0.2) | 7.45 | 6.40 | 9.93 | 8.282 | +0.251 |  |
+| SEQ:act_scale(gptq_llmc-4b k=0.2) | 7.45 | 6.40 | 9.93 | 8.287 | +0.256 |  |
+| SEQ:residual_rms(gptq_llmc-4b k=0.2) | 7.45 | 6.40 | 9.93 | 8.287 | +0.256 |  |
+| SEQ:greedy(gptq_llmc-4b k=0.2) | 7.45 | 6.40 | 9.93 | 8.325 | +0.294 |  |
+| SEQ:greedy_indep(gptq_llmc-4b k=0.2) | 7.45 | 6.40 | 9.93 | 8.363 | +0.333 |  |
+| SEQ:random(gptq_llmc-4b k=0.2) | 7.45 | 6.40 | 9.93 | 8.366 [8.261, 8.471] | +0.336 |  |
+| SEQ:greedy(hqq-4b k=0.2) | 7.70 | 6.40 | 10.15 | 8.187 | +0.157 |  |
+| SEQ:greedy_indep(hqq-4b k=0.2) | 7.70 | 6.40 | 10.15 | 8.191 | +0.161 |  |
+| SEQ:residual_max(hqq-4b k=0.2) | 7.70 | 6.40 | 10.15 | 8.199 | +0.169 |  |
+| SEQ:act_max(hqq-4b k=0.2) | 7.70 | 6.40 | 10.15 | 8.200 | +0.169 |  |
+| SEQ:act_scale(hqq-4b k=0.2) | 7.70 | 6.40 | 10.15 | 8.208 | +0.177 |  |
+| SEQ:residual_rms(hqq-4b k=0.2) | 7.70 | 6.40 | 10.15 | 8.210 | +0.180 |  |
+| SEQ:random(hqq-4b k=0.2) | 7.70 | 6.40 | 10.15 | 8.526 [8.404, 8.649] | +0.496 |  |
+| SEQ:act_max(hqq-8b k=0.0) | 8.50 | 8.00 | 10.11 | 8.036 | +0.005 | ★ |
+| HQQ-8 uniform | 8.50 | 8.00 | 10.11 | 8.036 | +0.005 | ★ |
+| FP16 | 16.00 | 16.00 | — | 8.030 | +0.000 | ★ |
+
+> SEQ is on the Pareto frontier (7 point(s)). At ~8.5 bits, best SEQ (8.036) **loses to** HQQ-8 uniform (8.036).
+
+## Qwen/Qwen3-4B-Base
+
+Axis = **weight-only bits/param** (quantized linear weights + inline overhead; FP16 embeddings/lm_head/norms excluded, common to all methods — so it is comparable to GPTQ-4 = 4.0). *full-model bits* is the deployment average including FP16 embeddings, shown for reference only, not the frontier axis.
+
+| method | weight bits | nominal bits | full-model bits | PPL | Δ vs FP16 | frontier |
+|---|---|---|---|---|---|---|
+| GPTQ-4 g128 | 4.00 | 4.00 | — | 8.134 | — | ★ |
+
+> **No SEQ point is on the frontier** — a baseline dominates it.
+
+## meta-llama/Llama-2-7b-hf
+
+Axis = **weight-only bits/param** (quantized linear weights + inline overhead; FP16 embeddings/lm_head/norms excluded, common to all methods — so it is comparable to GPTQ-4 = 4.0). *full-model bits* is the deployment average including FP16 embeddings, shown for reference only, not the frontier axis.
+
+| method | weight bits | nominal bits | full-model bits | PPL | Δ vs FP16 | frontier |
+|---|---|---|---|---|---|---|
+| GPTQ-4 g128 | 4.00 | 4.00 | — | 5.590 | — | ★ |
+
+> **No SEQ point is on the frontier** — a baseline dominates it.
+
+## mistralai/Mistral-7B-v0.3
+
+Axis = **weight-only bits/param** (quantized linear weights + inline overhead; FP16 embeddings/lm_head/norms excluded, common to all methods — so it is comparable to GPTQ-4 = 4.0). *full-model bits* is the deployment average including FP16 embeddings, shown for reference only, not the frontier axis.
+
+| method | weight bits | nominal bits | full-model bits | PPL | Δ vs FP16 | frontier |
+|---|---|---|---|---|---|---|
+| GPTQ-4 g128 | 4.00 | 4.00 | — | 5.482 | — | ★ |
+
+> **No SEQ point is on the frontier** — a baseline dominates it.

@@ -1,6 +1,6 @@
 # Verification gaps — evidence and required paper changes
 
-Three issues found when checking the draft against the result artifacts. All three are confirmed;
+Four issues found when checking the draft against the result artifacts (Issue 4 added 2026-07-28). All three are confirmed;
 one is worse than first reported, and it exposes a metadata bug. **The headline result is
 unaffected** — that is established first, because it determines how much of the paper is at risk.
 
@@ -48,6 +48,17 @@ same class of failure as the earlier stale-checkpoint incident and should be tre
 number with `n=200` and restrict the F1 claim to 3B. Do not average n=200 and full-set rows into
 one table without marking them.
 
+**Status 2026-07-28 — annotated, and not paper-blocking.** Checked against the draft: the paper
+cites **no** 1B `fp16`, `hqq4` or `best_hqq` number. Its only 1B downstream row is
+`greedy_gptq` vs `gptq4` (+0.32 [−0.07, +0.73]), which Issue 1's own audit confirms is full-set
+vs full-set, and the F1 contrasts in §7 (+1.28, +0.92) are 3B. The exposure was to
+`docs/DOWNSTREAM.md`, an artifact shipped with the paper, which did not mark the reduced scope.
+`analysis/build_downstream_table.py` now reads the true count from each run's **own lm-eval
+output** (never from `seq_meta.json`, whose `limit` field is written from the *current* config and
+is what misreported these runs), prints an `n/task` column, marks any non-full point ⚠, and
+appends a warning to any contrast whose two arms differ in scope or are both reduced. The
+regeneration is held until Issue 4's logs are restored.
+
 ---
 
 ## Issue 2 — LAMBADA perplexity was untraceable from the bundle (now fixed)
@@ -69,6 +80,7 @@ LAMBADA perplexity and the evaluated sample count with a source path per row:
 
 **Required action:** cite the CSV in the provenance appendix; the paper's §4.1 numbers stand.
 
+
 ---
 
 ## Issue 3 — `docs/COMPARISON.md` predates the corrections
@@ -85,10 +97,51 @@ quantized and group metadata was charged at g64.
 **Consequence:** §7's "the base dominates the frontier" cites this table, including the
 "4.82 bits / +0.5-bit premium" framing. Those figures are from the superseded axis.
 
-**Required action:** regenerate COMPARISON.md from the corrected sweeps before the claim is
-restated, or restrict §7 to numbers taken directly from the corrected `channel_pareto.json` files
-(the storage-axis figures already quoted in §5.1 — 4.25 bits base, 4.57 bits at 2% — are correct).
-Until regenerated, treat COMPARISON.md as **superseded** and do not cite it.
+**RESOLVED 2026-07-28.** Regenerated from the corrected sweeps
+(`analysis/build_comparison.py` over `runs/final/sweeps`, 73/69/67 points for 1B/3B/Qwen2.5-3B).
+The table now agrees with §5.1 and §7 line for line: base `residual_max` k=0 at **4.25** bits /
+**8.171**, `residual_max` k=0.02 at **4.57** bits / **8.0998**, `greedy` k=0.02 at **51.6831**, and
+on HQQ at 2% `greedy` **8.1005** / `act_max` **8.1083** / `residual_rms` **8.1412** vs `random`
+**8.3181**. One paper digit was corrected to match (§7 random control 8.319 → **8.318**); every
+other cited value was already right. `results/final_comparison.{csv,json}` regenerated with it.
+
+---
+
+## Issue 4 — the per-example logs behind three paired CIs are not in the repo
+
+**Confirmed 2026-07-28. Reproducibility gap, not a numerical error.**
+
+`analysis/build_downstream_table.py` computes the paired bootstrap from lm-eval's
+`samples_<task>_*.jsonl` files. Three points have their `results_*.json` but **no** sample logs:
+
+| point | results_*.json | samples_*.jsonl | CI it backs |
+|---|---|---|---|
+| `Llama-3.2-3B/greedy_gptq` | 1 | **0** | **+0.51 [+0.13, +0.86]** — the headline |
+| `Llama-3.2-1B/greedy_gptq` | 1 | **0** | +0.32 [−0.07, +0.73] — the replication |
+| `Llama-3.2-3B/random_hqq`  | 2 | **0** | +0.92 [+0.50, +1.34] — §7 F1 sharpening |
+
+Cause: commit `c79d2fb` correctly deleted the *stale* greedy_gptq lm-eval outputs (the stale-checkpoint
+incident); the re-runs that replaced them (`f0a1544`, `7f3a5a7`) pushed only `results_*.json`. The
+logs existed on the eval box when the CIs were computed and were never committed.
+
+**The published numbers are sound.** Two independent checks:
+
+1. In the committed `results/downstream.json`, each bootstrap's central estimate equals the macro
+   difference of the two arms' *current* accuracies to 1e-9 (3B `+0.5074` vs `+0.5074`; 1B
+   `+0.3202` vs `+0.3202`). A bootstrap run against the deleted stale samples could not agree with
+   the fresh accuracies.
+2. Every `per_task.n` is the full set size (1172/2376/10042/5153/1838/1267), so the CIs are
+   full-set, matching Issue 1's audit.
+
+**Consequence.** Regenerating the tables today downgrades these three lines to
+`UNPAIRED approx (no sample logs)`. `docs/DOWNSTREAM.md` and `results/downstream.{json,csv}` are
+therefore **deliberately left at their committed versions** until the logs are restored — do not
+overwrite them with a regeneration first.
+
+**Required action.** Re-run those three evaluations with `--log_samples` (GPU, ~1 h), confirm each
+recomputed CI reproduces the published one, then regenerate. Scheduled as Job C in
+`docs/CODEX_PROMPT_JOB3.md`. Until then the artifact set cannot independently reproduce the
+headline interval, and an artifact reviewer would find that.
 
 ---
 
@@ -98,4 +151,5 @@ Until regenerated, treat COMPARISON.md as **superseded** and do not cite it.
 |---|---|---|---|
 | 1B n=200 on three points + wrong `limit` metadata | **high** (audit rows + a real bug) | no | re-run at full scale, or annotate and restrict F1 to 3B |
 | LAMBADA untraceable | low | no | fixed: `results/lambada_and_eval_scope.csv` |
-| COMPARISON.md stale | medium (§7 only) | no | regenerate, or cite corrected sweeps directly |
+| COMPARISON.md stale | medium (§7 only) | no | **resolved** — regenerated 2026-07-28; §7 random control corrected 8.319 → 8.318 |
+| per-example logs missing for 3 points | **high** (artifact reproducibility) | no — CIs verified sound | re-run those evals with `--log_samples` (Job C) |

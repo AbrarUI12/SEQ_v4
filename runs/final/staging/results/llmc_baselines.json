@@ -1,4 +1,61 @@
 {
+  "Qwen/Qwen2.5-3B": [
+    {
+      "bits": 4.0,
+      "calibration": {
+        "bs": 1,
+        "n_samples": 128,
+        "name": "wikitext2",
+        "preproc": "wikitext2_gptq",
+        "seed": 0,
+        "seq_len": 2048
+      },
+      "method": "GPTQ-4 g128",
+      "model_path": "runs/final/llmc/Qwen2.5-3B/gptq/artifacts/fake_quant_model",
+      "nominal_bits": 4.0,
+      "ppl": 8.290862083435059,
+      "serialized_checkpoint_bytes": null,
+      "source": "LLMC"
+    }
+  ],
+  "Qwen/Qwen3-4B-Base": [
+    {
+      "bits": 4.0,
+      "calibration": {
+        "bs": 1,
+        "n_samples": 128,
+        "name": "wikitext2",
+        "preproc": "wikitext2_gptq",
+        "seed": 0,
+        "seq_len": 2048
+      },
+      "method": "GPTQ-4 g128",
+      "model_path": "runs/final/llmc/Qwen3-4B-Base/gptq/artifacts/fake_quant_model",
+      "nominal_bits": 4.0,
+      "ppl": 8.134419441223145,
+      "serialized_checkpoint_bytes": null,
+      "source": "LLMC"
+    }
+  ],
+  "meta-llama/Llama-2-7b-hf": [
+    {
+      "bits": 4.0,
+      "calibration": {
+        "bs": 1,
+        "n_samples": 128,
+        "name": "wikitext2",
+        "preproc": "wikitext2_gptq",
+        "seed": 0,
+        "seq_len": 2048
+      },
+      "method": "GPTQ-4 g128",
+      "model_path": "runs/final/llmc/Llama-2-7b-hf/gptq/artifacts/fake_quant_model",
+      "nominal_bits": 4.0,
+      "ppl": 5.589639663696289,
+      "serialized_checkpoint_bytes": null,
+      "source": "LLMC"
+    }
+  ],
   "meta-llama/Llama-3.2-1B": [
     {
       "bits": 4.0,
@@ -14,7 +71,7 @@
       "model_path": "runs/final/llmc/Llama-3.2-1B/awq/artifacts/fake_quant_model",
       "nominal_bits": 4.0,
       "ppl": 11.263218879699707,
-      "serialized_checkpoint_bytes": 2471645608,
+      "serialized_checkpoint_bytes": null,
       "source": "LLMC"
     },
     {
@@ -30,8 +87,8 @@
       "method": "GPTQ-4 g128",
       "model_path": "runs/final/llmc/Llama-3.2-1B/gptq/artifacts/fake_quant_model",
       "nominal_bits": 4.0,
-      "ppl": 10.404662132263184,
-      "serialized_checkpoint_bytes": 2507371976,
+      "ppl": 10.430636405944824,
+      "serialized_checkpoint_bytes": null,
       "source": "LLMC"
     },
     {
@@ -48,7 +105,7 @@
       "model_path": "runs/final/llmc/Llama-3.2-1B/rtn/artifacts/fake_quant_model",
       "nominal_bits": 4.0,
       "ppl": 11.711246490478516,
-      "serialized_checkpoint_bytes": 2471645608,
+      "serialized_checkpoint_bytes": null,
       "source": "LLMC"
     }
   ],
@@ -67,7 +124,7 @@
       "model_path": "runs/final/llmc/Llama-3.2-3B/awq/artifacts/fake_quant_model",
       "nominal_bits": 4.0,
       "ppl": 8.409162521362305,
-      "serialized_checkpoint_bytes": 6425529048,
+      "serialized_checkpoint_bytes": null,
       "source": "LLMC"
     },
     {
@@ -83,8 +140,8 @@
       "method": "GPTQ-4 g128",
       "model_path": "runs/final/llmc/Llama-3.2-3B/gptq/artifacts/fake_quant_model",
       "nominal_bits": 4.0,
-      "ppl": 8.326171875,
-      "serialized_checkpoint_bytes": 6525668328,
+      "ppl": 8.271451950073242,
+      "serialized_checkpoint_bytes": null,
       "source": "LLMC"
     },
     {
@@ -101,7 +158,26 @@
       "model_path": "runs/final/llmc/Llama-3.2-3B/rtn/artifacts/fake_quant_model",
       "nominal_bits": 4.0,
       "ppl": 8.496744155883789,
-      "serialized_checkpoint_bytes": 6425529048,
+      "serialized_checkpoint_bytes": null,
+      "source": "LLMC"
+    }
+  ],
+  "mistralai/Mistral-7B-v0.3": [
+    {
+      "bits": 4.0,
+      "calibration": {
+        "bs": 1,
+        "n_samples": 128,
+        "name": "wikitext2",
+        "preproc": "wikitext2_gptq",
+        "seed": 0,
+        "seq_len": 2048
+      },
+      "method": "GPTQ-4 g128",
+      "model_path": "runs/final/llmc/Mistral-7B-v0.3/gptq/artifacts/fake_quant_model",
+      "nominal_bits": 4.0,
+      "ppl": 5.481876373291016,
+      "serialized_checkpoint_bytes": null,
       "source": "LLMC"
     }
   ]

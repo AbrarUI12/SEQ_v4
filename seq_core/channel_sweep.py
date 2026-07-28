@@ -45,6 +45,16 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--calibration_prompts", default="calibration_prompts.json")
     p.add_argument("--calib_seq_len", type=int, default=2048)
     p.add_argument("--max_calib_prompts", type=int, default=64)
+    p.add_argument("--selector_calib_seed", type=int, default=None,
+                   help="seed for the SELECTOR's calibration draw only (defaults to --seed). "
+                        "--seed also drives channel selection, so use this to vary the "
+                        "calibration sample while holding everything else fixed -- the "
+                        "sample-sensitivity control for --selector_calib_samples.")
+    p.add_argument("--selector_calib_tokens", default="",
+                   help="path to a .pt saved by tools/dump_calibration_tokens.py. When set, the "
+                        "selector Hessian is collected on exactly those token ids, making the "
+                        "comparison token-identical to whatever produced that file rather than "
+                        "merely size-matched. Overrides --selector_calib_samples.")
     p.add_argument("--selector_calib_samples", type=int, default=0,
                    help="tokens for the GREEDY SELECTOR's Hessian. 0 = reuse "
                         "--calibration_prompts (~500 tokens of short prompts), which is "
@@ -322,15 +332,33 @@ def main() -> int:
         # distribution from the corpus the base quantizer calibrated on. That is a
         # confound for any Hessian-based selector on a compensated base, so it is made
         # explicit and switchable here (and recorded in the output payload).
-        if int(args.selector_calib_samples) > 0:
+        selector_calib_sha = None
+        if args.selector_calib_tokens:
+            # Token-identical path: reuse the exact ids some other stage recorded.
+            import hashlib
+
+            import torch as _torch
+
+            _blob = _torch.load(args.selector_calib_tokens, map_location="cpu")
+            _ids = _blob["input_ids"] if isinstance(_blob, dict) else _blob
+            sel_prompts = [tokenizer.decode(row, skip_special_tokens=True) for row in _ids]
+            sel_max = len(sel_prompts)
+            selector_calib_sha = hashlib.sha256(
+                _ids.numpy().tobytes() if hasattr(_ids, "numpy") else bytes(str(_ids), "utf8")
+            ).hexdigest()[:16]
+            selector_calib_source = f"tokens:{args.selector_calib_tokens}"
+            LOGGER.info("selector calibration: token-identical from %s (sha256[:16]=%s)",
+                        args.selector_calib_tokens, selector_calib_sha)
+        elif int(args.selector_calib_samples) > 0:
             from seq_core.gptq import build_gptq_calibration
 
+            _cseed = args.seed if args.selector_calib_seed is None else int(args.selector_calib_seed)
             sel_prompts = build_gptq_calibration(
                 tokenizer, n_samples=int(args.selector_calib_samples),
-                seq_len=args.calib_seq_len, seed=args.seed,
+                seq_len=args.calib_seq_len, seed=_cseed,
             )
             sel_max = int(args.selector_calib_samples)
-            selector_calib_source = f"wikitext2:{sel_max}x{args.calib_seq_len}"
+            selector_calib_source = f"wikitext2:{sel_max}x{args.calib_seq_len}:seed{_cseed}"
         else:
             sel_prompts = prompts
             sel_max = args.max_calib_prompts
@@ -654,6 +682,9 @@ def main() -> int:
         "selector_calib_source": selector_calib_source,
         "selector_hessian_tokens": selector_hessian_tokens,
         "selector_calib_samples": int(args.selector_calib_samples),
+        "selector_calib_seed": (args.seed if args.selector_calib_seed is None
+                                else int(args.selector_calib_seed)),
+        "selector_calib_sha256": locals().get("selector_calib_sha"),
         "skip_lm_head": bool(args.skip_lm_head),
         "pad_calibration": not bool(args.no_pad_calibration),
         "results": results,

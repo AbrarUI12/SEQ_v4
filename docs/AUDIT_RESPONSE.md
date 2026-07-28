@@ -15,7 +15,7 @@ regardless, and are listed at the end as accepted-in-principle.
 
 ## Finding 1 — `greedy_gain` did not measure the greedy objective
 
-**Status: CONFIRMED. Critical. Our error.**
+**Status: CONFIRMED, FIXED, AND RE-RUN. Critical. Our error.**
 
 `scripts/measure_objective_alignment.py` scored the greedy selector as
 `residual_energy × hessian_diag` = `‖ΔW_j‖²·H_jj`, and its docstring asserted this was "exactly
@@ -41,10 +41,18 @@ proxy literally being the product of the other two, not by anything about greedy
 the selector via `_marginal_gains()`. It is computed **in-pass** in `gptq.py` while the (identically
 damped) Hessian is resident, so no full-Hessian storage is needed. The probe now reports the true
 `greedy_gain` and retains the old expression as `diag_proxy` so the published number stays
-auditable. **§6 is withdrawn in the paper pending the corrected re-run.**
+auditable. §6 has been re-run and restored on the corrected quantity (below).
 
 **Not affected.** The selector itself is correctly implemented (the auditor agrees), so every
 perplexity, the collapse, the downstream results and the per-token decomposition stand.
+
+**Corrected result (56 layers/model).** Scored by the true objective, the harmful selector is
+**anti**-correlated with compensation magnitude: ρ = **−0.230** (3B) / **−0.142** (1B), positive in
+only **29%** of layers, against `residual_rms` at **+0.988 / +0.981** in **100%** of layers. The
+superseded proxy reproduces at +0.388 / +0.384, confirming the diagnosis that the published column
+was the proxy. **The refutation therefore stands and is stronger on the right quantity** — the
+harmful selector systematically *avoids* the columns the compensation account requires it to
+target. §6 has been restored on this basis; nothing is withdrawn.
 
 ---
 
@@ -69,7 +77,7 @@ that is listed as outstanding work.
 
 ## Finding 3/4 — scalar-signal calibration is padding-dominated
 
-**Status: CONFIRMED. High.**
+**Status: CONFIRMED, DISCLOSED, AND ROBUSTNESS-TESTED. High.**
 
 **Evidence.** `seq_core/signals.py` tokenized with `padding="max_length", max_length=seq_len`, and
 the hooks accumulate every position. With ~51 short prompts padded to 2048, the activation
@@ -83,12 +91,14 @@ in §7 where `act_max` beats random by ~0.2 PPL despite pad-dominated statistics
 **Change.** Disclosed in §3 (Setup) and Limitations. A `--no_pad_calibration` flag now threads
 through `signals.py` → `channel_sweep.py`, and the run records `pad_calibration` in its output so
 every artifact is self-describing. The published default (padding on) is preserved so existing
-numbers remain reproducible. A robustness re-measurement on 3B is outstanding.
+numbers remain reproducible. The robustness re-measurement is reported below.
 
-**Direction of the effect.** This cuts *toward* the paper's conclusion rather than against it: if
-the scalar selectors were closer to random than described, then "only objective-coupled selectors
-do harm" is if anything reinforced. It nonetheless weakens the §7 HQQ claim and is disclosed as
-such.
+**Robustness result (Llama-3.2-3B).** Re-measured on real tokens only: `act_max` 8.181→8.178,
+`residual_max` 8.100→8.100, `residual_rms` 8.146→8.146 are unmoved; only `act_scale` shifts
+(8.586→8.142), so its apparent weakness was a padding artifact. Under honest calibration all four
+scalars lie within 8.10–8.15 against a base of 8.172, and on HQQ the informed selectors
+(8.100–8.141) still beat random (8.319). **The §5.1 conclusion and the §7 HQQ claim both survive**,
+and §5.1 is cleaner without the `act_scale` outlier. Not yet repeated on 1B.
 
 ---
 
@@ -117,9 +127,9 @@ that would have caught Finding 1.
 
 | # | Finding | Verified | Severity | Headline at risk | Fixed |
 |---|---|---|---|---|---|
-| 1 | `greedy_gain` is a diagonal proxy | yes | critical | no | code fixed; §6 withdrawn; re-run pending |
-| 2 | "same tokens" is false | yes | high | no | wording corrected; sample-matched test outstanding |
-| 3/4 | padded scalar calibration | yes | high | no | disclosed; `--no_pad_calibration` added; re-measure outstanding |
+| 1 | `greedy_gain` is a diagonal proxy | yes | critical | no | **resolved** — fixed, re-run, refutation stronger (ρ = −0.23/−0.14) |
+| 2 | "same tokens" is false | yes | high | no | wording corrected; `--selector_calib_tokens` added for future token-identity; sample-sensitivity test scheduled |
+| 3/4 | padded scalar calibration | yes | high | no | **resolved on 3B** — ordering unchanged; only `act_scale` was an artifact |
 | 5–9 | curated-repo lineage/manifest | not assessed | — | no | accepted in principle |
 
 **The headline is unaffected.** Sweep 51.68 → reload 51.76 → macro 67.61% vs 67.10%, +0.51
