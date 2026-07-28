@@ -5,7 +5,17 @@ Copy-paste commands for the research PC (WSL, RTX 5090 + 4090, `.venv-seq`, Ligh
 `git pull origin main` — it is the source of truth for GPU-side runs, replacing ad-hoc
 copy-paste blocks.
 
-Before anything: `git pull origin main` and `source .venv-seq/bin/activate`.
+Before anything, set `SEQ_REPO` to wherever this checkout lives on the box and export it — the
+repo has moved between machines (`/mnt/d/Abrar/SEQ/seq_v4` → `/mnt/e/seq v4/SEQ-clean-v4`) and the
+current path **contains a space**, so it must stay double-quoted everywhere:
+
+```bash
+export SEQ_REPO="/mnt/e/seq v4/SEQ-clean-v4"     # adjust per machine
+cd "$SEQ_REPO" && git pull origin main && source .venv-seq/bin/activate
+```
+
+Do not hardcode an absolute repo path into a command you paste — that is exactly what broke the
+first Job 3 run.
 
 > [!WARNING]
 > **Never point `--out_dir` at `/tmp` on WSL.** WSL's `/tmp` is tmpfs and is wiped when
@@ -112,7 +122,7 @@ progress lines keep arriving, it is healthy even at low GPU utilization.
 `--max_blocks 2` processes only the first two decoder blocks (minutes, not hours) and prints
 exactly which sub-step dominates:
 ```bash
-cd /mnt/d/Abrar/SEQ/seq_v4 && git pull origin main && source .venv-seq/bin/activate
+cd "$SEQ_REPO" && git pull origin main && source .venv-seq/bin/activate
 nvidia-smi   # confirm idle first
 python scripts/measure_objective_alignment.py --model meta-llama/Llama-3.2-3B \
   --base_bits 4 --group_size 128 --seed 1234 --n_calib 128 --max_blocks 2 \
@@ -153,7 +163,7 @@ For layers with 3072–8192 input channels, H from ~500 out-of-distribution toke
 the run records `selector_calib_source` and `selector_hessian_tokens` in its JSON.
 
 ```bash
-cd /mnt/d/Abrar/SEQ/seq_v4 && git pull origin main && source .venv-seq/bin/activate
+cd "$SEQ_REPO" && git pull origin main && source .venv-seq/bin/activate
 for M in meta-llama/Llama-3.2-3B meta-llama/Llama-3.2-1B; do
   N="${M##*/}"
   python -m seq_core.channel_sweep --model "$M" --backend hqq --base_quantizer gptq_llmc \
@@ -192,7 +202,7 @@ open items. **Hand them out one at a time**; each is self-contained.
 
 Common preamble (all experiments):
 ```bash
-cd /mnt/d/Abrar/SEQ/seq_v4 && git pull origin main && source .venv-seq/bin/activate
+cd "$SEQ_REPO" && git pull origin main && source .venv-seq/bin/activate
 ```
 Rules: never `/tmp` for outputs; `tee` logs under `results/`; `git add -f` (results/ and runs/
 are gitignored); **never** commit weights or anything under `runs/final/downstream/checkpoints/`;
@@ -278,7 +288,7 @@ basename). Rules: never `/tmp`; `tee` logs; `git add -f`; never commit weights/`
 Leave downstream (G4) sessions **uninterrupted** — each model is 6 full tasks (~1-3 h).
 
 ```bash
-cd /mnt/d/Abrar/SEQ/seq_v4 && git pull origin main && source .venv-seq/bin/activate
+cd "$SEQ_REPO" && git pull origin main && source .venv-seq/bin/activate
 M=meta-llama/Llama-3.2-3B; N=Llama-3.2-3B      # repeat the block per model (L3 first, then L1, Q3, L27)
 
 # G1 — corrected sweeps (skip_lm_head + g128 storage):
@@ -348,7 +358,7 @@ corrected reruns (with `--skip_lm_head` + fixed group size) come after the local
 and downstream needs the STEP 0 lm_eval fix first._
 
 ```
-cd /mnt/d/Abrar/SEQ/seq_v4 && git pull origin main && source .venv-seq/bin/activate
+cd "$SEQ_REPO" && git pull origin main && source .venv-seq/bin/activate
 
 # STEP 1 (HEADLINE, ~30 min) — greedy_gptq downstream on the catastrophic checkpoint.
 # Checkpoint is already exported (catastrophic 51.68/63.82); --resume skips re-export and
