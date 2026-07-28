@@ -515,6 +515,14 @@ not guarantees of behaviour in safety-critical deployments.
 
 ## Appendix A. Provenance
 
+**Compute.** All experiments ran on a single consumer GPU (NVIDIA RTX 4090/5090, 24–32 GB) under
+WSL2. Model sizes are 1.24B, 3.09B, 3.21B and 6.74B parameters. The twelve baseline quantizations
+total 2.2 GPU-hours, recorded per run as `duration_sec` in `runs/final/llmc/**/summary.json`; the
+complete matrix of sweeps, checkpoint exports, reload validations and downstream evaluations is on
+the order of 60–80 GPU-hours across the project, including the discarded and re-run experiments
+documented below. No model was trained or fine-tuned: every experiment is post-training
+quantization and inference.
+
 Every perplexity is read from a committed JSON artifact carrying its own `skip_lm_head`,
 `base_group_size`, `seed`, `selector_calib_source` and `selector_hessian_tokens` fields. The five
 recorded values for Llama-3.2-3B `greedy@GPTQ` at 2% arise from distinct runs:
