@@ -8,7 +8,7 @@
   "base_bits": 4,
   "signal": "greedy",
   "k_frac": 0.02,
-  "checkpoint": "/mnt/d/Abrar/SEQ/seq_v4/runs/final/downstream/checkpoints/Llama-3.2-1B/greedy_gptq",
+  "checkpoint": "/mnt/e/seq v4/SEQ-clean-v4/runs/final/downstream/checkpoints/Llama-3.2-1B/greedy_gptq",
   "expected_ppl": 104.16,
   "tasks": [
     "hellaswag",
@@ -18,5 +18,7 @@
     "winogrande",
     "lambada_openai"
   ],
-  "limit": null
+  "limit": null,
+  "gpu": "NVIDIA GeForce RTX 4090",
+  "device": "cuda:0"
 }
