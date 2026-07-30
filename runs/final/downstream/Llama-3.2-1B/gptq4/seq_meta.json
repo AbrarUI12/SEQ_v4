@@ -8,8 +8,12 @@
   "base_bits": null,
   "signal": null,
   "k_frac": null,
-  "checkpoint": "/mnt/d/Abrar/SEQ/seq_v4/runs/final/llmc/Llama-3.2-1B/gptq/artifacts/fake_quant_model",
+  "checkpoint": "/mnt/e/seq v4/SEQ-clean-v4/runs/final/llmc/Llama-3.2-1B/gptq/artifacts/fake_quant_model",
   "expected_ppl": 10.363,
+  "llmc_commit": "86f564ddb1d6548b228c67a10509a4ed7264345c",
+  "base_ppl": 10.404662132263184,
+  "gpu": "NVIDIA GeForce RTX 4090",
+  "device": "cuda:0",
   "tasks": [
     "hellaswag",
     "arc_easy",
